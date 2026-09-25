@@ -1,0 +1,44 @@
+﻿<!-- ======================== 假设检验 ======================== -->
+<div id="tab-ht" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="htFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+  <div class="card"><div class="c-head"><div class="c-title">假设检验</div><div class="c-sub">t检验 / 卡方 / ANOVA / 正态性 / 相关性 / Mann-Whitney</div></div></div>
+  
+  <div class="eyebrow">检验配置</div>
+  <div class="grid">
+    <div class="fg"><label>检验类型</label><select id="ht-type" onchange="htTypeChange()">
+      <option value="ttest_ind">独立双样本 t 检验</option>
+      <option value="ttest_paired">配对样本 t 检验</option>
+      <option value="ttest_1samp">单样本 t 检验</option>
+      <option value="mannwhitneyu">Mann-Whitney U 检验</option>
+      <option value="anova">单因素方差分析 (ANOVA)</option>
+      <option value="chi2">卡方独立性检验</option>
+      <option value="shapiro">Shapiro-Wilk 正态性检验</option>
+      <option value="pearsonr">Pearson 相关系数</option>
+      <option value="spearmanr">Spearman 秩相关</option>
+      <option value="levene">Levene 方差齐性检验</option>
+      <option value="runs">游程检验（时序随机性）</option>
+    </select></div>
+  </div>
+  <div class="grid" id="ht-params">
+    <div class="fg"><label>数值列</label><input id="ht-val1" placeholder="value"></div>
+    <div class="fg"><label>分组列</label><input id="ht-group" placeholder="group"></div>
+    <div class="fg"><label>分组A值</label><input id="ht-ga" placeholder="如 A"></div>
+    <div class="fg"><label>分组B值</label><input id="ht-gb" placeholder="如 B"></div>
+    <div class="fg"><label>数值列 B</label><input id="ht-val2" placeholder="value2（配对/双列相关用）"></div>
+    <div class="fg"><label>假设均值</label><input id="ht-popmean" placeholder="0" type="number" step="any"></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doHT()">执行检验</button><span id="ht-stat"></span>
+    <button class="btn btn-g btn-sm" onclick="htViz('mean_compare')" style="margin-left:8px;" title="需分组列">均值对比图</button>
+    <button class="btn btn-g btn-sm" onclick="htViz('norm_fit')" title="正态拟合">正态拟合曲线</button>
+    <button class="btn btn-g btn-sm" onclick="htViz('groups_box')" title="需分组列">分组箱线图</button>
+    <button class="btn btn-w btn-sm" onclick="htExportReport()" style="margin-left:12px;">导出报告</button>
+  </div>
+  <div class="card hide" id="ht-res-card"><div id="ht-result" style="font-size:14px;line-height:1.8;"></div></div>
+  <div class="card hide" id="ht-viz-card"><div class="c-head"><div class="c-title">可视化图表</div></div><div id="ht-viz-chart" class="cg"></div></div>
+
+</div>

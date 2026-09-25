@@ -1,0 +1,51 @@
+﻿<!-- ======================== 爬取 ======================== -->
+<div id="tab-scrape" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">网页爬取</div>
+      <div class="c-sub">Selenium + BeautifulSoup</div>
+    </div>
+    <div class="grid">
+      <div class="fg s2">
+        <label>目标网址</label>
+        <input id="s-url" type="url" placeholder="https://example.com/list">
+      </div>
+      <div class="fg">
+        <label>翻页数</label>
+        <input id="s-pages" type="number" value="1" min="1">
+      </div>
+      <div class="fg">
+        <label>列表项 CSS 选择器</label>
+        <input id="s-sel" placeholder=".product-item">
+      </div>
+      <div class="fg s2">
+        <label>字段名（逗号分隔）</label>
+        <input id="s-fields" placeholder="title, price, link">
+      </div>
+      <div class="fg">
+        <label>翻页按钮选择器</label>
+        <input id="s-next" placeholder=".next a">
+      </div>
+      <div class="fg">
+        <label>&nbsp;</label>
+        <div class="chk"><input type="checkbox" id="s-det"><label for="s-det">进入详情页抓取</label></div>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="doScrape()">开始爬取</button>
+      <button class="btn btn-s" onclick="stopScrape()">停止</button>
+      <span id="s-stat" style="font-size:13px;color:var(--ink-subtle)"></span>
+    </div>
+  </div>
+  <div class="card hide" id="sc-log-card">
+    <div class="c-head"><div class="c-title">运行日志</div></div>
+    <div class="log" id="log"></div>
+  </div>
+  <div class="card hide" id="sc-res-card">
+    <div class="c-head">
+      <div class="c-title">采集结果</div>
+      <button class="btn btn-g btn-sm" onclick="dl('raw.csv')">下载 raw.csv</button>
+    </div>
+    <div class="stats" id="sc-stats"></div>
+  </div>
+</div>

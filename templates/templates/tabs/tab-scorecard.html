@@ -1,0 +1,407 @@
+<!-- ======================== 信用评分卡 ======================== -->
+<div id="tab-scorecard" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">🃏</span>
+    <span class="cf-label">信用评分卡</span>
+    <span class="cf-hint">分箱 → WOE/IV → 逻辑回归 → 评分刻度 → KS/AUC 评估 → PSI 稳定性</span>
+  </div>
+
+  <style>
+    .stat-box { background: var(--bg-muted); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 10px 12px; text-align: center; }
+    .stat-num { font-size: 20px; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 12px; color: var(--ink-subtle); margin-top: 2px; }
+    table.tb { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.tb th, table.tb td { border: 1px solid var(--glass-border); padding: 4px 8px; text-align: left; }
+    table.tb th { background: var(--bg-muted); }
+  </style>
+
+  <!-- 数据与参数 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">① 数据与参数</div>
+      <div class="c-sub">目标列需为 0/1 二分类（1=违约/坏客户）</div>
+    </div>
+    <div style="padding:16px;display:grid;grid-template-columns:repeat(12,1fr);gap:12px;">
+      <div class="fg" style="grid-column:span 4;">
+        <label>训练数据文件</label>
+        <select id="sc-train-file" style="width:100%;"><option value="">选择文件...</option></select>
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>目标列（0/1）</label>
+        <select id="sc-target" style="width:100%;"><option value="">先选文件</option></select>
+      </div>
+      <div class="fg" style="grid-column:span 5;">
+        <label>特征列（可多选）</label>
+        <select id="sc-features" multiple size="4" style="width:100%;"><option value="">先选文件</option></select>
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>分箱方法</label>
+        <select id="sc-method" style="width:100%;">
+          <option value="chimerge">卡方分箱</option>
+          <option value="quantile">等频分箱</option>
+          <option value="equal_width">等距分箱</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>最大箱数</label>
+        <input id="sc-maxbins" type="number" value="5" min="2" max="10" style="width:100%;">
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>最小 IV（筛选特征）</label>
+        <input id="sc-miniv" type="number" value="0.02" step="0.01" min="0" style="width:100%;">
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>基准分 / PDO / 基准odds</label>
+        <div style="display:flex;gap:6px;">
+          <input id="sc-base" type="number" value="600" style="width:33%;" title="基准分">
+          <input id="sc-pdo" type="number" value="50" style="width:33%;" title="PDO（每翻倍odds增加的分）">
+          <input id="sc-odds" type="number" value="50" style="width:34%;" title="基准odds">
+        </div>
+      </div>
+      <div class="fg" style="grid-column:span 6;display:flex;gap:20px;align-items:center;font-size:13px;">
+        <label style="display:flex;align-items:center;gap:4px;margin:0;" title="分箱后自动合并相邻箱，保证 WOE 单调（风控常用）">
+          <input type="checkbox" id="sc-monotonic"> 单调性分箱
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;margin:0;" title="目标列含缺失(未观察)样本时，先用已标签样本训练初模推断标签">
+          <input type="checkbox" id="sc-reject"> 拒绝推断（处理缺失标签）
+        </label>
+      </div>
+      <div class="fg" style="grid-column:span 12;display:flex;gap:8px;align-items:flex-end;">
+        <button class="btn btn-s" onclick="loadScorecardColumns()">加载列</button>
+        <button class="btn btn-p" onclick="trainScorecard()">② 训练评分卡</button>
+        <button class="btn btn-s" onclick="previewBinning()">🔍 分箱预览（选中特征）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分箱预览 -->
+  <div class="card hide" id="sc-bin-card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">分箱 / WOE / IV 明细</div>
+      <div class="c-sub" id="sc-bin-sub"></div>
+    </div>
+    <div id="sc-bin-table" style="padding:12px 16px;overflow:auto;"></div>
+  </div>
+
+  <!-- 训练结果 -->
+  <div class="card hide" id="sc-result-card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">③ 评分卡结果</div>
+      <div class="c-sub" id="sc-result-sub"></div>
+    </div>
+    <div style="padding:12px 16px 0;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-p btn-sm" onclick="saveScorecardModel()">💾 保存模型</button>
+      <button class="btn btn-s btn-sm" onclick="exportScorecardReport()">📄 导出 PDF 报告</button>
+      <span style="flex:1"></span>
+      <select id="sc-load-model" style="width:220px;" onchange="loadScorecardModel()"><option value="">载入已保存模型...</option></select>
+    </div>
+    <div id="sc-result" style="padding:12px 16px;"></div>
+  </div>
+
+  <!-- 应用打分 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">④ 应用评分卡（对新数据打分）</div>
+      <div class="c-sub">用已训练评分卡给其他文件打分，结果保存到 output/ 并自动同步文件列表</div>
+    </div>
+    <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="fg" style="min-width:240px;flex:1;">
+        <label>待打分文件</label>
+        <select id="sc-predict-file" style="width:100%;"><option value="">选择文件...</option></select>
+      </div>
+      <button class="btn btn-p" onclick="applyScorecard()">打分并保存</button>
+      <span id="sc-predict-hint" style="font-size:12px;color:var(--ink-subtle);"></span>
+    </div>
+    <div id="sc-predict-result" style="padding:0 16px 16px;display:none;"></div>
+  </div>
+
+  <!-- PSI 稳定性 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">⑤ PSI 群体稳定性监控</div>
+      <div class="c-sub">训练集 vs 当前批次，同模型打分分布对比（&lt;0.1 稳定 / 0.1~0.25 轻度偏移 / &gt;0.25 严重偏移）</div>
+    </div>
+    <div style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="fg" style="min-width:200px;flex:1;">
+        <label>训练集文件</label>
+        <select id="sc-psi-train" style="width:100%;"><option value="">选择文件...</option></select>
+      </div>
+      <div class="fg" style="min-width:200px;flex:1;">
+        <label>当前批次文件</label>
+        <select id="sc-psi-current" style="width:100%;"><option value="">选择文件...</option></select>
+      </div>
+      <button class="btn btn-p" onclick="runScorecardPsi()">计算 PSI</button>
+    </div>
+    <div id="sc-psi-result" style="padding:0 16px 16px;display:none;"></div>
+  </div>
+</div>
+
+<script>
+// ==================== 信用评分卡 ====================
+function scorecardHeaders() { return { 'Content-Type': 'application/json' }; }
+
+async function loadScorecardFiles() {
+  try {
+    const r = await fetch('/api/files');
+    const d = await r.json();
+    const files = Array.isArray(d) ? d : (d.files || []);
+    const ids = ['sc-train-file', 'sc-predict-file', 'sc-psi-train', 'sc-psi-current'];
+    ids.forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">选择文件...</option>' + files.map(f =>
+        '<option value="' + f + '">' + f + '</option>').join('');
+      if (prev && files.includes(prev)) sel.value = prev;
+    });
+    // 训练文件默认跟随全局选中文件
+    if (window._selectedFile && document.getElementById('sc-train-file')) {
+      document.getElementById('sc-train-file').value = window._selectedFile;
+    }
+  } catch (e) { console.error('loadScorecardFiles:', e); }
+}
+
+async function loadScorecardColumns() {
+  const file = document.getElementById('sc-train-file').value;
+  if (!file) { showToast('请先选择训练数据文件', 'warning'); return; }
+  showLoading('加载列...');
+  try {
+    const r = await fetch('/api/scorecard/columns', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ file })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    const target = document.getElementById('sc-target');
+    target.innerHTML = '<option value="">选择目标列...</option>' + d.columns.map(c =>
+      '<option value="' + c.name + '">' + c.name + ' (' + c.dtype + (c.candidate_target ? ' ✓0/1' : '') + ')</option>'
+    ).join('');
+    // 自动选第一个 0/1 列作目标
+    const c = d.columns.find(x => x.candidate_target);
+    if (c) target.value = c.name;
+    const feats = document.getElementById('sc-features');
+    feats.innerHTML = d.columns.map(c =>
+      '<option value="' + c.name + '">' + c.name + ' (' + c.nunique + '取值)</option>'
+    ).join('');
+    showToast('已加载 ' + d.columns.length + ' 列', 'success');
+  } finally { hideLoading(); }
+}
+
+async function previewBinning() {
+  const file = document.getElementById('sc-train-file').value;
+  const target = document.getElementById('sc-target').value;
+  const feat = document.getElementById('sc-features').value;
+  if (!file || !target || !feat) { showToast('请选择文件/目标列/特征列', 'warning'); return; }
+  showLoading('分箱中...');
+  try {
+    const r = await fetch('/api/scorecard/binning', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ file, target_col: target, feature: feat,
+        method: document.getElementById('sc-method').value,
+        max_bins: parseInt(document.getElementById('sc-maxbins').value) || 5 })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    document.getElementById('sc-bin-card').classList.remove('hide');
+    document.getElementById('sc-bin-sub').textContent = feat + ' · IV = ' + d.iv;
+    const rows = d.table.map(t => '<tr><td>' + t.bin + '</td><td>' + t.count + '</td><td>' +
+      t.good + '</td><td>' + t.bad + '</td><td>' + t.bad_rate + '</td><td>' +
+      t.woe + '</td><td>' + t.iv + '</td></tr>').join('');
+    document.getElementById('sc-bin-table').innerHTML =
+      '<table class="tb"><thead><tr><th>分箱</th><th>样本数</th><th>好</th><th>坏</th><th>坏率</th><th>WOE</th><th>IV</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  } finally { hideLoading(); }
+}
+
+async function trainScorecard() {
+  const file = document.getElementById('sc-train-file').value;
+  const target = document.getElementById('sc-target').value;
+  const features = Array.from(document.getElementById('sc-features').selectedOptions).map(o => o.value);
+  if (!file || !target) { showToast('请先选择文件与目标列', 'warning'); return; }
+  if (!features.length) { showToast('请至少选择一个特征列', 'warning'); return; }
+  showLoading('训练评分卡（分箱→WOE→回归→评分）...');
+  try {
+    const r = await fetch('/api/scorecard/train', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({
+        file, target_col: target, feature_cols: features,
+        method: document.getElementById('sc-method').value,
+        max_bins: parseInt(document.getElementById('sc-maxbins').value) || 5,
+        min_iv: parseFloat(document.getElementById('sc-miniv').value) || 0.02,
+        base_score: parseInt(document.getElementById('sc-base').value) || 600,
+        pdo: parseInt(document.getElementById('sc-pdo').value) || 50,
+        base_odds: parseFloat(document.getElementById('sc-odds').value) || 50,
+        monotonic: document.getElementById('sc-monotonic').checked,
+        reject_infer: document.getElementById('sc-reject').checked,
+      })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    window._scorecardResult = d;
+    renderScorecardResult(d);
+  } catch (e) {
+    showToast('训练失败: ' + (e.message || e), 'error');
+  } finally { hideLoading(); }
+}
+
+function renderScorecardResult(d) {
+  document.getElementById('sc-result-card').classList.remove('hide');
+  const ev = d.eval, m = d.model;
+  const cm = ev.confusion_matrix || [];
+  const cmHtml = cm.length ? '<table class="tb"><thead><tr><th></th><th>预测好</th><th>预测坏</th></tr></thead><tbody>' +
+    '<tr><td><b>实际好</b></td><td>' + (cm[0] ? cm[0][0] : '-') + '</td><td>' + (cm[0] ? cm[0][1] : '-') + '</td></tr>' +
+    '<tr><td><b>实际坏</b></td><td>' + (cm[1] ? cm[1][0] : '-') + '</td><td>' + (cm[1] ? cm[1][1] : '-') + '</td></tr>' +
+    '</tbody></table>' : '';
+
+  const ivRows = d.kept_features.map(c => {
+    const info = d.woe_info[c];
+    const woeRows = info.table.map(t =>
+      '<tr><td>' + t.bin + '</td><td>' + t.count + '</td><td>' + t.bad + '</td><td>' +
+      t.bad_rate + '</td><td>' + t.woe + '</td><td>' + t.iv + '</td></tr>').join('');
+    return '<div style="margin-bottom:12px;">' +
+      '<b>' + c + '</b> · IV=' + info.iv +
+      '<table class="tb" style="margin-top:6px;font-size:12px;"><thead><tr><th>分箱</th><th>样本</th><th>坏</th><th>坏率</th><th>WOE</th><th>IV</th></tr></thead><tbody>' + woeRows + '</tbody></table>' +
+      '</div>';
+  }).join('');
+
+  document.getElementById('sc-result-sub').textContent =
+    d.n_features_kept + '/' + d.n_features_total + ' 个特征通过 IV≥' + d.min_iv + ' · 分箱: ' + d.method;
+
+  document.getElementById('sc-result').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;">' +
+      '<div class="stat-box"><div class="stat-num">' + ev.test_auc + '</div><div class="stat-lbl">测试集 AUC</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + ev.ks + '</div><div class="stat-lbl">KS 统计量</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + ev.train_auc + '</div><div class="stat-lbl">训练集 AUC</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + ev.avg_score_good + '</div><div class="stat-lbl">好客户均分</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + ev.avg_score_bad + '</div><div class="stat-lbl">坏客户均分</div></div>' +
+    '</div>' +
+    '<p style="font-size:13px;margin:0 0 8px;"><b>评分刻度</b>：Score = ' + m.A + ' − ' + m.B + ' × ln(odds)（基准分 ' + m.base_score + '，PDO ' + m.pdo + '，基准odds ' + m.base_odds + '）</p>' +
+    '<p style="font-size:13px;margin:0 0 12px;"><b>入选特征与系数</b>：' + d.kept_features.map(c => c + '=' + m.coefs[c].toFixed(4)).join('，') + '；截距=' + m.intercept + '</p>' +
+    '<details><summary style="font-size:13px;cursor:pointer;">📋 混淆矩阵（测试集，按中位分切分）</summary><div style="margin-top:6px;">' + cmHtml + '</div></details>' +
+    '<details open><summary style="font-size:13px;cursor:pointer;margin-top:8px;">🧮 各特征分箱 / WOE / IV 明细</summary><div style="margin-top:6px;">' + ivRows + '</div></details>';
+}
+
+async function saveScorecardModel() {
+  const result = window._scorecardResult;
+  if (!result) { showToast('请先训练评分卡', 'warning'); return; }
+  const name = prompt('模型名称（保存到 output/models/）：', 'credit_scorecard_v1');
+  if (!name) return;
+  showLoading('保存模型...');
+  try {
+    const r = await fetch('/api/scorecard/save', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ result, name })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    showToast('已保存: ' + d.file, 'success');
+    loadScorecardModels();
+  } finally { hideLoading(); }
+}
+
+async function exportScorecardReport() {
+  const result = window._scorecardResult;
+  if (!result) { showToast('请先训练评分卡', 'warning'); return; }
+  showLoading('生成 PDF 报告...');
+  try {
+    const r = await fetch('/api/scorecard/report', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ result })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    showToast('报告已生成: ' + d.file, 'success');
+    window.open('/api/download/' + encodeURIComponent(d.file), '_blank');
+  } finally { hideLoading(); }
+}
+
+async function loadScorecardModels() {
+  try {
+    const r = await fetch('/api/scorecard/models');
+    const d = await r.json();
+    const sel = document.getElementById('sc-load-model');
+    if (!sel || !d.models) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">载入已保存模型...</option>' + d.models.map(m =>
+      '<option value="' + m.name + '">' + m.name + ' (' + m.mtime + ')</option>').join('');
+    if (prev && d.models.some(m => m.name === prev)) sel.value = prev;
+  } catch (e) { console.error('loadScorecardModels:', e); }
+}
+
+async function loadScorecardModel() {
+  const sel = document.getElementById('sc-load-model');
+  const name = sel && sel.value;
+  if (!name) return;
+  showLoading('载入模型...');
+  try {
+    const r = await fetch('/api/scorecard/load', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ name })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    window._scorecardResult = d;
+    renderScorecardResult(d);
+    showToast('已载入: ' + name, 'success');
+  } catch (e) {
+    showToast('载入失败: ' + (e.message || e), 'error');
+  } finally { hideLoading(); }
+}
+
+async function applyScorecard() {
+  const file = document.getElementById('sc-predict-file').value;
+  const result = window._scorecardResult;
+  if (!file) { showToast('请选择待打分文件', 'warning'); return; }
+  if (!result) { showToast('请先训练评分卡', 'warning'); return; }
+  showLoading('打分中...');
+  try {
+    const r = await fetch('/api/scorecard/predict', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ file, result })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    const el = document.getElementById('sc-predict-result');
+    el.style.display = 'block';
+    const dist = Object.entries(d.risk_dist || {}).map(([k, v]) => k + ': ' + v).join(' · ');
+    el.innerHTML =
+      '<div style="padding:12px;background:var(--bg-muted);border-radius:8px;font-size:13px;">' +
+      '✅ 已打分 ' + d.rows + ' 条，分数区间 ' + d.score_min + ' ~ ' + d.score_max +
+      '（均值 ' + d.score_mean + '）<br>风险分布：' + dist +
+      '<br>💾 已保存到 <code>output/' + d.file + '</code> ' +
+      '<a href="/api/download/' + encodeURIComponent(d.file) + '" style="color:var(--accent);">⬇️ 下载</a></div>';
+    if (typeof loadMultiFiles === 'function') loadMultiFiles();
+    if (typeof refreshGlobalFileSelect === 'function') refreshGlobalFileSelect();
+    document.getElementById('sc-predict-hint').textContent = '已保存: output/' + d.file;
+  } catch (e) {
+    showToast('打分失败: ' + (e.message || e), 'error');
+  } finally { hideLoading(); }
+}
+
+async function runScorecardPsi() {
+  const trainFile = document.getElementById('sc-psi-train').value;
+  const currentFile = document.getElementById('sc-psi-current').value;
+  const result = window._scorecardResult;
+  if (!trainFile || !currentFile) { showToast('请选择训练集与当前批次文件', 'warning'); return; }
+  if (!result) { showToast('请先训练评分卡', 'warning'); return; }
+  showLoading('计算 PSI...');
+  try {
+    const r = await fetch('/api/scorecard/psi', {
+      method: 'POST', headers: scorecardHeaders(),
+      body: JSON.stringify({ train_file: trainFile, current_file: currentFile, result })
+    });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); return; }
+    const el = document.getElementById('sc-psi-result');
+    el.style.display = 'block';
+    el.innerHTML = '<div style="padding:12px;background:var(--bg-muted);border-radius:8px;font-size:14px;">' +
+      'PSI = <b>' + d.psi + '</b> → ' + d.verdict + '</div>';
+  } catch (e) {
+    showToast('PSI 计算失败: ' + (e.message || e), 'error');
+  } finally { hideLoading(); }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadScorecardFiles();
+  loadScorecardModels();
+});
+</script>

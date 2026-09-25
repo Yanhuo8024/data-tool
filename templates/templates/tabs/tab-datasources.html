@@ -1,0 +1,351 @@
+<!-- ======================== 数据源导航 ======================== -->
+<div id="tab-datasources" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">🌐</span>
+    <span class="cf-label">数据源导航</span>
+    <span class="cf-hint">官方统计 · 金融行情 · 债券货币 · 开放数据 · 学术研究 — 一键直达免费数据网站</span>
+  </div>
+
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">搜索与筛选</div>
+      <div class="c-sub">输入关键词过滤数据源，或按分类查看</div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr;gap:10px;">
+      <input id="ds-search" placeholder="搜索：如 统计局 / GDP / 股票 / 汇率 ..." oninput="dsRender()" style="width:100%;">
+    </div>
+    <div id="ds-cats" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <div class="c-head">
+      <div class="c-title">数据源列表</div>
+      <div class="c-sub"><span id="ds-count">0</span> 个数据源 · 点击「打开」跳转官网</div>
+    </div>
+    <div id="ds-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:8px;"></div>
+    <div id="ds-empty" style="display:none;text-align:center;color:var(--ink-subtle);padding:32px;">没有匹配的数据源</div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <div class="c-head">
+      <div class="c-title">💡 提示</div>
+      <div class="c-sub">站内已有的数据获取能力</div>
+    </div>
+    <ul style="margin:0;padding-left:20px;color:var(--ink-subtle);font-size:13px;line-height:2;">
+      <li><b style="color:var(--ink);">金融数据 tab</b> — 站内已接入 <b style="color:var(--ink);">AkShare / Tushare / Baostock / yfinance / FRED</b> 五源：
+        覆盖 A 股／港股／美股行情、全球指数与外汇、美债收益率、基金净值与持仓、债券收益率、期货、指数，
+        以及 <b style="color:var(--ink);">中国宏观（GDP/CPI/PPI/PMI/LPR/社融/M0-M2）</b> 与
+        <b style="color:var(--ink);">美国宏观/利率（FRED：失业率/CPI/非农/利差/SOFR）</b>、
+        三大财务报表、资金流向、融资融券与限售解禁等，按分类下拉即可直接拉取并存为 CSV。</li>
+      <li><b style="color:var(--ink);">yfinance</b> — 免 token 拉美股/港股/全球指数/外汇/美债收益率与新闻；
+        <b style="color:var(--ink);">FRED</b> — 美国宏观与利率序列免 token 下载，也可设环境变量 <code>FRED_API_KEY</code> 启用官方检索。</li>
+      <li><b style="color:var(--ink);">接口目录 API</b> — 访问 <code>/api/finance/catalog</code> 可获得完整数据源清单（含分类与参数说明），
+        也可让「AI 助手」直接按自然语言调用这些接口取数。</li>
+      <li><b style="color:var(--ink);">筛选器 tab</b> — 一键获取全市场 A 股财务指标并按条件筛选。</li>
+      <li>本页列出的站点适合获取行业、企业、专利、国际等站内未覆盖的数据；下载 CSV 后可回到「上传」tab 导入分析。</li>
+    </ul>
+  </div>
+</div>
+
+<style>
+.ds-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color .15s, transform .15s;
+}
+.ds-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.ds-card .ds-name { font-weight: 600; font-size: 14px; color: var(--ink); }
+.ds-card .ds-org { font-size: 11px; color: var(--ink-subtle); }
+.ds-card .ds-desc { font-size: 12px; color: var(--ink-subtle); line-height: 1.5; flex: 1; }
+.ds-card .ds-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.ds-tag {
+  font-size: 10px; padding: 2px 8px; border-radius: 99px;
+  background: rgba(69,183,209,.12); color: var(--primary);
+  border: 1px solid rgba(69,183,209,.25);
+}
+.ds-tag.free { background: rgba(76,175,80,.12); color: #4caf50; border-color: rgba(76,175,80,.3); }
+.ds-tag.gov { background: rgba(255,152,0,.12); color: #ffb74d; border-color: rgba(255,152,0,.3); }
+.ds-actions { display: flex; gap: 8px; margin-top: 6px; }
+.ds-actions a {
+  flex: 1; text-align: center; padding: 6px 0; border-radius: 6px;
+  font-size: 12px; text-decoration: none; font-weight: 500;
+  background: rgba(69,183,209,.15); color: var(--primary);
+  border: 1px solid rgba(69,183,209,.3);
+  transition: background .15s;
+}
+.ds-actions a:hover { background: rgba(69,183,209,.28); }
+.ds-cat-btn {
+  padding: 5px 14px; border-radius: 99px; font-size: 12px; cursor: pointer;
+  background: rgba(255,255,255,.05); color: var(--ink-subtle);
+  border: 1px solid rgba(255,255,255,.1); transition: all .15s;
+}
+.ds-cat-btn:hover { color: var(--ink); border-color: rgba(255,255,255,.25); }
+.ds-cat-btn.on { background: rgba(69,183,209,.18); color: var(--primary); border-color: var(--primary); }
+body.light-theme .ds-card { background: #fafbfc; border-color: #e5e7eb; }
+body.light-theme .ds-cat-btn { background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+</style>
+
+<script>
+// ===== 数据源目录 =====
+const DS_SOURCES = [
+  // ---- 官方统计 ----
+  { name: "国家数据", org: "国家统计局", cat: "官方统计", free: true, gov: true,
+    desc: "国家统计局官方数据平台，覆盖人口、GDP、 CPI、工业、投资、消费等全国及分省宏观数据，支持指标查询与 Excel 下载。",
+    url: "https://data.stats.gov.cn" },
+  { name: "国家统计局官网", org: "国家统计局", cat: "官方统计", free: true, gov: true,
+    desc: "统计公报、统计年鉴、月度/季度发布会数据，权威宏观统计的一手来源。",
+    url: "https://www.stats.gov.cn" },
+  { name: "中国经济与社会发展统计数据库", org: "国家统计局 / CNKI", cat: "官方统计", free: false, gov: true,
+    desc: "县级以上地区历年统计年鉴数据（部分免费，机构用户可全文下载）。",
+    url: "https://data.cnki.net" },
+  { name: "海关总署数据查询", org: "海关总署", cat: "官方统计", free: true, gov: true,
+    desc: "进出口货物贸易统计、跨境电商数据、贸易伙伴国查询等海关官方数据。",
+    url: "http://stats.customs.gov.cn" },
+  { name: "中国人民银行金融统计数据", org: "中国人民银行", cat: "官方统计", free: true, gov: true,
+    desc: "货币供应量、社会融资规模、存贷款、汇率等央行官方金融统计数据。",
+    url: "http://www.pbc.gov.cn/diaochatongjisi/116219/index.html" },
+  { name: "财政部数据", org: "财政部", cat: "官方统计", free: true, gov: true,
+    desc: "全国财政收支、国债、地方政府债务、政府采购等财政数据。",
+    url: "http://gk.mof.gov.cn" },
+  { name: "各省政府数据开放平台", org: "多地政府", cat: "官方统计", free: true, gov: true,
+    desc: "汇总入口：北京、上海、浙江、广东等省市的政府数据开放平台，涵盖交通、环境、民生等专题数据集。",
+    url: "https://www.datashanghai.gov.cn" },
+  { name: "世界银行 Open Data", org: "World Bank", cat: "国际组织", free: true, gov: false,
+    desc: "全球 200+ 国家的发展指标：GDP、人口、教育、健康、气候等，支持 API 与 CSV/Excel 下载。",
+    url: "https://data.worldbank.org" },
+  { name: "IMF Data", org: "国际货币基金组织", cat: "国际组织", free: true, gov: false,
+    desc: "国际收支、政府财政、汇率、物价等跨国宏观金融数据，经济学家常用。",
+    url: "https://www.imf.org/en/Data" },
+  { name: "OECD Data", org: "经合组织", cat: "国际组织", free: true, gov: false,
+    desc: "OECD 成员国经济、贸易、教育、环境等对比数据，适合国际比较研究。",
+    url: "https://data.oecd.org" },
+  { name: "UN Data", org: "联合国", cat: "国际组织", free: true, gov: false,
+    desc: "联合国统计司汇总的全球人口、能源、贸易、可持续发展目标（SDG）数据。",
+    url: "https://data.un.org" },
+
+  // ---- 金融行情 ----
+  { name: "东方财富网", org: "东方财富", cat: "金融行情", free: true, gov: false,
+    desc: "A 股/港股/美股行情、财报、资金流向、研报；本工具「金融数据」「筛选器」tab 的底层数据源之一。",
+    url: "https://www.eastmoney.com" },
+  { name: "新浪财经", org: "新浪", cat: "金融行情", free: true, gov: false,
+    desc: "行情中心、财务数据、宏观数据库；AkShare 多个接口的数据来源。",
+    url: "https://finance.sina.com.cn" },
+  { name: "巨潮资讯网", org: "深交所指定", cat: "金融行情", free: true, gov: true,
+    desc: "上市公司法定信息披露平台：年报、季报、公告全文，最权威的 A 股披露源。",
+    url: "http://www.cninfo.com.cn" },
+  { name: "中证指数官网", org: "中证指数公司", cat: "金融行情", free: true, gov: false,
+    desc: "沪深 300、中证 500 等指数编制方案、成分股与历史行情数据。",
+    url: "https://www.csindex.com.cn" },
+  { name: "国泰安 CSMAR", org: "CSMAR", cat: "金融行情", free: false, gov: false,
+    desc: "学术级金融数据库，高校常用；注册后有免费额度，适合论文与深度研究。",
+    url: "https://www.gtarsc.com" },
+  { name: "Tushare", org: "社区维护", cat: "金融行情", free: false, gov: false,
+    desc: "Python 金融数据接口，本工具已内置（金融数据 tab 需填 Token）；官网有文档与积分规则。",
+    url: "https://tushare.pro" },
+  { name: "AkShare", org: "开源社区", cat: "金融行情", free: true, gov: false,
+    desc: "开源财经数据接口库，本工具已内置；官网可查全部接口与示例。",
+    url: "https://akshare.akfamily.xyz" },
+
+  // ---- 开放数据 / 综合 ----
+  { name: "国家开放数据平台", org: "国务院办公厅", cat: "开放数据", free: true, gov: true,
+    desc: "data.gov.cn — 各部委与地方政府开放数据集统一入口，覆盖民生、交通、环境等。",
+    url: "https://www.data.gov.cn" },
+  { name: "DataEye", org: "DataEye", cat: "开放数据", free: false, gov: false,
+    desc: "游戏、移动应用行业数据报告与榜单，互联网行业分析常用。",
+    url: "https://www.dataeye.com" },
+  { name: "CEIC 中国经济数据库", org: "CEIC", cat: "开放数据", free: false, gov: false,
+    desc: "高频中国宏观与行业数据（部分免费试用），机构投研常用。",
+    url: "https://www.ceicdata.com/zh-hans/china" },
+  { name: "Kaggle Datasets", org: "Kaggle / Google", cat: "开放数据", free: true, gov: false,
+    desc: "全球最大的数据科学社区数据集，数万个免费 CSV/Parquet，覆盖 NLP、CV、金融等。",
+    url: "https://www.kaggle.com/datasets" },
+  { name: "GitHub Public Datasets", org: "GitHub", cat: "开放数据", free: true, gov: false,
+    desc: "awesome-data、public-datasets 等合集，开源数据集的索引宝库。",
+    url: "https://github.com/topics/dataset" },
+  { name: "和鲸社区", org: "Heywhale", cat: "开放数据", free: true, gov: false,
+    desc: "国内活跃的数据科学社区，提供竞赛数据集与公开数据，中文友好。",
+    url: "https://www.heywhale.com" },
+
+  // ---- 学术研究 ----
+  { name: "CFPS 中国家庭追踪调查", org: "北京大学", cat: "学术研究", free: false, gov: false,
+    desc: "全国性社会追踪调查微观数据（申请使用），家庭、经济、教育、健康研究权威来源。",
+    url: "https://www.isss.pku.edu.cn/cfps" },
+  { name: "CHFS 中国家庭金融调查", org: "西南财经大学", cat: "学术研究", free: false, gov: false,
+    desc: "家庭资产、负债、收入与保险微观数据（申请使用），家庭金融研究专用。",
+    url: "https://chfs.swufe.edu.cn" },
+  { name: "CNRDS 中国研究数据服务平台", org: "CNRDS", cat: "学术研究", free: false, gov: false,
+    desc: "公司治理、专利、绿色金融等特色学术数据库（机构订阅）。",
+    url: "https://www.cnrds.com" },
+  { name: "arXiv Data", org: "康奈尔大学", cat: "学术研究", free: true, gov: false,
+    desc: "预印本论文中的公开数据与代码链接，跟踪最新研究方法与数据。",
+    url: "https://arxiv.org" },
+  { name: "Google Dataset Search", org: "Google", cat: "学术研究", free: true, gov: false,
+    desc: "谷歌数据集搜索引擎，跨站点检索公开数据集，找数据的第一站。",
+    url: "https://datasetsearch.research.google.com" },
+
+  // ---- 债券与货币（新增）----
+  { name: "中国债券信息网", org: "中央国债登记结算公司", cat: "债券货币", free: true, gov: true,
+    desc: "中债收益率曲线、债券发行与托管数据，是国内债券定价的基准来源。",
+    url: "https://www.chinabond.com.cn" },
+  { name: "中国货币网", org: "全国银行间同业拆借中心", cat: "债券货币", free: true, gov: true,
+    desc: "Shibor/LPR、银行间拆借利率、债券交易与外汇即期报价数据。",
+    url: "https://www.chinamoney.com.cn" },
+  { name: "上海期货交易所", org: "上期所", cat: "债券货币", free: true, gov: true,
+    desc: "铜、铝、黄金等商品期货行情、库存周报与持仓排名。",
+    url: "https://www.shfe.com.cn" },
+  { name: "中国金融期货交易所", org: "中金所", cat: "债券货币", free: true, gov: true,
+    desc: "股指期货、国债期货的行情、成交持仓与统计月报。",
+    url: "http://www.cffex.com.cn" },
+  { name: "世界黄金协会", org: "World Gold Council", cat: "债券货币", free: true, gov: false,
+    desc: "全球黄金需求、央行储备与 ETF 持仓数据，黄金研究权威来源。",
+    url: "https://www.gold.org" },
+
+  // ---- 交易所与监管（新增）----
+  { name: "上海证券交易所", org: "上交所", cat: "官方统计", free: true, gov: true,
+    desc: "市场统计、成交概况、上市公司月报与指数编制数据。",
+    url: "http://www.sse.com.cn" },
+  { name: "深圳证券交易所", org: "深交所", cat: "官方统计", free: true, gov: true,
+    desc: "市场统计、信息披露与定期报告，深市权威数据源。",
+    url: "http://www.szse.cn" },
+  { name: "中国证券登记结算公司", org: "中国结算", cat: "官方统计", free: true, gov: true,
+    desc: "投资者开户数、登记结算统计月报，观察市场参与度的官方口径。",
+    url: "http://www.chinaclear.cn" },
+  { name: "国家外汇管理局", org: "外汇局", cat: "官方统计", free: true, gov: true,
+    desc: "外汇储备、国际收支平衡表、外债与跨境资金流动数据。",
+    url: "https://www.safe.gov.cn" },
+  { name: "中国证券监督管理委员会", org: "证监会", cat: "官方统计", free: true, gov: true,
+    desc: "证券期货市场统计、上市公司监管与行政处罚公开信息。",
+    url: "http://www.csrc.gov.cn" },
+  { name: "国务院数据发布", org: "国务院", cat: "官方统计", free: true, gov: true,
+    desc: "gov.cn 数据栏目：国务院及各部委数据发布索引，政策与统计一站直达。",
+    url: "http://www.gov.cn/shuju/" },
+  { name: "全国中小企业股份转让系统", org: "新三板", cat: "官方统计", free: true, gov: true,
+    desc: "新三板挂牌公司行情、统计与信息披露。",
+    url: "https://www.neeq.com.cn" },
+
+  // ---- 金融数据平台（新增）----
+  { name: "天天基金网", org: "东方财富", cat: "金融行情", free: true, gov: false,
+    desc: "基金净值、业绩排行、重仓持仓与基金经理数据；本工具已通过 akshare 接入其公开接口。",
+    url: "https://fund.eastmoney.com" },
+  { name: "雪球", org: "雪球", cat: "金融行情", free: true, gov: false,
+    desc: "个股讨论、财务摘要与组合数据，适合快速了解市场预期。",
+    url: "https://xueqiu.com" },
+  { name: "同花顺", org: "同花顺", cat: "金融行情", free: true, gov: false,
+    desc: "行情、财务与「问财」自然语言选股；iFinD 为机构版终端。",
+    url: "https://www.10jqka.com.cn" },
+  { name: "英为财情 Investing.com", org: "Investing.com", cat: "金融行情", free: true, gov: false,
+    desc: "中文界面下的全球股票、债券、外汇、商品与大类资产行情。",
+    url: "https://cn.investing.com" },
+  { name: "Yahoo Finance", org: "Yahoo", cat: "金融行情", free: true, gov: false,
+    desc: "全球与美股行情、财务报表与历史数据下载（英文）。",
+    url: "https://finance.yahoo.com" },
+  { name: "FRED 经济数据", org: "圣路易斯联储", cat: "金融行情", free: true, gov: true,
+    desc: "美国及全球宏观时间序列（利率、通胀、就业等），提供免费 API，研究常用。",
+    url: "https://fred.stlouisfed.org" },
+
+  // ---- 开放数据（新增）----
+  { name: "中国气象数据网", org: "中国气象局", cat: "开放数据", free: true, gov: true,
+    desc: "气象观测、气候统计与历史天气数据，农业与能源研究常用。",
+    url: "http://data.cma.cn" },
+  { name: "阿里天池数据集", org: "阿里云", cat: "开放数据", free: true, gov: false,
+    desc: "中文竞赛与公开数据集（电商、金融、NLP 等），阿里天池长期维护。",
+    url: "https://tianchi.aliyun.com/dataset" },
+  { name: "百度 AI Studio 数据集", org: "百度", cat: "开放数据", free: true, gov: false,
+    desc: "中文公开数据集与竞赛数据，覆盖 CV、NLP、金融风控等方向。",
+    url: "https://aistudio.baidu.com/dataset" },
+  { name: "国家知识产权局专利检索", org: "国家知识产权局", cat: "开放数据", free: true, gov: true,
+    desc: "中国专利著录、法律状态与同族信息检索，创新研究基础数据。",
+    url: "https://pss-system.cponline.cnipa.gov.cn" },
+  { name: "全国标准信息公共服务平台", org: "国家市场监督管理总局", cat: "开放数据", free: true, gov: true,
+    desc: "国家标准、行业标准与地方标准全文检索。",
+    url: "https://std.samr.gov.cn" },
+  { name: "World Bank Microdata", org: "World Bank", cat: "开放数据", free: true, gov: false,
+    desc: "世界银行微观调查数据目录（家庭、企业、农业等），申请后可下载原始数据。",
+    url: "https://microdata.worldbank.org" },
+
+  // ---- 学术研究（新增）----
+  { name: "CHARLS 中国健康与养老追踪调查", org: "北京大学", cat: "学术研究", free: false, gov: false,
+    desc: "中老年家庭与个人微观追踪数据（申请使用），老龄化与健康经济学权威来源。",
+    url: "http://charls.pku.edu.cn" },
+  { name: "CGSS 中国综合社会调查", org: "中国人民大学", cat: "学术研究", free: false, gov: false,
+    desc: "年度社会调查微观数据（申请使用），社会分层、价值观与家庭研究常用。",
+    url: "http://cgss.ruc.edu.cn" },
+  { name: "Harvard Dataverse", org: "哈佛大学", cat: "学术研究", free: true, gov: false,
+    desc: "全球最大的社会科学数据仓储之一，论文复现数据与代码一站式获取。",
+    url: "https://dataverse.harvard.edu" },
+  { name: "ICPSR", org: "密歇根大学", cat: "学术研究", free: false, gov: false,
+    desc: "社会科学数据档案库，含大量跨国调查与选举、经济微观数据。",
+    url: "https://www.icpsr.umich.edu" },
+  { name: "国家哲学社会科学文献中心", org: "中国社会科学院", cat: "学术研究", free: true, gov: true,
+    desc: "中文社科期刊论文与统计数据检索，开放获取。",
+    url: "https://www.ncpssd.org" },
+  { name: "Eurostat", org: "欧盟统计局", cat: "学术研究", free: true, gov: true,
+    desc: "欧盟成员国经济、社会、环境统计数据，跨国比较研究常用。",
+    url: "https://ec.europa.eu/eurostat" },
+];
+
+// ===== 渲染逻辑 =====
+let dsActiveCat = "全部";
+
+function dsRenderCats() {
+  const cats = ["全部", ...new Set(DS_SOURCES.map(s => s.cat))];
+  const el = document.getElementById("ds-cats");
+  el.innerHTML = cats.map(c =>
+    `<span class="ds-cat-btn${c === dsActiveCat ? " on" : ""}" onclick="dsSetCat('${c}')">${c}</span>`
+  ).join("");
+}
+
+function dsSetCat(c) {
+  dsActiveCat = c;
+  dsRenderCats();
+  dsRender();
+}
+
+function dsRender() {
+  const q = (document.getElementById("ds-search")?.value || "").trim().toLowerCase();
+  const list = DS_SOURCES.filter(s => {
+    const catOk = dsActiveCat === "全部" || s.cat === dsActiveCat;
+    if (!catOk) return false;
+    if (!q) return true;
+    return (s.name + s.org + s.desc + s.cat).toLowerCase().includes(q);
+  });
+  const el = document.getElementById("ds-list");
+  const empty = document.getElementById("ds-empty");
+  const cnt = document.getElementById("ds-count");
+  if (cnt) cnt.textContent = list.length;
+  if (!list.length) {
+    el.innerHTML = "";
+    if (empty) empty.style.display = "block";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  el.innerHTML = list.map(s => {
+    const tags = [];
+    if (s.free) tags.push('<span class="ds-tag free">免费</span>');
+    else tags.push('<span class="ds-tag">需注册/订阅</span>');
+    if (s.gov) tags.push('<span class="ds-tag gov">官方</span>');
+    tags.push(`<span class="ds-tag">${s.cat}</span>`);
+    return `<div class="ds-card">
+      <div class="ds-name">${s.name}</div>
+      <div class="ds-org">${s.org}</div>
+      <div class="ds-desc">${s.desc}</div>
+      <div class="ds-tags">${tags.join("")}</div>
+      <div class="ds-actions">
+        <a href="${s.url}" target="_blank" rel="noopener noreferrer">打开官网 ↗</a>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// 首次切换到本 tab 时渲染（避免拖慢首屏）
+document.addEventListener("click", (e) => {
+  if (e.target.dataset && e.target.dataset.t === "tab-datasources") {
+    setTimeout(() => { dsRenderCats(); dsRender(); }, 50);
+  }
+});
+</script>

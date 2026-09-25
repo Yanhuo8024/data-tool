@@ -1,0 +1,350 @@
+<!-- ======================== 登录/注册 ======================== -->
+<div id="tab-auth" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">🔐</span>
+    <span class="cf-label">用户认证</span>
+    <span class="cf-hint">JWT + API Key 多租户隔离</span>
+  </div>
+
+  <!-- 未登录状态 -->
+  <div id="auth-login-view" style="max-width:480px;margin:40px auto;">
+    <div class="card">
+      <div class="c-head">
+        <div class="c-title">登录到 data.tool</div>
+        <div class="c-sub">多用户生产级 Agent 平台</div>
+      </div>
+      
+      <div style="padding:24px;">
+        <div class="fg" style="margin-bottom:16px;">
+          <label>用户名</label>
+          <input type="text" id="login-username" placeholder="输入用户名" style="width:100%;">
+        </div>
+        <div class="fg" style="margin-bottom:20px;">
+          <label>密码</label>
+          <input type="password" id="login-password" placeholder="输入密码" style="width:100%;">
+        </div>
+        <button class="btn btn-p" onclick="login()" style="width:100%;">登录</button>
+        <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-subtle);">
+          还没有账号？<a href="#" onclick="showAuthRegister()" style="color:var(--primary);">立即注册</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 注册面板 -->
+  <div id="auth-register-view" style="display:none;max-width:480px;margin:40px auto;">
+    <div class="card">
+      <div class="c-head">
+        <div class="c-title">注册新账号</div>
+        <div class="c-sub">创建您的专属工作空间</div>
+      </div>
+      
+      <div style="padding:24px;">
+        <div class="fg" style="margin-bottom:16px;">
+          <label>用户名</label>
+          <input type="text" id="reg-username" placeholder="输入用户名" style="width:100%;">
+        </div>
+        <div class="fg" style="margin-bottom:16px;">
+          <label>邮箱</label>
+          <input type="email" id="reg-email" placeholder="输入邮箱" style="width:100%;">
+        </div>
+        <div class="fg" style="margin-bottom:20px;">
+          <label>密码</label>
+          <input type="password" id="reg-password" placeholder="至少6位密码" style="width:100%;">
+        </div>
+        <button class="btn btn-p" onclick="register()" style="width:100%;">注册</button>
+        <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--ink-subtle);">
+          已有账号？<a href="#" onclick="showAuthLogin()" style="color:var(--primary);">返回登录</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 已登录状态 -->
+  <div id="auth-user-view" style="display:none;">
+    <div class="card">
+      <div class="c-head">
+        <div class="c-title">用户中心</div>
+        <div class="c-sub">管理您的账号和 API Key</div>
+      </div>
+      <div style="padding:24px;">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:600;" id="user-avatar">U</div>
+          <div>
+            <div style="font-weight:600;font-size:16px;" id="user-name">用户名</div>
+            <div style="font-size:12px;color:var(--ink-subtle);" id="user-role">角色</div>
+          </div>
+          <div style="flex:1"></div>
+          <button class="btn btn-w" onclick="logout()">退出登录</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Key 管理 -->
+    <div class="card" style="margin-top:28px;">
+      <div class="c-head">
+        <div class="c-title">API Key 管理</div>
+        <div class="c-sub">通过 API Key 访问 data.tool 服务（供脚本 / 自动化任务调用）</div>
+      </div>
+      <div class="bgrp">
+        <button class="btn btn-p" onclick="createApiKey()">+ 创建 API Key</button>
+      </div>
+      <div id="api-key-list" class="mt">
+        <div style="color:var(--ink-subtle);font-size:13px;">加载中...</div>
+      </div>
+    </div>
+
+    <!-- API Key 使用说明 -->
+    <div class="card" style="margin-top:16px;">
+      <div class="c-head">
+        <div class="c-title">💡 脚本怎么用 API Key</div>
+        <div class="c-sub">请求头带 X-API-Key 即可调用：知识库 / Agent 任务 / 定时任务 / 仪表盘数据接口</div>
+      </div>
+      <div style="padding:16px;font-size:12px;line-height:1.9;color:var(--ink-subtle);">
+        <div style="margin-bottom:6px;"><b style="color:var(--ink-strong,inherit);">curl 示例</b>（拉取大盘数据 / 知识库列表）：</div>
+        <pre style="background:var(--bg-card);border:1px solid var(--glass-border);border-radius:8px;padding:10px;font-size:11px;font-family:monospace;overflow-x:auto;"># 大盘指数（公开接口，带 Key 可计入配额）
+curl -H "X-API-Key: 你的_KEY" http://127.0.0.1:5000/api/dashboard/index-quote
+# 知识库列表
+curl -H "X-API-Key: 你的_KEY" http://127.0.0.1:5000/api/knowledge</pre>
+        <div style="margin:10px 0 6px;"><b style="color:var(--ink-strong,inherit);">Python 示例</b>（提交 Agent 任务）：</div>
+        <pre style="background:var(--bg-card);border:1px solid var(--glass-border);border-radius:8px;padding:10px;font-size:11px;font-family:monospace;overflow-x:auto;">import requests
+r = requests.post(
+    "http://127.0.0.1:5000/api/agent/tasks",
+    headers={"X-API-Key": "你的_KEY"},
+    json={"description": "分析上证指数近期走势"}
+)
+print(r.json())</pre>
+        <div style="margin-top:10px;color:var(--ink-tertiary);">🔒 Key 仅在创建时显示一次，请立即保存；删除后立即失效。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API Key 创建成功弹窗（完整 Key 仅显示一次） -->
+<div id="apikey-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-surface);border:1px solid var(--glass-border-strong,var(--glass-border));border-radius:12px;max-width:560px;width:92%;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.35);">
+    <div style="font-weight:600;font-size:16px;margin-bottom:6px;">🔑 API Key 创建成功</div>
+    <div style="font-size:13px;color:var(--ink-subtle);margin-bottom:14px;">
+      请立即复制保存 —— <b style="color:var(--warn,#e6a23c);">完整 Key 只显示这一次</b>，关闭后将无法再次查看。
+    </div>
+    <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:16px;">
+      <code id="apikey-modal-value" style="flex:1;padding:10px;border:1px solid var(--glass-border);border-radius:8px;font-size:12px;word-break:break-all;background:var(--bg-card);"></code>
+      <button class="btn btn-p" onclick="copyApiKey()">复制</button>
+    </div>
+    <button class="btn btn-g" onclick="closeApiKeyModal()" style="width:100%;">我已保存</button>
+  </div>
+</div>
+
+<script>
+// ===== 认证状态管理 =====
+
+function getAuthUser() {
+  return JSON.parse(localStorage.getItem('auth_user') || 'null');
+}
+
+function getAccessToken() {
+  return localStorage.getItem('access_token') || '';
+}
+
+function isLoggedIn() {
+  return !!getAccessToken();
+}
+
+function updateAuthUI() {
+  const user = getAuthUser();
+  const token = getAccessToken();
+  
+  if (user && token) {
+    document.getElementById('auth-login-view').style.display = 'none';
+    document.getElementById('auth-register-view').style.display = 'none';
+    document.getElementById('auth-user-view').style.display = 'block';
+    document.getElementById('user-name').textContent = user.username;
+    document.getElementById('user-role').textContent = user.role === 'admin' ? '管理员' : '用户';
+    document.getElementById('user-avatar').textContent = user.username.charAt(0).toUpperCase();
+    loadApiKeys();
+  } else {
+    document.getElementById('auth-login-view').style.display = 'block';
+    document.getElementById('auth-register-view').style.display = 'none';
+    document.getElementById('auth-user-view').style.display = 'none';
+  }
+}
+
+function showAuthRegister() {
+  document.getElementById('auth-login-view').style.display = 'none';
+  document.getElementById('auth-register-view').style.display = 'block';
+}
+
+function showAuthLogin() {
+  document.getElementById('auth-login-view').style.display = 'block';
+  document.getElementById('auth-register-view').style.display = 'none';
+}
+
+async function login() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  
+  if (!username || !password) { alert('请输入用户名和密码'); return; }
+  
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const d = await r.json();
+    
+    if (d.ok) {
+      localStorage.setItem('access_token', d.access_token);
+      localStorage.setItem('refresh_token', d.refresh_token);
+      localStorage.setItem('auth_user', JSON.stringify(d.user));
+      updateAuthUI();
+      showToast('登录成功', 'success');
+      // 登录后刷新知识库
+      setTimeout(function(){ if (typeof loadKnowledgeBases === 'function') loadKnowledgeBases(); }, 200);
+    } else {
+      showToast(d.error || '登录失败', 'error');
+    }
+  } catch(e) {
+    showToast('登录失败: ' + e.message, 'error');
+  }
+}
+
+async function register() {
+  const username = document.getElementById('reg-username').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  
+  if (!username || !email || !password) { alert('请填写完整'); return; }
+  if (password.length < 6) { alert('密码至少6位'); return; }
+  
+  try {
+    const r = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+    const d = await r.json();
+    
+    if (d.ok) {
+      showToast('注册成功，请登录', 'success');
+      showAuthLogin();
+    } else {
+      showToast(d.error || '注册失败', 'error');
+    }
+  } catch(e) {
+    showToast('注册失败: ' + e.message, 'error');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('auth_user');
+  updateAuthUI();
+  showToast('已退出登录', 'info');
+}
+
+// ===== API Key 管理 =====
+
+async function loadApiKeys() {
+  try {
+    const r = await fetch('/api/auth/api-keys', {
+      headers: { 'Authorization': 'Bearer ' + getAccessToken() }
+    });
+    const d = await r.json();
+    if (!r.ok || !d.api_keys) {
+      // 未登录（401）或异常：静默降级为提示
+      const list = document.getElementById('api-key-list');
+      if (list) list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">未登录或权限不足，登录后查看 API Key</div>';
+      return;
+    }
+    
+    const list = document.getElementById('api-key-list');
+    if (d.api_keys.length === 0) {
+      list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无 API Key，点击上方按钮创建</div>';
+      return;
+    }
+    
+    list.innerHTML = d.api_keys.map(k => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--glass-border);">
+        <div>
+          <div style="font-weight:600;font-size:13px;">${k.name}</div>
+          <div style="font-size:11px;color:var(--ink-subtle);font-family:monospace;">${k.key.slice(0,16)}...${k.key.slice(-8)}</div>
+          <div style="font-size:11px;color:var(--ink-subtle);">创建: ${k.created_at ? k.created_at.split('T')[0] : '-'} | 最后使用: ${k.last_used_at ? k.last_used_at.split('T')[0] : '未使用'}</div>
+        </div>
+        <button class="btn btn-sm btn-w" onclick="deleteApiKey('${k.id}')">删除</button>
+      </div>
+    `).join('');
+  } catch(e) {
+    console.error('加载 API Key 失败:', e);
+  }
+}
+
+async function createApiKey() {
+  const name = prompt('请输入 API Key 名称:', 'My API Key');
+  if (!name) return;
+  
+  try {
+    const r = await fetch('/api/auth/api-keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getAccessToken() },
+      body: JSON.stringify({ name })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast('API Key 创建成功', 'success');
+      // 弹窗展示完整 Key（仅此一次）
+      const fullKey = d.api_key && d.api_key.key ? d.api_key.key : '';
+      document.getElementById('apikey-modal-value').textContent = fullKey;
+      document.getElementById('apikey-modal').style.display = 'flex';
+      loadApiKeys();
+    } else {
+      showToast(d.error || '创建失败', 'error');
+    }
+  } catch(e) {
+    showToast('创建失败: ' + e.message, 'error');
+  }
+}
+
+function copyApiKey() {
+  const val = document.getElementById('apikey-modal-value').textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(val).then(function(){
+      showToast('已复制到剪贴板', 'success');
+    }).catch(function(){
+      showToast('复制失败，请手动选中复制', 'error');
+    });
+  } else {
+    // 降级：选中文本
+    const el = document.getElementById('apikey-modal-value');
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    showToast('请手动复制（Ctrl+C）', 'info');
+  }
+}
+
+function closeApiKeyModal() {
+  document.getElementById('apikey-modal').style.display = 'none';
+}
+
+async function deleteApiKey(keyId) {
+  if (!confirm('确定要删除这个 API Key 吗？')) return;
+  
+  try {
+    const r = await fetch('/api/auth/api-keys/' + keyId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getAccessToken() }
+    });
+    const d = await r.json();
+    if (d.ok) loadApiKeys();
+  } catch(e) {
+    showToast('删除失败: ' + e.message, 'error');
+  }
+}
+
+// 初始化
+setTimeout(updateAuthUI, 100);
+</script>

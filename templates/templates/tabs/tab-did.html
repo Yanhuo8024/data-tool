@@ -1,0 +1,150 @@
+<!-- ======================== DID 计量经济学分析 ======================== -->
+<div id="tab-did" class="sec">
+  <!-- 当前文件指示器 -->
+  <div class="current-file-bar" id="didFileBar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="didFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+
+  <!-- 变量选择面板 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">变量设置</div>
+      <div class="c-sub">选择DID回归所需变量</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>被解释变量 (Y)</label>
+        <select id="did-dep-var"><option value="">选择变量...</option></select>
+      </div>
+      <div class="fg">
+        <label>处理组虚拟变量 (Treat)</label>
+        <select id="did-treat-col"><option value="treat">treat</option></select>
+      </div>
+      <div class="fg">
+        <label>时间列</label>
+        <select id="did-time-col"><option value="year">year</option></select>
+      </div>
+      <div class="fg">
+        <label>个体列 (省份)</label>
+        <select id="did-unit-col"><option value="province">province</option></select>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:12px;">
+      <div class="fg s2">
+        <label>控制变量 (多选)</label>
+        <div id="did-controls" class="flex" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
+          <span class="tm">请先加载数据</span>
+        </div>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-s" onclick="loadDIDColumns()">🔄 刷新列</button>
+    </div>
+  </div>
+
+  <!-- 一键分析 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">综合DID分析</div>
+      <div class="c-sub">一键运行完整分析流程</div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runFullDIDAnalysis()">🚀 一键运行完整分析</button>
+    </div>
+    <div id="did-full-result" class="mt"></div>
+  </div>
+
+  <!-- 1. 数据清洗与描述统计 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">1. 数据清洗与描述统计</div><div class="c-sub">论文Table 1</div></div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runDIDClean()">🧹 数据清洗</button>
+      <button class="btn btn-s" onclick="runDIDDescriptive()">📊 描述性统计</button>
+      <button class="btn btn-s" onclick="runDIDCorrelation()">🔗 相关性矩阵</button>
+    </div>
+    <div id="did-clean-result" class="mt"></div>
+    <div id="did-descriptive-result" class="mt"></div>
+    <div id="did-correlation-result" class="mt"></div>
+  </div>
+
+  <!-- 2. 基准DID回归 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">2. 基准DID回归</div><div class="c-sub">论文Table 2</div></div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runDIDBaseline()">📈 基准回归</button>
+      <button class="btn btn-s" onclick="runDIDStepwise()">📊 逐步加入控制变量</button>
+      <button class="btn btn-s" onclick="runDIDStandardized()">📏 标准化系数</button>
+    </div>
+    <div id="did-baseline-result" class="mt"></div>
+    <div id="did-stepwise-result" class="mt"></div>
+    <div id="did-standardized-result" class="mt"></div>
+  </div>
+
+  <!-- 3. 稳健性检验 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">3. 稳健性检验</div><div class="c-sub">DID核心前提验证</div></div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runDIDParallelTrends()">📈 平行趋势检验</button>
+      <button class="btn btn-s" onclick="runDIDPlacebo()">🎲 安慰剂检验</button>
+      <button class="btn btn-s" onclick="runDIDSubsample()">🔍 子样本回归</button>
+    </div>
+    <div id="did-parallel-result" class="mt"></div>
+    <div id="did-placebo-result" class="mt"></div>
+    <div id="did-subsample-result" class="mt"></div>
+  </div>
+
+  <!-- 4. 异质性分析 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">4. 异质性分析</div><div class="c-sub">分区域/老龄化/城乡/收入</div></div>
+    <div class="grid">
+      <div class="fg">
+        <label>异质性变量</label>
+        <select id="did-hetero-var"><option value="">选择变量...</option></select>
+      </div>
+      <div class="fg">
+        <label>分组方法</label>
+        <select id="did-hetero-method">
+          <option value="median">中位数分组</option>
+          <option value="mean">均值分组</option>
+        </select>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runDIDHeterogeneity()">🔀 异质性分析</button>
+    </div>
+    <div id="did-hetero-result" class="mt"></div>
+  </div>
+
+  <!-- 5. 机制分析 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">5. 机制分析</div><div class="c-sub">中介效应/调节效应</div></div>
+    <div class="grid">
+      <div class="fg">
+        <label>中介变量</label>
+        <select id="did-mediator"><option value="">选择变量...</option></select>
+      </div>
+      <div class="fg">
+        <label>调节变量 (交互项)</label>
+        <select id="did-interact-var"><option value="">选择变量...</option></select>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runDIDMediation()">🔗 中介效应</button>
+      <button class="btn btn-s" onclick="runDIDInteraction()">⚡ 交互项分析</button>
+    </div>
+    <div id="did-mediation-result" class="mt"></div>
+    <div id="did-interaction-result" class="mt"></div>
+  </div>
+
+  <!-- 6. 结果输出 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">6. 结果输出</div><div class="c-sub">论文Ready格式</div></div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="exportDIDResults()">📄 导出结果表格</button>
+    </div>
+    <div id="did-export-result" class="mt"></div>
+  </div>
+</div>

@@ -1,0 +1,160 @@
+﻿<!-- ======================== 金融建模 ======================== -->
+<div id="tab-finance-model" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="financeFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">金融数据建模</div>
+      <div class="c-sub">技术指标分析与价格预测</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>建模类型</label>
+        <select id="fin-model-type">
+          <option value="">-- 选择模型 --</option>
+          <option value="ma">移动平均 (MA)</option>
+          <option value="ema">指数平均 (EMA)</option>
+          <option value="macd">MACD 分析</option>
+          <option value="boll">布林带分析</option>
+          <option value="rsi">RSI 分析</option>
+          <option value="knn">KNN 预测</option>
+          <option value="linear">线性回归</option>
+          <option value="lstm">LSTM 预测</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>预测天数</label>
+        <select id="fin-predict-days">
+          <option value="5">5 天</option>
+          <option value="10">10 天</option>
+          <option value="20">20 天</option>
+          <option value="30">30 天</option>
+        </select>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runFinModel()">运行建模</button>
+    </div>
+    <div id="fin-model-res" class="mt"></div>
+    <div id="fin-model-charts" class="cg"></div>
+  </div>
+
+  <!-- ============ CAPM 分析 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">CAPM 资本资产定价模型</div><div class="c-sub">Beta / Alpha / 夏普比率 / 预期收益率</div></div>
+    <div class="grid">
+      <div class="fg"><label>无风险利率 (年化)</label><input id="capm-rf" type="number" step="0.01" value="0.02" placeholder="0.02 = 2%"></div>
+      <div class="fg"><label>收盘价列名</label><input id="capm-close" placeholder="自动检测"></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p" onclick="runCAPM()">CAPM 分析</button></div>
+    <div id="capm-res" class="mt"></div>
+    <div id="capm-chart" class="cg"></div>
+  </div>
+
+  <!-- ============ Fama-French 五因子模型 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">Fama-French 五因子模型</div><div class="c-sub">MKT / SMB / HML / RMW / CMA · 数据源 baostock · 季度末截面分组</div></div>
+    <div class="grid">
+      <div class="fg"><label>样本股票数</label><select id="ff-stocks"><option value="20">20 只（最快）</option><option value="30" selected>30 只（推荐）</option><option value="50">50 只</option></select></div>
+      <div class="fg"><label>回看区间</label><select id="ff-months"><option value="6">近 6 个月</option><option value="12" selected>近 1 年（推荐）</option><option value="24">近 2 年</option></select></div>
+      <div class="fg"><label>无风险利率 (年化)</label><input id="ff-rf" type="number" step="0.01" value="0.02"></div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runFamaFrench()">运行五因子模型</button>
+      <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">30 只 × 1 年约需 1-2 分钟</span>
+    </div>
+    <div id="ff-res" class="mt"></div>
+    <div id="ff-chart" class="cg"></div>
+    <div id="ff-corr" class="mt"></div>
+  </div>
+
+  <!-- ============ 策略回测 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">策略回测</div><div class="c-sub">均线金叉/死叉 / MACD 策略 / 胜率·回撤·收益</div></div>
+    <div class="grid">
+      <div class="fg"><label>回测策略</label><select id="bt-strategy"><option value="ma">均线金叉/死叉</option><option value="macd">MACD 策略</option></select></div>
+      <div class="fg"><label>快线周期 (MA 快/MACD 12)</label><input id="bt-fast" type="number" value="5" min="2"></div>
+      <div class="fg"><label>慢线周期 (MA 慢/MACD 26)</label><input id="bt-slow" type="number" value="20" min="5"></div>
+      <div class="fg"><label>收盘价列名</label><input id="bt-close" placeholder="自动检测"></div>
+    </div>
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg"><label>基准指数</label>
+        <select id="bt-benchmark">
+          <option value="000300">沪深300</option>
+          <option value="000905">中证500</option>
+          <option value="000016">上证50</option>
+          <option value="399006">创业板指</option>
+          <option value="000688">科创50</option>
+        </select>
+      </div>
+      <div class="fg"><label>&nbsp;</label>
+        <div class="chk" style="line-height:38px;"><input type="checkbox" id="bt-brinson" checked><label for="bt-brinson">启用 Brinson 归因分析</label></div>
+      </div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p" onclick="runBacktest()">运行回测</button></div>
+    <div id="bt-res" class="mt"></div>
+    <div id="bt-chart" class="cg"></div>
+    <div id="bt-brinson" class="cg"></div>
+  </div>
+
+  <!-- ============ 预测模型评估对比 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">预测模型评估对比</div><div class="c-sub">7种模型 MAE / MSE / RMSE / R² 可视化对比</div></div>
+    <div class="grid">
+      <div class="fg"><label>收盘价列名</label><input id="eval-close" placeholder="自动检测"></div>
+      <div class="fg"><label>测试集比例</label><select id="eval-test-size"><option value="0.2">20%</option><option value="0.3" selected>30%</option><option value="0.4">40%</option></select></div>
+      <div class="fg"><label>预测天数</label><input id="eval-days" type="number" value="30" min="5"></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p" onclick="runPredictEval()">评估对比</button><span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">自动保存最佳模型</span></div>
+    <div id="eval-res" class="mt"></div>
+    <div id="eval-chart" class="cg"></div>
+  </div>
+
+  <!-- ============ 模型管理 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">模型保存复用</div><div class="c-sub">加载已训练模型直接预测，无需重训</div></div>
+    <div class="grid">
+      <div class="fg s2"><label>已保存模型</label><select id="saved-model-list"><option value="">点击"刷新列表"加载</option></select></div>
+      <div class="fg"><label>预测天数</label><input id="saved-predict-days" type="number" value="10" min="1"></div>
+      <div class="fg"><label>收盘价列名</label><input id="saved-close" placeholder="自动检测"></div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-g" onclick="refreshModels()">刷新列表</button>
+      <button class="btn btn-p" onclick="runSavedPredict()">加载预测</button>
+      <button class="btn btn-w" onclick="deleteSavedModel()">删除选中</button>
+    </div>
+    <div id="saved-res" class="mt"></div>
+    <div id="saved-chart" class="cg"></div>
+  </div>
+</div>
+
+<script>
+// 监听金融数据全局同步事件
+window.addEventListener('financeDataUpdated', function(e) {
+  const data = e.detail;
+  if (!data.file) return;
+  
+  // 更新当前文件显示
+  const nameEl = document.getElementById('financeFileName');
+  if (nameEl) {
+    nameEl.textContent = `📈 ${data.file} (${data.rows}行, ${data.source})`;
+    nameEl.style.color = 'var(--primary)';
+  }
+  
+  // 更新全局选中文件
+  window._selectedFile = data.file;
+});
+
+// 监听数据清除
+window.addEventListener('financeDataCleared', function() {
+  const nameEl = document.getElementById('financeFileName');
+  if (nameEl) {
+    nameEl.textContent = '未选择';
+    nameEl.style.color = '';
+  }
+});
+</script>

@@ -1,0 +1,387 @@
+<section id="tab-overview" class="sec on">
+  <div class="ui-page">
+    <!-- PAGE HEAD -->
+    <div class="ui-page-head">
+      <div>
+        <h1>市场全景仪表盘</h1>
+        <p>实时监控 A 股大盘、资金流向、汇率变动与市场情绪</p>
+      </div>
+      <div class="ui-actions">
+        <button class="btn btn-s" onclick="refreshAllData()">刷新数据</button>
+        <span class="live-tag"><span class="dot"></span>LIVE</span>
+      </div>
+    </div>
+
+    <!-- Row 1: KPI -->
+    <div class="ui-kpi-grid">
+      <div class="ui-kpi">
+        <div class="ui-kpi-top"><div class="ui-kpi-ico"><svg><use href="#i-chart"/></svg></div><span class="ui-kpi-label">上证指数</span></div>
+        <div class="ui-kpi-val" id="sh-val">--</div>
+        <div class="ui-kpi-delta" id="sh-change">--</div>
+        <div class="ui-kpi-meta">每 5min 更新</div>
+      </div>
+      <div class="ui-kpi">
+        <div class="ui-kpi-top"><div class="ui-kpi-ico cyan"><svg><use href="#i-chart"/></svg></div><span class="ui-kpi-label">深证成指</span></div>
+        <div class="ui-kpi-val" id="sz-val">--</div>
+        <div class="ui-kpi-delta" id="sz-change">--</div>
+        <div class="ui-kpi-meta">每 5min 更新</div>
+      </div>
+      <div class="ui-kpi">
+        <div class="ui-kpi-top"><div class="ui-kpi-ico pos"><svg><use href="#i-chart"/></svg></div><span class="ui-kpi-label">创业板指</span></div>
+        <div class="ui-kpi-val" id="cy-val">--</div>
+        <div class="ui-kpi-delta" id="cy-change">--</div>
+        <div class="ui-kpi-meta">每 5min 更新</div>
+      </div>
+      <div class="ui-kpi">
+        <div class="ui-kpi-top"><div class="ui-kpi-ico warn"><svg><use href="#i-coin"/></svg></div><span class="ui-kpi-label">美元/人民币</span></div>
+        <div class="ui-kpi-val" id="usd-val">--</div>
+        <div class="ui-kpi-delta" id="usd-change">--</div>
+        <div class="ui-kpi-meta">每 5min 更新</div>
+      </div>
+    </div>
+
+    <!-- Row 2: 资金流向 + 汇率 -->
+    <div class="ui-grid-2">
+      <div class="ui-card">
+        <div class="ui-card-head">
+          <h3><svg><use href="#i-coin"/></svg>大盘资金流向</h3>
+          <span class="live-tag"><span class="dot"></span>近15日</span>
+        </div>
+        <div class="ui-chart-wrap" style="height:280px">
+          <div id="chart-fund-flow" style="width:100%;height:100%"></div>
+        </div>
+      </div>
+      <div class="ui-card">
+        <div class="ui-card-head">
+          <h3><svg><use href="#i-coin"/></svg>美元/人民币汇率</h3>
+          <span class="live-tag"><span class="dot"></span>LIVE</span>
+        </div>
+        <div class="ui-chart-wrap" style="height:280px">
+          <div id="chart-exchange-rate" style="width:100%;height:100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: 大盘异动 + 市场情绪 -->
+    <div class="ui-grid-2">
+      <div class="ui-card">
+        <div class="ui-card-head">
+          <h3><svg><use href="#i-pulse"/></svg>大盘异动</h3>
+          <div class="ui-seg">
+            <button class="on" id="btn-zt">涨停板</button><button id="btn-lhb">龙虎榜</button>
+          </div>
+        </div>
+        <div class="ui-tbl-wrap">
+          <table id="movers-table">
+            <thead><tr><th>代码</th><th>名称</th><th>涨跌幅</th><th>价格</th><th>操作</th></tr></thead>
+            <tbody id="movers-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--ink-subtle)">加载中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="ui-card">
+        <div class="ui-card-head"><h3><svg><use href="#i-brain"/></svg>市场情绪指标</h3></div>
+        <div class="ui-card-body">
+          <div class="ui-dist-row"><span class="lbl">中债 10Y</span><div class="ui-dist-bar"><i id="bond-cn-bar" style="width:0%"></i></div><span class="pct" id="bond-cn-val">--</span></div>
+          <div class="ui-dist-row"><span class="lbl">美债 10Y</span><div class="ui-dist-bar"><i id="bond-us-bar" style="width:0%"></i></div><span class="pct" id="bond-us-val">--</span></div>
+          <div class="ui-dist-row"><span class="lbl">制造业 PMI</span><div class="ui-dist-bar"><i id="pmi-m-bar" style="width:0%"></i></div><span class="pct" id="pmi-m-val">--</span></div>
+          <div class="ui-dist-row"><span class="lbl">非制造业 PMI</span><div class="ui-dist-bar"><i id="pmi-nm-bar" style="width:0%"></i></div><span class="pct" id="pmi-nm-val">--</span></div>
+          <div class="ui-dist-row"><span class="lbl">CPI 同比</span><div class="ui-dist-bar"><i id="cpi-bar" style="width:0%"></i></div><span class="pct" id="cpi-val">--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: 近期任务 -->
+    <div class="ui-card">
+      <div class="ui-card-head">
+        <h3><svg><use href="#i-table"/></svg>近期任务</h3>
+        <button class="btn btn-s" style="padding:6px 12px;font-size:12px">查看全部</button>
+      </div>
+      <div class="ui-tbl-wrap">
+        <table>
+          <thead><tr><th>任务</th><th>类型</th><th>负责人</th><th>进度</th><th>状态</th><th>耗时</th></tr></thead>
+          <tbody id="tasks-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--ink-subtle)">加载中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <script>
+    var chartFundFlow = null, chartExchangeRate = null;
+    var currentMoverType = 'zt';
+    
+    function initCharts() {
+      if(chartFundFlow) return;
+      var ff = document.getElementById('chart-fund-flow');
+      var er = document.getElementById('chart-exchange-rate');
+      if(ff && er && typeof echarts !== 'undefined') {
+        chartFundFlow = echarts.init(ff);
+        chartExchangeRate = echarts.init(er);
+      }
+    }
+    
+    // 启动数据加载（兼容 DOMContentLoaded 已触发的情况）
+    function startDashboard() {
+      initCharts();
+      refreshAllData();
+      setInterval(refreshAllData, 300000);
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startDashboard);
+    } else {
+      // DOM 已就绪，立即执行
+      startDashboard();
+    }
+    
+    // 监听 tab 切换
+    var overviewSection = document.getElementById('tab-overview');
+    if(overviewSection) {
+      new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          if(m.target.id === 'tab-overview' && m.target.classList.contains('on')) {
+            setTimeout(function(){
+              initCharts();
+              if(chartFundFlow) chartFundFlow.resize();
+              if(chartExchangeRate) chartExchangeRate.resize();
+            }, 50);
+          }
+        });
+      }).observe(overviewSection, {attributes:true, attributeFilter:['class']});
+    }
+
+    function refreshAllData() {
+      loadIndexQuotes();
+      loadFundFlow();
+      loadExchangeRate();
+      loadSentiment();
+      loadMarketMovers();
+      loadTasks();
+    }
+
+    // 1. 大盘指数
+    function loadIndexQuotes() {
+      fetch('/api/dashboard/index-quote').then(r=>r.json()).then(data=>{
+        if(data.sh000001) updateKPI('sh', data.sh000001);
+        if(data.sz399001) updateKPI('sz', data.sz399001);
+        if(data.sz399006) updateKPI('cy', data.sz399006);
+      }).catch(e=>{console.error('index-quote:', e); showToast('大盘指数加载失败', 'warning');});
+    }
+    function updateKPI(prefix, d) {
+      var valEl = document.getElementById(prefix+'-val');
+      var chEl = document.getElementById(prefix+'-change');
+      var metaEl = valEl ? valEl.parentNode.querySelector('.ui-kpi-meta') : null;
+      if(valEl) valEl.textContent = d.close ? d.close.toLocaleString() : '--';
+      if(chEl) {
+        var sign = d.change >= 0 ? '+' : '';
+        var chg = Number(d.change).toFixed(2);
+        var pct = Number(d.change_pct).toFixed(2);
+        chEl.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="'+(d.change>=0?'M12 19V5M6 11l6-6 6 6':'M12 5v14M6 13l6 6 6-6')+'"/></svg>' + sign + chg + ' (' + sign + pct + '%)';
+        chEl.className = 'ui-kpi-delta ' + (d.change >= 0 ? 'up' : 'down');
+      }
+      // 显示数据来源：实时标注日期，盘前/休市标注收盘日期
+      if(metaEl && d.source === 'realtime' && d.date) {
+        metaEl.textContent = '实时 · ' + d.date;
+        metaEl.style.color = 'var(--success, #34d399)';
+      } else if(metaEl && d.source === 'prev_close' && d.date) {
+        metaEl.textContent = '收盘 ' + d.date;
+        metaEl.style.color = 'var(--warning, #fbbf24)';
+      } else if (metaEl && d.source === 'prev_close') {
+        metaEl.textContent = '上一交易日收盘';
+        metaEl.style.color = 'var(--warning, #fbbf24)';
+      }
+    }
+
+    // 2. 大盘资金流向 - 沪深港通近15日净流入折线图
+    function loadFundFlow() {
+      fetch('/api/dashboard/fund-flow').then(r=>r.json()).then(data=>{
+        if(data.error || !chartFundFlow) return;
+        var daily = data.daily || [];
+        if(daily.length === 0) return;
+        var dates = daily.map(function(d){ return d.date.slice(5); });
+        var hasNorth = daily.some(function(d){ return d.north != null; });
+        var series = [];
+        if(hasNorth) series.push({name:'北向净买入',type:'line',data:daily.map(function(d){return d.north}),smooth:true,lineStyle:{color:'#f87171',width:2},symbol:'none'});
+        series.push({name:'南向净买入',type:'line',data:daily.map(function(d){return d.south}),smooth:true,lineStyle:{color:'#60a5fa',width:2},symbol:'none'});
+        chartFundFlow.setOption({
+          tooltip:{trigger:'axis',formatter:function(params){
+            var p = params[0];
+            var d = daily[p.dataIndex];
+            return d.date + '<br/>' +
+              (hasNorth ? '北向(沪股通+深股通): ' + (d.north != null ? d.north : '--') + '亿<br/>' : '') +
+              '南向(港股通): ' + (d.south != null ? d.south : '--') + '亿';
+          }},
+          legend:{data:series.map(function(s){return s.name;}),textStyle:{color:'#9fb0cc'},top:0},
+          grid:{left:60,right:20,top:40,bottom:30},
+          xAxis:{type:'category',data:dates,axisLabel:{color:'#5f7290',fontSize:9,rotate:30}},
+          yAxis:{type:'value',axisLabel:{color:'#5f7290',fontSize:9,formatter:function(v){return v+'亿'}},splitLine:{lineStyle:{color:'rgba(255,255,255,.05)'}}},
+          series: series
+        });
+      }).catch(e=>{console.error('fund-flow:', e); showToast('资金流向加载失败', 'warning');});
+    }
+
+    // 3. 汇率
+    function loadExchangeRate() {
+      fetch('/api/dashboard/exchange-rate').then(r=>r.json()).then(data=>{
+        if(data.error) return;
+        if(data.latest) {
+          document.getElementById('usd-val').textContent = data.latest.usd ? data.latest.usd.toFixed(4) : '--';
+          var chEl = document.getElementById('usd-change');
+          if(chEl && data.change) {
+            var sign = data.change.usd >= 0 ? '+' : '';
+            chEl.innerHTML = sign + (data.change.usd/100).toFixed(4) + ' 较昨日';
+            chEl.className = 'ui-kpi-delta ' + (data.change.usd >= 0 ? 'up' : 'down');
+          }
+        }
+        if(chartExchangeRate && data.dates) {
+          chartExchangeRate.setOption({
+            tooltip:{trigger:'axis',formatter:function(params){return params[0].name + '<br/>1美元=' + parseFloat(params[0].value).toFixed(4) + '元';}},
+            grid:{left:50,right:20,top:20,bottom:30},
+            xAxis:{type:'category',data:data.dates.map(d=>d.slice(5)),axisLabel:{color:'#5f7290',fontSize:10}},
+            yAxis:{type:'value',axisLabel:{color:'#5f7290',formatter:function(v){return v.toFixed(2)}},scale:true,min:function(v){return (v.min - 0.02).toFixed(4)*1;},max:function(v){return (v.max + 0.02).toFixed(4)*1;},splitLine:{lineStyle:{color:'rgba(255,255,255,.05)'}}},
+            series:[{type:'line',data:data.usd,smooth:true,lineStyle:{color:'#45B7D1',width:2},
+              areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(59,130,246,0.3)'},{offset:1,color:'rgba(59,130,246,0)'}])},
+              symbol:'none'}]
+          });
+        }
+      }).catch(e=>{console.error('exchange-rate:', e); showToast('汇率加载失败', 'warning');});
+    }
+
+    // 4. 市场情绪
+    function loadSentiment() {
+      fetch('/api/dashboard/sentiment').then(r=>r.json()).then(data=>{
+        if(data.bond) {
+          document.getElementById('bond-cn-val').textContent = data.bond.china_10y + '%';
+          document.getElementById('bond-cn-bar').style.width = Math.min(data.bond.china_10y*10,100) + '%';
+          document.getElementById('bond-us-val').textContent = data.bond.us_10y + '%';
+          document.getElementById('bond-us-bar').style.width = Math.min(data.bond.us_10y*10,100) + '%';
+        }
+        if(data.pmi) {
+          document.getElementById('pmi-m-val').textContent = data.pmi.manufacturing;
+          document.getElementById('pmi-m-bar').style.width = Math.min(data.pmi.manufacturing*2,100) + '%';
+          document.getElementById('pmi-nm-val').textContent = data.pmi.non_manufacturing;
+          document.getElementById('pmi-nm-bar').style.width = Math.min(data.pmi.non_manufacturing*2,100) + '%';
+        }
+        if(data.cpi) {
+          document.getElementById('cpi-val').textContent = data.cpi.yoy + '%';
+          document.getElementById('cpi-bar').style.width = Math.max(0,Math.min((data.cpi.yoy+3)*20,100)) + '%';
+        }
+      }).catch(e=>{console.error('sentiment:', e); showToast('市场情绪加载失败', 'error');});
+    }
+
+    // 5. 大盘异动
+    function loadMarketMovers() {
+      fetch('/api/dashboard/market-movers').then(r=>r.json()).then(data=>{
+        var tbody = document.getElementById('movers-tbody');
+        if(!tbody) return;
+        var list = currentMoverType === 'zt' ? data.zt_pool : data.lhb;
+        if(!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--ink-subtle)">暂无数据</td></tr>';
+          return;
+        }
+        var html = '';
+        list.forEach(function(item){
+          var changeClass = item.change >= 0 ? 'up' : 'down';
+          var sign = item.change >= 0 ? '+' : '';
+          var pct = (item.change === 0) ? '0.00' : sign + Number(item.change).toFixed(2);
+          var price = (item.price == null || isNaN(item.price)) ? '--' : Number(item.price).toFixed(2);
+          html += '<tr><td class="mono">'+item.code+'</td><td>'+item.name+'</td><td class="'+changeClass+'">'+pct+'%</td><td class="mono">'+price+'</td><td><button class="btn btn-s" style="padding:3px 8px;font-size:11px">查看</button></td></tr>';
+        });
+        tbody.innerHTML = html;
+      }).catch(e=>console.error('market-movers:', e));
+    }
+
+    document.getElementById('btn-zt').addEventListener('click', function(){
+      currentMoverType = 'zt'; this.classList.add('on'); document.getElementById('btn-lhb').classList.remove('on'); loadMarketMovers();
+    });
+    document.getElementById('btn-lhb').addEventListener('click', function(){
+      currentMoverType = 'lhb'; this.classList.add('on'); document.getElementById('btn-zt').classList.remove('on'); loadMarketMovers();
+    });
+
+    // 6. 近期任务
+    function loadTasks() {
+      fetch('/api/dashboard/tasks').then(r=>r.json()).then(data=>{
+        var tbody = document.getElementById('tasks-tbody');
+        if(!tbody || !data.tasks) return;
+        var html = '';
+        data.tasks.forEach(function(t){
+          var sc = t.status === 'ok' ? 'ok' : t.status === 'run' ? 'run' : t.status === 'err' ? 'err' : 'warn';
+          var st = t.status === 'ok' ? '已完成' : t.status === 'run' ? '运行中' : t.status === 'err' ? '失败' : '待复核';
+          html += '<tr><td><div class="ui-name"><div class="ui-name-ico"><svg><use href="#i-brain"/></svg></div><span class="mono">'+t.name+'</span></div></td><td>'+t.type+'</td><td>'+t.owner+'</td><td><div class="ui-pbar"><i style="width:'+t.progress+'%"></i></div></td><td><span class="ui-badge '+sc+'"><span class="bdot"></span>'+st+'</span></td><td class="mono">'+t.time+'</td></tr>';
+        });
+        tbody.innerHTML = html;
+      }).catch(e=>console.error('tasks:', e));
+    }
+
+    window.addEventListener('resize', function(){
+      if(chartFundFlow) chartFundFlow.resize();
+      if(chartExchangeRate) chartExchangeRate.resize();
+    });
+  </script>
+
+  <!-- ============ Vue 3 试点：实时行情速览（SSE 推送） ============ -->
+  <div id="vue-live-quote">
+    <div class="ui-card" style="margin-top:20px;">
+      <div class="ui-card-head">
+        <h3><svg><use href="#i-chart"/></svg>⚡ 实时行情速览 <span class="vue-tag">Vue 3</span></h3>
+        <span class="live-tag"><span class="dot"></span>SSE 推送</span>
+      </div>
+      <div class="vue-quote-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px;">
+        <div class="vq-item" v-for="q in quotes" :key="q.key" style="padding:14px;border-radius:10px;background:var(--card-bg,rgba(94,106,210,.06));">
+          <div style="font-size:12px;color:var(--ink-subtle,#888);">[[ q.name ]]</div>
+          <div style="font-size:22px;font-weight:700;margin-top:4px;color:var(--ink,#333);">[[ q.close ]]</div>
+          <div :style="{ color: q.change_pct >= 0 ? '#FF6B6B' : '#2EA44F', fontSize:'13px', fontWeight:600 }">
+            [[ q.change_pct >= 0 ? '+' : '' ]][[ q.change_pct ]]<span style="opacity:.7">%</span>
+          </div>
+          <div style="font-size:11px;color:#999;margin-top:4px;">更新于 [[ q.time ]]</div>
+        </div>
+        <div v-if="!quotes.length" style="color:#aaa;font-size:12px;grid-column:1/-1;padding:10px;">等待行情推送…（如长时间无数据，请点击上方"刷新数据"）</div>
+      </div>
+    </div>
+  </div>
+  <style>.vue-tag{display:inline-block;font-size:10px;background:#42b883;color:#fff;border-radius:6px;padding:2px 6px;vertical-align:middle;margin-left:6px;}</style>
+  <script>
+    (function(){
+      if(!window.Vue) return;  // CDN 加载失败时静默降级，不影响其他功能
+      var app = Vue.createApp({
+        delimiters: ['[[', ']]'],
+        data: function(){ return { quotes: [], es: null }; },
+        mounted: function(){
+          var self = this;
+          // 初始：拉一次缓存行情
+          fetch('/api/dashboard/index-quote').then(function(r){return r.json();}).then(function(d){
+            self.quotes = self._map(d);
+          }).catch(function(){});
+          // SSE 实时订阅
+          if(window.EventSource){
+            this.es = new EventSource('/api/stream/finance');
+            this.es.onmessage = function(ev){
+              try{
+                var d = JSON.parse(ev.data);
+                if(d.quotes) self.quotes = self._map(d.quotes);
+              }catch(e){}
+            };
+            this.es.onerror = function(){ /* 断线自动重连由 EventSource 内置处理 */ };
+          }
+        },
+        beforeUnmount: function(){ if(this.es) this.es.close(); },
+        methods: {
+          _map: function(q){
+            var names = { sh000001:'上证指数', sz399001:'深证成指', sz399006:'创业板指' };
+            var now = new Date();
+            var t = ('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2)+':'+('0'+now.getSeconds()).slice(-2);
+            var out = [];
+            for(var k in q){
+              var it = q[k];
+              if(!it || typeof it.close !== 'number') continue;
+              out.push({ key:k, name: names[k] || it.name || k, close: it.close.toLocaleString(),
+                change_pct: (it.change_pct||0), time: t });
+            }
+            return out;
+          }
+        }
+      });
+      app.mount('#vue-live-quote');
+    })();
+  </script>
+</section>

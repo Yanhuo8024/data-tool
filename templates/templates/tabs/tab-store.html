@@ -1,0 +1,103 @@
+﻿<!-- ======================== 存储 ======================== -->
+<div id="tab-store" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">持久化存储</div>
+      <div class="c-sub">SQLite + CSV 导出</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>去重列（逗号分隔，可选）</label>
+        <input id="st-unique" placeholder="link">
+      </div>
+      <div class="fg">
+        <label>SQLite 表名</label>
+        <input id="st-table" value="scraped">
+      </div>
+      <div class="fg">
+        <label>导出 CSV 名</label>
+        <input id="st-exp" value="export">
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="doStore()">存入数据库</button>
+    </div>
+  </div>
+  <div class="card hide" id="st-res-card">
+    <div class="c-head">
+      <div class="c-title">存储完成</div>
+      <div class="flex gap">
+        <button class="btn btn-g btn-sm" onclick="dl('data.db')">下载 data.db</button>
+        <button class="btn btn-s btn-sm" id="st-csv-btn">下载 CSV</button>
+      </div>
+    </div>
+    <div id="st-info"></div>
+  </div>
+
+  <!-- ======================== 数据血缘追踪 ======================== -->
+  <div class="card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">🔗 数据血缘追踪</div>
+      <div class="c-sub">数据从哪来 · 经过哪些处理 · 被哪些报告引用</div>
+    </div>
+    <div id="lg-stats" style="margin-top:8px;"></div>
+    <div class="grid" style="margin-top:14px;">
+      <div class="fg">
+        <input id="lg-query" placeholder="输入文件名查询血缘，如 clean.csv" onkeydown="if(event.key==='Enter')queryLineage()">
+      </div>
+      <div class="bgrp">
+        <button class="btn btn-p" onclick="queryLineage()">🔍 溯源</button>
+        <button class="btn btn-s" onclick="loadLineageEvents();loadLineageStats();">刷新</button>
+      </div>
+    </div>
+    <div id="lg-updown"></div>
+    <div class="c-sub" style="margin-top:14px;">最近事件（30 条）</div>
+    <div id="lg-events" style="overflow-x:auto;margin-top:6px;"></div>
+  </div>
+
+  <!-- ======================== 只读分享链接 ======================== -->
+  <div class="card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">🔗 只读分享链接</div>
+      <div class="c-sub">token 化分享 · 可过期 · 仅只读（协作的轻量形式）</div>
+    </div>
+    <div class="grid" style="margin-top:12px;">
+      <div class="fg">
+        <input id="share-path" placeholder="输入文件路径，如 output/clean.csv 或绝对路径">
+      </div>
+      <div class="fg">
+        <select id="share-ttl">
+          <option value="1">1 小时</option>
+          <option value="24" selected>24 小时</option>
+          <option value="168">7 天</option>
+        </select>
+      </div>
+      <div class="bgrp">
+        <button class="btn btn-p" onclick="shareCreate()">生成链接</button>
+      </div>
+    </div>
+    <div id="share-result" class="mt" style="margin-top:10px;"></div>
+  </div>
+  <script>
+    async function shareCreate() {
+      var path = document.getElementById('share-path').value.trim();
+      var ttl = document.getElementById('share-ttl').value;
+      var el = document.getElementById('share-result');
+      if (!path) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">请输入文件路径</div>'; return; }
+      el.innerHTML = '<div style="color:#888;font-size:12px;">生成中…</div>';
+      try {
+        var r = await fetch('/api/share/create', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: path, ttl_hours: parseInt(ttl, 10) })
+        });
+        var d = await r.json();
+        if (!d.ok) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">' + d.error + '</div>'; return; }
+        el.innerHTML = '<div style="font-size:12px;line-height:2;">' +
+          '✅ 分享链接已生成（' + d.file + '，有效期至 ' + d.expires + '）<br>' +
+          '<a href="' + d.url + '" target="_blank" style="color:#FF6B6B;word-break:break-all;">' + d.full_url + '</a><br>' +
+          '<button class="btn btn-s btn-sm" style="margin-top:6px;" onclick="navigator.clipboard.writeText(location.origin+\'' + d.url + '\').then(function(){alert(\'已复制\')})">复制链接</button>' +
+          '</div>';
+      } catch (e) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">生成失败: ' + e.message + '</div>'; }
+    }
+  </script>
+</div>

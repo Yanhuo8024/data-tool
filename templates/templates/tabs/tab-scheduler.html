@@ -1,0 +1,296 @@
+<!-- ======================== 定时任务 ======================== -->
+<div id="tab-scheduler" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">⏰</span>
+    <span class="cf-label">定时任务</span>
+    <span class="cf-hint">APScheduler · 定时调用内部接口，配合 API Key 实现自动化</span>
+  </div>
+
+  <!-- 调度器状态 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;font-size:13px;">
+      <span id="sched-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--ink-tertiary);"></span>
+      <span id="sched-status-text">调度器状态：检测中...</span>
+      <div class="sp" style="flex:1"></div>
+      <button class="btn btn-sm btn-s" onclick="loadSchedulerTasks()">刷新</button>
+    </div>
+  </div>
+
+  <!-- 新建任务 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">＋ 新建定时任务</div>
+      <div class="c-sub">定时调用 data.tool 内部接口（如拉取大盘数据、提交 Agent 任务）</div>
+    </div>
+    <div style="padding:16px;display:grid;grid-template-columns:repeat(12,1fr);gap:12px;">
+      <div class="fg" style="grid-column:span 3;">
+        <label>任务名称</label>
+        <input id="sched-name" placeholder="如：每天早上拉大盘" style="width:100%;">
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>执行频率</label>
+        <select id="sched-preset" style="width:100%;">
+          <option value="daily">每天</option>
+          <option value="hourly">每小时</option>
+          <option value="interval_min">每 N 分钟</option>
+          <option value="custom">自定义 cron</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label id="sched-clock-label">时间 (HH:MM)</label>
+        <input id="sched-clock" type="text" value="08:30" placeholder="08:30 / N / cron" style="width:100%;">
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>请求方法</label>
+        <select id="sched-method" style="width:100%;" onchange="schedMethodChanged()">
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:span 6;">
+        <label>目标接口（内部路径）</label>
+        <input id="sched-target" list="sched-targets" value="/api/dashboard/index-quote" style="width:100%;">
+        <datalist id="sched-targets">
+          <option value="/api/dashboard/index-quote">大盘指数</option>
+          <option value="/api/dashboard/fund-flow">资金流向</option>
+          <option value="/api/dashboard/exchange-rate">汇率</option>
+          <option value="/api/dashboard/market-movers">大盘异动</option>
+          <option value="/api/dashboard/sentiment">市场情绪</option>
+          <option value="/api/agent/tasks">提交 Agent 任务 (POST)</option>
+          <option value="/api/knowledge">知识库列表</option>
+        </datalist>
+      </div>
+      <div class="fg" style="grid-column:span 3;">
+        <label>调用凭证</label>
+        <select id="sched-apikey" style="width:100%;">
+          <option value="1">使用我的 API Key</option>
+          <option value="0">匿名（公开接口）</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:span 3;display:flex;align-items:flex-end;">
+        <button class="btn btn-p" onclick="createSchedulerTask()" style="width:100%;">创建任务</button>
+      </div>
+      <div class="fg" id="sched-body-wrap" style="grid-column:span 12;display:none;">
+        <label>POST Body (JSON)</label>
+        <textarea id="sched-body" rows="2" style="width:100%;font-family:monospace;font-size:12px;" placeholder='{"description": "分析上证指数近期走势"}'></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务列表 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">📋 任务列表</div>
+      <div class="c-sub">点击「启停」可切换是否启用</div>
+    </div>
+    <div id="sched-task-list" style="padding:8px 16px 16px;">
+      <div style="color:var(--ink-subtle);font-size:13px;">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 执行历史 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">🕘 执行历史（最近 100 条）</div>
+    </div>
+    <div id="sched-run-list" style="padding:8px 16px 16px;">
+      <div style="color:var(--ink-subtle);font-size:13px;">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function schedHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '') };
+}
+
+function schedMethodChanged() {
+  document.getElementById('sched-body-wrap').style.display =
+    document.getElementById('sched-method').value === 'POST' ? 'block' : 'none';
+}
+
+function schedStatusColor(st) {
+  if (st === 'ok') return 'var(--up,#ef4444)';
+  if (st === 'error') return '#e6a23c';
+  return 'var(--ink-tertiary)';
+}
+
+function schedStatusLabel(st) {
+  if (st === 'ok') return '成功';
+  if (st === 'error') return '失败';
+  if (st === 'running') return '运行中';
+  return '未运行';
+}
+
+// ===== 调度器状态 =====
+async function loadSchedulerStatus() {
+  if (!localStorage.getItem('access_token')) {
+    const txt = document.getElementById('sched-status-text');
+    if (txt) txt.textContent = '未登录（请先到「登录」页）';
+    return;
+  }
+  try {
+    const r = await fetch('/api/scheduler/status', { headers: schedHeaders() });
+    const d = await r.json();
+    const dot = document.getElementById('sched-status-dot');
+    const txt = document.getElementById('sched-status-text');
+    if (d.ok && d.scheduler && d.scheduler.started) {
+      dot.style.background = 'var(--up,#ef4444)';
+      txt.textContent = '调度器运行中 · ' + d.scheduler.job_count + ' 个定时任务已注册';
+    } else {
+      dot.style.background = '#e6a23c';
+      txt.textContent = '调度器未启动（重启服务后生效）';
+    }
+  } catch(e) {
+    document.getElementById('sched-status-text').textContent = '调度器状态获取失败';
+  }
+}
+
+// ===== 任务列表 =====
+async function loadSchedulerTasks() {
+  loadSchedulerStatus();
+  if (!localStorage.getItem('access_token')) {
+    const el = document.getElementById('sched-task-list');
+    if (el) el.innerHTML = '<div style="color:#e6a23c;font-size:13px;">未登录，请先到「🔐 登录」页（默认 admin / admin123）</div>';
+    return;
+  }
+  try {
+    const r = await fetch('/api/scheduler/tasks', { headers: schedHeaders() });
+    const d = await r.json();
+    const el = document.getElementById('sched-task-list');
+    if (!d.ok) { el.innerHTML = '<div style="color:#e6a23c;font-size:13px;">' + (d.error || '加载失败') + '（未登录请先到「登录」页）</div>'; return; }
+    if (!d.tasks.length) { el.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无任务，上方创建第一个</div>'; return; }
+
+    el.innerHTML = d.tasks.map(t => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--glass-border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:13px;">${t.name}
+            <span style="font-size:11px;color:var(--ink-subtle);font-weight:400;">cron: ${t.cron}</span>
+          </div>
+          <div style="font-size:11px;color:var(--ink-subtle);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${t.method} ${t.target}
+          </div>
+          <div style="font-size:11px;margin-top:2px;color:var(--ink-subtle);">
+            上次: ${t.last_run_at ? t.last_run_at.replace('T',' ').slice(0,19) : '—'}
+            <span style="color:${schedStatusColor(t.last_status)};">· ${schedStatusLabel(t.last_status)}</span>
+            ${t.depends_on ? '<span style="color:#5E6AD2;">· ⛓ 依赖: ' + t.depends_on + '</span>' : ''}
+          </div>
+        </div>
+        <button class="btn btn-sm ${t.is_active ? 'btn-s' : 'btn-w'}" onclick="toggleSchedulerTask('${t.id}', ${!t.is_active})">${t.is_active ? '停用' : '启用'}</button>
+        <button class="btn btn-sm btn-s" onclick="setTaskDep('${t.id}', '${t.name.replace(/'/g, "\\'")}')" title="设置上游依赖任务（上游未成功则跳过）">⛓ 依赖</button>
+        <button class="btn btn-sm btn-p" onclick="triggerSchedulerTask('${t.id}')">▶ 立即运行</button>
+        <button class="btn btn-sm btn-w" onclick="deleteSchedulerTask('${t.id}')">删除</button>
+      </div>
+    `).join('');
+  } catch(e) {
+    document.getElementById('sched-task-list').innerHTML = '<div style="color:#e6a23c;font-size:13px;">加载失败: ' + e.message + '</div>';
+  }
+}
+
+async function createSchedulerTask() {
+  const name = document.getElementById('sched-name').value.trim();
+  const preset = document.getElementById('sched-preset').value;
+  const clock = document.getElementById('sched-clock').value.trim();
+  const target = document.getElementById('sched-target').value.trim();
+  const method = document.getElementById('sched-method').value;
+  const useApiKey = document.getElementById('sched-apikey').value === '1';
+  const body = document.getElementById('sched-body').value;
+
+  if (!name) { showToast('请输入任务名称', 'error'); return; }
+  if (!target.startsWith('/api/')) { showToast('目标必须是 /api/ 开头的内部接口', 'error'); return; }
+  if (preset === 'custom' && !/^[\d*/,\-\s]+$/.test(clock)) { showToast('自定义 cron 格式无效（5段：分 时 日 月 周）', 'error'); return; }
+
+  try {
+    const r = await fetch('/api/scheduler/tasks', {
+      method: 'POST',
+      headers: schedHeaders(),
+      body: JSON.stringify({ name, preset, clock, target, method, body, use_api_key: useApiKey, is_active: true })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast('任务创建成功', 'success');
+      document.getElementById('sched-name').value = '';
+      document.getElementById('sched-body').value = '';
+      loadSchedulerTasks();
+    } else {
+      showToast(d.error || '创建失败', 'error');
+    }
+  } catch(e) { showToast('创建失败: ' + e.message, 'error'); }
+}
+
+async function toggleSchedulerTask(id, newState) {
+  try {
+    const r = await fetch('/api/scheduler/tasks/' + id, {
+      method: 'PUT',
+      headers: schedHeaders(),
+      body: JSON.stringify({ is_active: newState })
+    });
+    const d = await r.json();
+    if (d.ok) { showToast(newState ? '已启用' : '已停用', 'success'); loadSchedulerTasks(); }
+    else showToast(d.error || '操作失败', 'error');
+  } catch(e) { showToast('操作失败: ' + e.message, 'error'); }
+}
+
+async function triggerSchedulerTask(id) {
+  try {
+    const r = await fetch('/api/scheduler/tasks/' + id + '/trigger', {
+      method: 'POST',
+      headers: schedHeaders()
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast('已触发，结果: ' + (d.task && d.task.last_status), 'success');
+      loadSchedulerTasks(); loadSchedulerRuns();
+    } else showToast(d.error || '触发失败', 'error');
+  } catch(e) { showToast('触发失败: ' + e.message, 'error'); }
+}
+
+async function deleteSchedulerTask(id) {
+  if (!confirm('确定删除该任务及其执行历史？')) return;
+  try {
+    const r = await fetch('/api/scheduler/tasks/' + id, { method: 'DELETE', headers: schedHeaders() });
+    const d = await r.json();
+    if (d.ok) { showToast('已删除', 'success'); loadSchedulerTasks(); loadSchedulerRuns(); }
+    else showToast(d.error || '删除失败', 'error');
+  } catch(e) { showToast('删除失败: ' + e.message, 'error'); }
+}
+
+// 设置任务依赖（轻量 DAG：上游任务未成功则跳过执行）
+async function setTaskDep(id, name) {
+  const dep = prompt('为「' + name + '」设置上游依赖任务 ID（留空清除）：\n提示：依赖任务未成功（状态非 ok）时，本任务自动跳过。');
+  if (dep === null) return;
+  try {
+    const r = await fetch('/api/scheduler/tasks/' + id, {
+      method: 'PUT', headers: schedHeaders(),
+      body: JSON.stringify({ depends_on: dep.trim() })
+    });
+    const d = await r.json();
+    showToast(d.ok ? '依赖已更新' : (d.error || '更新失败'), d.ok ? 'success' : 'error');
+    if (d.ok) loadSchedulerTasks();
+  } catch(e) { showToast('更新失败: ' + e.message, 'error'); }
+}
+
+// ===== 执行历史 =====
+async function loadSchedulerRuns() {
+  try {
+    const r = await fetch('/api/scheduler/runs', { headers: schedHeaders() });
+    const d = await r.json();
+    const el = document.getElementById('sched-run-list');
+    if (!d.ok || !d.runs.length) { el.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无执行记录</div>'; return; }
+    el.innerHTML = '<table style="width:100%;font-size:12px;border-collapse:collapse;"><tr style="color:var(--ink-subtle);text-align:left;">' +
+      '<th style="padding:6px;">时间</th><th>触发</th><th>状态</th><th>HTTP</th><th>耗时</th><th>输出/错误</th></tr>' +
+      d.runs.map(r => `
+        <tr style="border-top:1px solid var(--glass-border);">
+          <td style="padding:6px;">${(r.started_at || '').replace('T',' ').slice(0,19)}</td>
+          <td>${r.trigger === 'manual' ? '手动' : '定时'}</td>
+          <td style="color:${schedStatusColor(r.status)};">${schedStatusLabel(r.status)}</td>
+          <td>${r.http_code || '—'}</td>
+          <td>${r.duration_ms != null ? r.duration_ms + 'ms' : '—'}</td>
+          <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.error || r.output || '').replace(/"/g,'&quot;')}">${(r.error || r.output || '').slice(0,60)}</td>
+        </tr>`).join('') + '</table>';
+  } catch(e) { /* ignore */ }
+}
+
+// 初始化
+setTimeout(function(){ loadSchedulerTasks(); loadSchedulerRuns(); }, 100);
+</script>

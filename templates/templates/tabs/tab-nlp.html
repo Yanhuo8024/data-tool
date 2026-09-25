@@ -1,0 +1,84 @@
+﻿<!-- ======================== NLP 文本分析 ======================== -->
+<div id="tab-nlp" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">NLP 文本分析</div>
+      <div class="c-sub">分词 / 词频统计 / 情感分析 / 关键词提取 / 词云</div>
+    </div>
+    <div class="eyebrow">数据来源</div>
+    <div class="grid" style="grid-template-columns:1fr;">
+      <div class="fg"><label>文本列</label><input id="nlp-col" placeholder="如 content / text / 评论"></div>
+    </div>
+    <div class="eyebrow">分析选项</div>
+    <div class="flex gap" style="flex-wrap:wrap;">
+      <label class="chk"><input type="checkbox" id="nlp-seg" checked> 分词统计</label>
+      <label class="chk"><input type="checkbox" id="nlp-sentiment"> 情感分析</label>
+      <label class="chk"><input type="checkbox" id="nlp-kw"> 关键词提取</label>
+      <label class="chk"><input type="checkbox" id="nlp-wc"> 词云</label>
+      <label class="chk"><input type="checkbox" id="nlp-lda"> 主题建模 LDA</label>
+      <label class="chk"><input type="checkbox" id="nlp-similarity"> 文本相似度</label>
+    </div>
+    <div style="font-size:11px;color:#999;margin-top:6px;">提示：LDA/相似度需至少 6 条文本；直接粘贴文本时自动按行拆分文档。</div>
+    <div class="bgrp" style="margin-top:10px;">
+      <button class="btn btn-p" onclick="doNLP()">开始分析</button>
+    </div>
+    <div id="nlp-stat" style="font-size:13px;color:var(--ink-subtle);margin-top:8px;"></div>
+  </div>
+
+  <!-- 分词结果 -->
+  <div class="card hide" id="nlp-seg-card">
+    <div class="c-head"><div class="c-title">分词统计</div></div>
+    <div id="nlp-seg-stats" style="margin-bottom:12px;"></div>
+    <div style="overflow-x:auto;max-height:400px;" id="nlp-seg-table"></div>
+  </div>
+
+  <!-- 情感分析结果 -->
+  <div class="card hide" id="nlp-sent-card">
+    <div class="c-head"><div class="c-title">情感分析</div></div>
+    <div id="nlp-sent-info"></div>
+  </div>
+
+  <!-- 关键词 -->
+  <div class="card hide" id="nlp-kw-card">
+    <div class="c-head"><div class="c-title">TF-IDF 关键词</div></div>
+    <div id="nlp-kw-info"></div>
+  </div>
+
+  <!-- 词云 -->
+  <div class="card hide" id="nlp-wc-card">
+    <div class="c-head"><div class="c-title">词云</div></div>
+    <div id="nlp-wc-img"></div>
+  </div>
+
+  <!-- ================== RAG 知识库 ================== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">RAG 知识库</div>
+      <div class="c-sub">研报/财报智能问答 · 原文引用（文档上传请前往「🗄️ 知识库管理」页）</div>
+    </div>
+    <div class="grid">
+      <div class="fg s2">
+        <label>已上传文档</label>
+        <select id="rag-docs" style="width:100%"><option value="">加载中...</option></select>
+        <button class="btn btn-w btn-sm" onclick="loadRAGDocs()" style="margin-top:8px;">刷新列表</button>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:12px;">
+      <div class="fg s2">
+        <label>提问</label>
+        <textarea id="rag-question" placeholder="如：总结这几份研报对宁德时代未来三年的盈利预测" style="width:100%;min-height:80px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:8px;"></textarea>
+        <button class="btn btn-p" onclick="askRAG()" style="margin-top:8px;">智能问答</button>
+      </div>
+      <div class="fg">
+        <label>回答</label>
+        <div id="rag-answer" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;min-height:120px;font-size:13px;white-space:pre-wrap;overflow-y:auto;color:#e0e0e0;">上传文档后开始提问...</div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg s2">
+        <label>引用来源</label>
+        <div id="rag-sources" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;max-height:150px;overflow-y:auto;font-size:12px;color:#888;">等待检索...</div>
+      </div>
+    </div>
+  </div>
+</div>

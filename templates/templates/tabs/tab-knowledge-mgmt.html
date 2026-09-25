@@ -1,0 +1,277 @@
+<!-- ======================== 知识库 ======================== -->
+<div id="tab-knowledge-mgmt" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📚</span>
+    <span class="cf-label">企业知识库</span>
+    <span class="cf-hint">多租户隔离 · 文档管理 · 智能问答</span>
+  </div>
+
+  <!-- 知识库列表 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">我的知识库</div>
+      <div class="c-sub">创建和管理个人/团队知识库</div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="createKnowledgeBase()">+ 新建知识库</button>
+      <button class="btn btn-p" onclick="syncBuiltinKnowledge()">📥 一键同步内置知识点</button>
+      <button class="btn btn-g" onclick="loadKnowledgeBases()">↻ 刷新</button>
+    </div>
+    <div id="kb-list" class="mt">
+      <div style="color:var(--ink-subtle);font-size:13px;">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 文档管理 -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">文档管理</div>
+      <div class="c-sub">上传 PDF、Word、TXT 等文档构建知识库</div>
+    </div>
+    <div class="grid">
+      <div class="fg"><label>选择知识库</label><select id="kb-select"><option value="">-- 请选择 --</option></select></div>
+      <div class="fg"><label>文档标题</label><input id="kb-doc-title" placeholder="输入文档标题"></div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="uploadDoc()">上传文档</button>
+    </div>
+    <div id="kb-doc-list" class="mt">
+      <div style="color:var(--ink-subtle);font-size:13px;">请先选择知识库</div>
+    </div>
+  </div>
+
+<script>
+// ===== 知识库管理 =====
+
+function kbHeaders(extra) {
+  const h = { 'Content-Type': 'application/json' };
+  const token = getAccessToken();
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return Object.assign(h, extra || {});
+}
+
+async function loadKnowledgeBases() {
+  const list = document.getElementById('kb-list');
+  if (!localStorage.getItem('access_token')) {
+    if (list) list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-subtle);font-size:13px;">未登录，请先到「🔐 登录」页查看知识库</div>';
+    return;
+  }
+  
+  try {
+    list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">加载中...</div>';
+    const r = await fetch('/api/knowledge', { headers: kbHeaders() });
+    const d = await r.json();
+    if (!d.ok) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-subtle);font-size:13px;">加载失败: ' + (d.error || '未知错误') + '</div>';
+      return;
+    }
+    
+    const select = document.getElementById('kb-select');
+    
+    if (d.knowledge_bases.length === 0) {
+      list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无知识库，点击上方按钮创建</div>';
+      select.innerHTML = '<option value="">-- 请选择 --</option>';
+      return;
+    }
+    
+    list.innerHTML = d.knowledge_bases.map(kb => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--glass-border);">
+        <div>
+          <div style="font-weight:600;font-size:14px;">📚 ${kb.name}</div>
+          <div style="font-size:12px;color:var(--ink-subtle);">${kb.description || '无描述'} · ${kb.doc_count} 篇文档</div>
+        </div>
+        <div>
+          <button class="btn btn-sm btn-g" onclick="loadDocs('${kb.id}')">查看文档</button>
+          <button class="btn btn-sm btn-w" onclick="deleteKnowledgeBase('${kb.id}')">删除</button>
+        </div>
+      </div>
+    `).join('');
+    
+    select.innerHTML = '<option value="">-- 请选择 --</option>' + 
+      d.knowledge_bases.map(kb => `<option value="${kb.id}">${kb.name}</option>`).join('');
+  } catch(e) {
+    console.error('加载知识库失败:', e);
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-subtle);font-size:13px;">加载失败: ' + e.message + '</div>';
+  }
+}
+
+async function createKnowledgeBase() {
+  const name = prompt('请输入知识库名称:');
+  if (!name) return;
+  
+  try {
+    const r = await fetch('/api/knowledge', {
+      method: 'POST',
+      headers: kbHeaders(),
+      body: JSON.stringify({ name, description: '' })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      loadKnowledgeBases();
+    }
+  } catch(e) {
+    alert('创建失败: ' + e.message);
+  }
+}
+
+async function syncBuiltinKnowledge() {
+  if (!confirm('将把内置知识点库（金融/银行/信贷/税收等 104 条）同步到「企业知识库」，继续？')) return;
+  showLoading('同步中...');
+  try {
+    const r = await fetch('/api/knowledge/sync-builtin', {
+      method: 'POST',
+      headers: kbHeaders()
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast('已同步 ' + d.doc_count + ' 条到「' + d.kb_name + '」', 'success');
+      loadKnowledgeBases();
+    } else {
+      showToast(d.error || '同步失败', 'error');
+    }
+  } catch(e) {
+    showToast('同步失败: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteKnowledgeBase(kbId) {
+  if (!confirm('确定要删除这个知识库吗？')) return;
+  
+  try {
+    const r = await fetch('/api/knowledge/' + kbId, { method: 'DELETE', headers: kbHeaders() });
+    const d = await r.json();
+    if (d.ok) loadKnowledgeBases();
+  } catch(e) {
+    alert('删除失败: ' + e.message);
+  }
+}
+
+async function loadDocs(kbId) {
+  try {
+    const r = await fetch('/api/knowledge/' + kbId + '/docs', { headers: kbHeaders() });
+    const d = await r.json();
+    if (!d.ok) return;
+    
+    const list = document.getElementById('kb-doc-list');
+    if (d.docs.length === 0) {
+      list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无文档</div>';
+      return;
+    }
+    
+    list.innerHTML = d.docs.map(doc => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--glass-border);">
+        <div>
+          <div style="font-size:13px;">${doc.title || '未命名'}</div>
+          <div style="font-size:11px;color:var(--ink-subtle);">${doc.file_type || 'text'} · ${doc.chunk_count} 个片段</div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    console.error('加载文档失败:', e);
+  }
+}
+
+async function uploadDoc() {
+  const kbId = document.getElementById('kb-select').value;
+  if (!kbId) { alert('请先选择知识库'); return; }
+  
+  const title = document.getElementById('kb-doc-title').value;
+  if (!title) { alert('请输入文档标题'); return; }
+  
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.doc,.docx,.txt,.md';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+    
+    try {
+      const r = await fetch('/api/knowledge/' + kbId + '/docs', {
+        method: 'POST',
+        headers: kbHeaders(),
+        body: formData
+      });
+      const d = await r.json();
+      if (d.ok) {
+        loadDocs(kbId);
+        document.getElementById('kb-doc-title').value = '';
+      }
+    } catch(err) {
+      alert('上传失败: ' + err.message);
+    }
+  };
+  input.click();
+}
+
+// 初始化
+setTimeout(loadKnowledgeBases, 100);
+</script>
+
+<!-- ======================== Markdown 目录批量导入 ======================== -->
+<div class="card" style="margin-top:28px;">
+  <div class="c-head">
+    <div class="c-title">📥 Markdown 目录批量导入</div>
+    <div class="c-sub">扫描目录下 .md 文件 → 解析 frontmatter → 增量合并到内置知识点库（RAG 即时生效）</div>
+  </div>
+  <div class="grid" style="margin-top:12px;">
+    <div class="fg">
+      <label>Markdown 目录路径</label>
+      <input id="md-import-dir" placeholder="D:\docs\knowledge">
+    </div>
+    <div class="fg">
+      <label>分类（可选，覆盖 frontmatter 缺失时）</label>
+      <input id="md-import-cat" placeholder="finance">
+    </div>
+  </div>
+  <div class="grid" style="margin-top:10px;">
+    <div class="fg">
+      <label><input type="checkbox" id="md-import-overwrite"> 覆盖同名条目（默认跳过）</label>
+    </div>
+    <div class="fg">
+      <label><input type="checkbox" id="md-import-recursive"> 递归子目录</label>
+    </div>
+  </div>
+  <div class="bgrp" style="margin-top:10px;">
+    <button class="btn btn-p" onclick="importMdDir()">📥 批量导入</button>
+  </div>
+  <div id="md-import-result" class="mt" style="margin-top:10px;"></div>
+</div>
+<script>
+  async function importMdDir() {
+    var dir = document.getElementById('md-import-dir').value.trim();
+    var el = document.getElementById('md-import-result');
+    if (!dir) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">请输入目录路径</div>'; return; }
+    el.innerHTML = '<div style="color:#888;font-size:12px;">扫描导入中…</div>';
+    try {
+      var r = await fetch('/api/knowledge/import-dir', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dir: dir,
+          category: document.getElementById('md-import-cat').value.trim() || undefined,
+          overwrite: document.getElementById('md-import-overwrite').checked,
+          recursive: document.getElementById('md-import-recursive').checked
+        })
+      });
+      var d = await r.json();
+      if (!d.ok) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">' + d.error + '</div>'; return; }
+      var html = '<div style="font-size:12px;line-height:1.9;">' +
+        '✅ 导入 ' + d.imported + ' 条，跳过 ' + d.skipped + ' 条（目录共 ' + d.total + ' 个 .md）' +
+        '，当前知识库共 ' + d.entries_total + ' 条。<br>';
+      if (d.files && d.files.length) {
+        html += '<b>导入明细：</b><br>' + d.files.map(function (f) { return '&nbsp;&nbsp;• ' + f.name; }).join('<br>');
+      }
+      if (d.skipped_detail && d.skipped_detail.length) {
+        html += '<br><b>跳过：</b><br>' + d.skipped_detail.map(function (s) { return '&nbsp;&nbsp;• ' + s.file + '（' + s.reason + '）'; }).join('<br>');
+      }
+      html += '</div>';
+      el.innerHTML = html;
+    } catch (e) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">导入失败: ' + e.message + '</div>'; }
+  }
+</script>
+</div>

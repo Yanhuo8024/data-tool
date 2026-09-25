@@ -1,0 +1,222 @@
+﻿<!-- ======================== 报告生成 ======================== -->
+<div id="tab-report" class="sec">
+  <!-- 设置卡片 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">📋 分析报告生成</div>
+      <div class="c-sub">汇总本次会话所有分析结果，生成完整报告</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>报告模板</label>
+        <select id="rep-template">
+          <option value="none">不使用模板（纯图表汇总）</option>
+          <option value="data_exploration">数据探索性分析 (EDA)</option>
+          <option value="family_care">家庭照护研究专报</option>
+          <option value="financial_analysis">金融分析报告</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>&nbsp;</label>
+        <div class="bgrp" style="flex-direction:row;">
+          <button class="btn btn-p" onclick="generateFullReport()">生成完整报告</button>
+          <button class="btn btn-g" onclick="exportReportWord()">📝 导出 Word</button>
+        </div>
+      </div>
+    </div>
+    <div id="rep-stat" style="font-size:13px;color:var(--ink-subtle);margin-top:8px;"></div>
+  </div>
+
+  <!-- 本次会话结论 -->
+  <div class="card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">本次会话结论 (<span id="report-conclusion-count">0</span>)</div>
+      <div class="c-sub">AI 助手与各分析页生成的结论自动同步</div>
+    </div>
+    <div id="report-conclusions-preview" style="min-height:40px;">
+      <div style="color:#888;font-size:13px;text-align:center;padding:16px;">暂无结论，AI 助手/分析页生成的结论将自动同步到这里</div>
+    </div>
+  </div>
+
+  <!-- 已收集图表预览 -->
+  <div class="card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">本次会话图表 (<span id="report-chart-count">0</span>)</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-s btn-sm" onclick="clearAllCharts()">清空全部</button>
+        <button class="btn btn-g btn-sm" onclick="refreshReportList()">刷新列表</button>
+      </div>
+    </div>
+    <div id="report-charts-preview" style="min-height:60px;">
+      <div style="color:#888;font-size:13px;text-align:center;padding:20px;">在其他标签页生成图表后，这里会自动收集显示</div>
+    </div>
+  </div>
+
+  <!-- 报告预览区 -->
+  <div class="card hide" id="rep-result-card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">报告预览</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-g btn-sm" onclick="openReportNewTab()">新标签打开</button>
+        <button class="btn btn-s btn-sm" onclick="downloadReport()">下载HTML</button>
+      </div>
+    </div>
+    <div id="rep-final-preview" style="background:#fff;border-radius:8px;padding:24px;max-height:600px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<script>
+// 刷新报告列表（更新计数）
+function refreshReportList() {
+  document.getElementById('report-chart-count').textContent = _reportCharts.length;
+  updateReportPreview();
+}
+
+// 生成完整报告
+async function generateFullReport() {
+  var file = getCurrentFile();
+  var template = document.getElementById('rep-template').value;
+  var stat = document.getElementById('rep-stat');
+  var preview = document.getElementById('rep-final-preview');
+  
+  if (_reportCharts.length === 0) {
+    showToast('请先在分析/可视化页面生成图表', 'warning');
+    return;
+  }
+  
+  showLoading('正在生成报告...');
+  
+  stat.textContent = '正在生成报告...';
+  
+  // 清理 HTML 内容，避免破坏 JSON
+  var chartsData = _reportCharts.map(function(c) {
+    var cleanHtml = '';
+    if (c.html) {
+      // 移除换行符、制表符，压缩空格
+      cleanHtml = c.html.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    return { img: c.img || '', title: c.title || '', stats: c.stats || '', source: c.source || '', time: c.time || '', html: cleanHtml };
+  });
+  var conclusionsData = _reportConclusions.map(function(c) {
+    return { title: c.title || '', content: c.content || '', source: c.source || '', time: c.time || '' };
+  });
+  
+  try {
+    var r = await fetch('/api/report/preview', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ file: file, template: template, charts: chartsData, conclusions: conclusionsData })
+    });
+    var d = await r.json();
+    hideLoading();
+    if (d.error) { stat.textContent = '错误: ' + d.error; return; }
+    
+    stat.textContent = '报告已生成，共 ' + chartsData.length + ' 张图表 · ' + conclusionsData.length + ' 条结论';
+    document.getElementById('rep-result-card').classList.remove('hide');
+    preview.innerHTML = d.preview_html || '报告生成完成';
+    // 执行报告预览中的图表脚本（innerHTML 注入的 script 默认不执行）
+    preview.querySelectorAll('script').forEach(function(s) {
+      try {
+        var ns = document.createElement('script');
+        ns.text = s.textContent;
+        s.parentNode.replaceChild(ns, s);
+      } catch(e) {}
+    });
+  } catch(e) {
+    hideLoading();
+    stat.textContent = '失败: ' + e.message;
+    console.error('Report generation error:', e);
+  }
+}
+
+// 新标签打开报告
+function openReportNewTab() {
+  var preview = document.getElementById('rep-final-preview');
+  var w = window.open('', '_blank');
+  w.document.write('<html><head><meta charset="utf-8"><title>分析报告</title><style>body{font-family:-apple-system,sans-serif;max-width:900px;margin:20px auto;padding:20px;}img{max-width:100%;border-radius:4px;margin:12px 0;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:8px;text-align:left;}th{background:#f5f5f5;}</style></head><body>' + preview.innerHTML + '</body></html>');
+  w.document.close();
+}
+
+// 下载报告
+function downloadReport() {
+  var preview = document.getElementById('rep-final-preview');
+  var html = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>分析报告</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:900px;margin:20px auto;padding:20px;color:#333;}img{max-width:100%;border-radius:4px;margin:12px 0;}h1{border-bottom:2px solid #FF6B6B;padding-bottom:12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:8px;text-align:left;}th{background:#f5f5f5;}</style></head><body>' + preview.innerHTML + '</body></html>';
+  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'analysis_report_' + new Date().toISOString().slice(0,10) + '.html';
+  a.click();
+}
+
+// 导出 Word：用户自定义保存路径与文件名（Chrome/Edge showSaveFilePicker，其余浏览器降级下载）
+async function exportReportWord() {
+  if (_reportCharts.length === 0) {
+    showToast('请先在分析/可视化页面生成图表', 'warning');
+    return;
+  }
+  showLoading('正在导出 Word...');
+  try {
+    var chartsData = _reportCharts.map(function(c) {
+      var cleanHtml = c.html ? c.html.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
+      return { img: c.img || '', title: c.title || '', stats: c.stats || '', source: c.source || '', time: c.time || '', html: cleanHtml };
+    });
+    var conclusionsData = _reportConclusions.map(function(c) {
+      return { title: c.title || '', content: c.content || '', source: c.source || '', time: c.time || '' };
+    });
+    
+    var r = await fetch('/api/report/export-docx', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ title: '数据分析报告', subtitle: '图表汇总 · 由 data.tool 生成', charts: chartsData, conclusions: conclusionsData })
+    });
+    if (!r.ok) {
+      var err = await r.json().catch(function() { return {}; });
+      showToast('导出失败: ' + (err.error || r.status), 'error');
+      return;
+    }
+    var blob = await r.blob();
+    var defaultName = 'data.tool报告_' + new Date().toISOString().slice(0, 10) + '.docx';
+    
+    // 优先：系统保存对话框（用户自选路径 + 命名）
+    if (window.showSaveFilePicker) {
+      try {
+        var handle = await window.showSaveFilePicker({
+          suggestedName: defaultName,
+          types: [{
+            description: 'Word 文档',
+            accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }
+          }]
+        });
+        var writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        showToast('✅ Word 已保存', 'success');
+      } catch(e) {
+        if (e.name === 'AbortError') { showToast('已取消保存', 'info'); }
+        else { console.error('Save picker error:', e); showToast('保存失败: ' + e.message, 'error'); }
+      }
+    } else {
+      // 降级：浏览器下载（文件名自定义）
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+      showToast('Word 已下载', 'success');
+    }
+  } catch(e) {
+    showToast('导出失败: ' + e.message, 'error');
+    console.error('Word export error:', e);
+  } finally {
+    hideLoading();
+  }
+}
+
+// 切换标签时刷新报告列表
+document.addEventListener('click', (e) => {
+  if (e.target.dataset && e.target.dataset.t === 'tab-report') {
+    refreshReportList();
+    updateReportPreview();
+  }
+});
+</script>

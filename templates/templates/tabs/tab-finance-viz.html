@@ -1,0 +1,217 @@
+<!-- ======================== 金融可视化 ======================== -->
+<div id="tab-finance-viz" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">金融数据可视化</div>
+      <div class="c-sub">选择图表类型生成专业金融图表</div>
+    </div>
+    <div class="eyebrow">选择要生成的图表（可多选）</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+      <div class="chk"><input type="checkbox" id="viz-candle" checked><label for="viz-candle">K线图（含成交量）</label></div>
+      <div class="chk"><input type="checkbox" id="viz-ma"><label for="viz-ma">移动平均线 MA</label></div>
+      <div class="chk"><input type="checkbox" id="viz-macd"><label for="viz-macd">MACD指标</label></div>
+      <div class="chk"><input type="checkbox" id="viz-rsi"><label for="viz-rsi">RSI相对强弱</label></div>
+      <div class="chk"><input type="checkbox" id="viz-boll"><label for="viz-boll">布林带</label></div>
+      <div class="chk"><input type="checkbox" id="viz-volume"><label for="viz-volume">成交量分析</label></div>
+      <div class="chk"><input type="checkbox" id="viz-heatmap"><label for="viz-heatmap">相关性热力图</label></div>
+      <div class="chk"><input type="checkbox" id="viz-returns"><label for="viz-returns">收益率分布</label></div>
+      <div class="chk"><input type="checkbox" id="viz-bar"><label for="viz-bar">柱状图（各列数值分布）</label></div>
+      <div class="chk"><input type="checkbox" id="viz-box"><label for="viz-box">箱线图（异常值检测）</label></div>
+      <div class="chk"><input type="checkbox" id="viz-density"><label for="viz-density">密度图（数值分布）</label></div>
+    </div>
+    <div class="bgrp" style="margin-top:16px;">
+      <button class="btn btn-p" onclick="runFinViz()">生成选中图表</button>
+      <button class="btn btn-g" onclick="runFinVizAll()">生成全部图表</button>
+    </div>
+    <div id="fin-viz-res" class="mt"></div>
+    <div id="fin-viz-charts" class="cg"></div>
+  </div>
+
+  <!-- ================== 高级交互图表 ================== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">高级交互图表</div><div class="c-sub">资金流向 / 筹码分布 / 热力图 / 收益曲线 / 最大回撤</div></div>
+    <div class="eyebrow">图表类型（可多选）</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">
+      <div class="chk"><input type="checkbox" id="adv-moneyflow"><label for="adv-moneyflow">💰 资金流向</label></div>
+      <div class="chk"><input type="checkbox" id="adv-chip"><label for="adv-chip">📊 筹码分布</label></div>
+      <div class="chk"><input type="checkbox" id="adv-heatmap"><label for="adv-heatmap">🔥 热力图</label></div>
+      <div class="chk"><input type="checkbox" id="adv-return"><label for="adv-return">📈 收益曲线</label></div>
+      <div class="chk"><input type="checkbox" id="adv-drawdown"><label for="adv-drawdown">📉 最大回撤</label></div>
+    </div>
+
+    <div class="eyebrow" style="margin-top:16px;">样式自定义</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(150px,1fr));">
+      <div class="fg"><label>配色主题</label><select id="adv-theme"><option value="">深色默认</option><option value="light">浅色</option></select></div>
+      <div class="fg"><label>图表宽度</label><select id="adv-width"><option value="800">800px</option><option value="900" selected>900px</option><option value="1100">1100px</option></select></div>
+      <div class="fg"><label>图表高度</label><select id="adv-height"><option value="400">400px</option><option value="500" selected>500px</option><option value="600">600px</option></select></div>
+      <div class="fg"><label>水印文字</label><input id="adv-watermark" placeholder="如: data.tool" value="data.tool"></div>
+    </div>
+
+    <div class="bgrp" style="margin-top:16px;">
+      <button class="btn btn-p" onclick="runAdvViz()">生成交互图表</button>
+      <button class="btn btn-g" onclick="runAdvVizAll()">生成全部</button>
+      <button class="btn btn-w" onclick="batchExportAdv(this)">📦 批量导出 HTML</button>
+    </div>
+    <div id="adv-viz-res" class="mt"></div>
+    <div id="adv-viz-charts" class="cg"></div>
+  </div>
+
+  <!-- ================== 多股对比图 ================== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">多股对比图</div><div class="c-sub">同画布对比多只股票走势</div></div>
+    <div class="grid">
+      <div class="fg s2"><label>选择对比股票（可多选）</label><div id="compare-stock-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div></div>
+      <div class="fg"><label>对比指标</label><select id="compare-metric"><option value="close">收盘价</option><option value="open">开盘价</option><option value="high">最高价</option><option value="low">最低价</option><option value="volume">成交量</option></select></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p" onclick="runCompare()">生成对比图</button></div>
+    <div id="compare-res" class="mt"></div>
+    <div id="compare-chart" class="cg"></div>
+  </div>
+
+  <!-- ================== 图表联动（K线 + 收益率分布） ================== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">联动图表分析</div><div class="c-sub">框选K线图时间范围，自动过滤收益率分布数据</div></div>
+    <div class="grid">
+      <div class="fg"><label>股票代码</label><input id="link-symbol" placeholder="如 000001" value="000001" style="width:100%;"></div>
+      <div class="fg"><label>起始日期</label><input type="date" id="link-start" style="width:100%;"></div>
+      <div class="fg"><label>结束日期</label><input type="date" id="link-end" style="width:100%;"></div>
+      <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="loadLinkedCharts()">加载联动图表</button></div>
+    </div>
+    <div id="linked-charts-area" style="display:none; margin-top:20px;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="height:450px; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px;">
+          <div style="color:#888; font-size:12px; margin-bottom:8px;">📈 K线图（框选时间范围触发联动）</div>
+          <div id="kline-chart" style="width:100%; height:calc(100% - 30px);"></div>
+        </div>
+        <div style="height:450px; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px;">
+          <div style="color:#888; font-size:12px; margin-bottom:8px;">📊 收益率分布（自动响应范围变化）</div>
+          <div id="returns-chart" style="width:100%; height:calc(100% - 30px);"></div>
+        </div>
+      </div>
+      <div id="link-status" style="color:#888; font-size:13px; margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- ================== 自定义图表 ================== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">📉 自定义图表</div>
+      <div class="c-sub">选择数据列绘制图表（支持多选）</div>
+    </div>
+    <div class="grid">
+      <div class="fg"><label>图表类型</label>
+        <select id="viz-custom-type">
+          <option value="scatter">散点图</option>
+          <option value="line">折线图</option>
+          <option value="bar">柱状图</option>
+          <option value="hist">直方图</option>
+          <option value="box">箱线图</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg"><label>X 轴（横坐标，可多选）</label><select id="viz-custom-x" multiple size="5" style="height:auto;min-height:80px;"><option value="">选择列...</option></select></div>
+      <div class="fg"><label>Y 轴（纵坐标，可多选）</label><select id="viz-custom-y" multiple size="5" style="height:auto;min-height:80px;"><option value="">选择列...</option></select></div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="drawVizCustomChart()">绘制图表</button>
+    </div>
+    <div id="viz-custom-res" class="mt" style="display:none;">
+      <div id="viz-custom-img" style="text-align:center;"></div>
+      <div id="viz-custom-stats" style="margin-top:8px;font-size:13px;color:var(--ink-subtle);"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 自定义图表：加载列
+async function loadVizCustomColumns() {
+  const file = getCurrentFile();
+  if (!file) return;
+  
+  try {
+    const r = await fetch('/api/ml/columns?file=' + encodeURIComponent(file));
+    const d = await r.json();
+    if (d.error) return;
+    
+    const xSel = document.getElementById('viz-custom-x');
+    const ySel = document.getElementById('viz-custom-y');
+    xSel.innerHTML = '<option value="">选择列...</option>';
+    ySel.innerHTML = '<option value="">选择列...</option>';
+    
+    d.numeric.forEach(col => {
+      const optX = document.createElement('option');
+      optX.value = col; optX.textContent = col;
+      xSel.appendChild(optX);
+      
+      const optY = document.createElement('option');
+      optY.value = col; optY.textContent = col;
+      ySel.appendChild(optY);
+    });
+  } catch(e) {}
+}
+
+// 自定义图表：绘制
+async function drawVizCustomChart() {
+  const file = getCurrentFile();
+  const xSel = document.getElementById('viz-custom-x');
+  const ySel = document.getElementById('viz-custom-y');
+  const chartType = document.getElementById('viz-custom-type').value;
+  
+  // 获取多选值
+  const xCols = Array.from(xSel.selectedOptions).map(o => o.value).filter(v => v);
+  const yCols = Array.from(ySel.selectedOptions).map(o => o.value).filter(v => v);
+  
+  if (!file) return alert('请选择数据文件');
+  if (xCols.length === 0 && chartType !== 'hist') return alert('请选择 X 轴列');
+  if (yCols.length === 0 && chartType !== 'hist') return alert('请选择 Y 轴列');
+  
+  const r = await fetch('/api/chart/custom', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ file, x: xCols, y: yCols, type: chartType })
+  });
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  
+  const imgDiv = document.getElementById('viz-custom-img');
+  if (d.img) {
+    imgDiv.innerHTML = '<img src="/api/chart/charts/' + d.img + '" style="max-width:100%;border-radius:8px;">';
+    // 自动保存到报告
+    const xLabel = xCols.join(', ');
+    const yLabel = yCols.join(', ');
+    saveChartToReport(d.img, `${chartType}: ${xLabel} vs ${yLabel}`, d.stats, '自定义图表');
+  }
+  
+  const statsDiv = document.getElementById('viz-custom-stats');
+  if (d.stats) {
+    statsDiv.innerHTML = d.stats;
+  }
+  
+  document.getElementById('viz-custom-res').style.display = 'block';
+}
+
+// 切换标签时加载列
+document.addEventListener('click', (e) => {
+  if (e.target.dataset && e.target.dataset.t === 'tab-finance-viz') {
+    setTimeout(loadVizCustomColumns, 200);
+    if (typeof loadCompareStocks === 'function') setTimeout(loadCompareStocks, 200);
+  }
+});
+
+// 监听金融数据全局同步事件
+window.addEventListener('financeDataUpdated', function(e) {
+  const data = e.detail;
+  if (!data.file) return;
+  
+  // 更新自定义图表列
+  setTimeout(loadVizCustomColumns, 100);
+  
+  // 显示同步提示
+  const vizRes = document.getElementById('fin-viz-res');
+  if (vizRes) {
+    vizRes.innerHTML = `<div style="padding:8px 12px;background:rgba(99,102,241,0.1);border-radius:6px;font-size:12px;color:var(--primary);">
+      📈 金融数据已同步：${data.file} (${data.rows}行 × ${data.cols}列, 来源: ${data.source})
+    </div>`;
+  }
+});
+</script>

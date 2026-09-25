@@ -1,0 +1,784 @@
+<div id="tab-help" class="sec">
+  <style>
+    /* ===== 使用教程页内聚样式（仅作用于 #tab-help，不改动全局） ===== */
+    #tab-help { max-width:1480px; margin:0 auto; padding:0 0 40px; }
+    #tab-help .tut-progress { position:sticky; top:0; z-index:20; height:3px; background:transparent; margin:0 0 16px; }
+    #tab-help .tut-progress > i { display:block; height:100%; width:0; background:linear-gradient(90deg,#5E6AD2,#4ECDC4,#FF6B6B); border-radius:0 3px 3px 0; transition:width .2s ease; }
+
+    #tab-help .tut-hero { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+    #tab-help .tut-hero h1 { font-size:22px; font-weight:700; color:var(--ink); letter-spacing:-.3px; margin:0; display:flex; align-items:center; gap:10px; }
+    #tab-help .tut-hero h1 .grad { background:linear-gradient(90deg,#5E6AD2,#4ECDC4,#FF6B6B); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    #tab-help .tut-hero .sub { font-size:12.5px; color:var(--ink-subtle); font-family:'JetBrains Mono',ui-monospace,monospace; margin-top:6px; }
+    #tab-help .tut-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+    #tab-help .tut-overview { display:grid; grid-template-columns:1.15fr 1fr; gap:16px; margin-bottom:22px; }
+    @media (max-width:860px){ #tab-help .tut-overview{ grid-template-columns:1fr; } }
+    #tab-help .wt-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    @media (max-width:680px){ #tab-help .wt-grid{ grid-template-columns:1fr; } }
+    #tab-help .wt-card { border-radius:14px; padding:15px; cursor:pointer; transition:.18s; border:1px solid transparent; }
+    #tab-help .wt-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,.28); }
+    #tab-help .wt-card .t { font-size:15px; font-weight:700; color:var(--ink); }
+    #tab-help .wt-card .d { font-size:12px; color:var(--ink-muted); margin-top:6px; line-height:1.6; }
+    #tab-help .wt-card .go { display:inline-block; margin-top:10px; font-size:12px; font-weight:600; }
+
+    #tab-help .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    @media (max-width:680px){ #tab-help .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
+
+    #tab-help .quick-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:10px; }
+
+    #tab-help .tut-layout { display:grid; grid-template-columns:234px 1fr; gap:30px; align-items:start; margin-top:26px; }
+    @media (max-width:980px){ #tab-help .tut-layout{ grid-template-columns:1fr; gap:18px; } }
+
+    #tab-help .tut-toc { position:sticky; top:16px; align-self:start; background:var(--bg-surface); border:1px solid var(--glass-border); border-radius:14px; padding:12px 10px; }
+    #tab-help .tut-toc .toc-h { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-tertiary); padding:4px 10px 8px; }
+    #tab-help .tut-toc a { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:9px; color:var(--ink-subtle); font-size:13px; border-left:2px solid transparent; transition:.15s; text-decoration:none; cursor:pointer; }
+    #tab-help .tut-toc a:hover { background:var(--bg-card-hover); color:var(--ink); }
+    #tab-help .tut-toc a.active { color:var(--ink); background:var(--bg-card); border-left-color:#FF6B6B; font-weight:600; }
+    #tab-help .tut-toc a .dot { width:6px; height:6px; border-radius:50%; background:var(--ink-tertiary); flex-shrink:0; transition:.15s; }
+    #tab-help .tut-toc a.active .dot { background:#FF6B6B; }
+    @media (max-width:980px){ #tab-help .tut-toc{ display:none; } }
+
+    #tab-help .tut-chips { display:none; gap:8px; overflow-x:auto; padding:2px 0 10px; }
+    #tab-help .tut-chips a { white-space:nowrap; padding:7px 12px; font-size:12.5px; border-radius:999px; background:var(--bg-card); border:1px solid var(--glass-border); color:var(--ink-muted); text-decoration:none; cursor:pointer; }
+    #tab-help .tut-chips a:active, #tab-help .tut-chips a.active { border-color:var(--glass-border-strong); color:var(--ink); }
+    @media (max-width:980px){ #tab-help .tut-chips{ display:flex; } }
+
+    /* ===== 章节手风琴（默认折叠，点击目录/标题展开） ===== */
+    #tab-help details.tut-ch-d { border:1px solid var(--glass-border); border-radius:12px; margin:14px 0; background:var(--bg-card); overflow:hidden; transition:.18s; }
+    #tab-help details.tut-ch-d[open] { border-color:var(--glass-border-strong); background:var(--bg-card-hover); }
+    #tab-help details.tut-ch-d > summary.tut-ch-sum { list-style:none; cursor:pointer; display:flex; align-items:center; gap:11px; padding:15px 16px; font-size:19px; font-weight:700; color:var(--ink); scroll-margin-top:18px; }
+    #tab-help details.tut-ch-d > summary::-webkit-details-marker { display:none; }
+    #tab-help .tut-ch-sum .num { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-size:13px; font-weight:700; color:#fff; background:linear-gradient(135deg,#5E6AD2,#4ECDC4); flex-shrink:0; }
+    #tab-help .tut-ch-sum .ch-sub { font-size:12px; color:var(--ink-subtle); font-weight:400; }
+    #tab-help .tut-ch-sum .chev { margin-left:auto; color:var(--ink-tertiary); transition:.2s; flex-shrink:0; }
+    #tab-help details.tut-ch-d[open] > summary .chev { transform:rotate(90deg); color:var(--ink); }
+    #tab-help .tut-ch-body { padding:2px 18px 18px; }
+
+    #tab-help .tut-callout { background:rgba(94,106,210,.08); border:1px solid rgba(94,106,210,.20); border-radius:11px; padding:14px 16px; font-size:13px; line-height:1.95; color:var(--ink-muted); }
+    #tab-help .tut-callout b { color:var(--ink); }
+
+    #tab-help .tut-modules { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    @media (max-width:680px){ #tab-help .tut-modules{ grid-template-columns:1fr; } }
+    #tab-help .tut-mod { background:var(--bg-card); border:1px solid var(--glass-border); border-radius:12px; overflow:hidden; transition:.18s; }
+    #tab-help .tut-mod:hover { border-color:var(--glass-border-strong); }
+    #tab-help .tut-mod[open] { background:var(--bg-card-hover); border-color:var(--glass-border-strong); }
+    #tab-help .tut-mod > summary { list-style:none; cursor:pointer; padding:14px 16px; display:flex; gap:12px; align-items:flex-start; }
+    #tab-help .tut-mod > summary::-webkit-details-marker { display:none; }
+    #tab-help .tut-mod .ico { width:34px; height:34px; border-radius:9px; background:var(--bg-surface); border:1px solid var(--glass-border); display:grid; place-items:center; font-size:17px; flex-shrink:0; }
+    #tab-help .tut-mod .m-head { flex:1; min-width:0; }
+    #tab-help .tut-mod .m-title { font-weight:600; font-size:14px; color:var(--ink); line-height:1.4; }
+    #tab-help .tut-mod .m-badge { font-size:11px; color:var(--ink-subtle); margin-top:3px; }
+    #tab-help .tut-mod .chev { color:var(--ink-tertiary); transition:.2s; flex-shrink:0; margin-top:6px; }
+    #tab-help .tut-mod[open] .chev { transform:rotate(90deg); color:var(--ink); }
+    #tab-help .tut-mod .m-body { padding:0 16px 16px 62px; font-size:13px; line-height:1.85; color:var(--ink-muted); }
+
+    #tab-help .tut-tbl { width:100%; font-size:12px; border-collapse:collapse; margin-top:4px; }
+    #tab-help .tut-tbl td { padding:5px 9px; border-bottom:1px solid var(--glass-border); vertical-align:top; }
+    #tab-help .tut-tbl tr:nth-child(even) td { background:rgba(255,255,255,.02); }
+    #tab-help .tut-tbl td.k { font-weight:600; color:var(--ink); white-space:nowrap; width:38%; }
+
+    #tab-help .toolbar { display:flex; gap:8px; align-items:center; margin:6px 0 14px; flex-wrap:wrap; }
+    #tab-help .toolbar .sp { color:var(--ink-tertiary); font-size:12px; margin-left:auto; }
+
+    #tab-help .scn-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    @media (max-width:680px){ #tab-help .scn-grid{ grid-template-columns:1fr; } }
+    #tab-help .scn { background:var(--bg-card); border:1px solid var(--glass-border); border-left:3px solid #5E6AD2; border-radius:10px; padding:13px 15px; }
+    #tab-help .scn .s-t { font-size:13.5px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+    #tab-help .scn .s-d { font-size:12.5px; color:var(--ink-muted); line-height:1.7; }
+
+    #tab-help .arch-box { background:var(--bg-card); border:1px solid var(--glass-border); border-radius:11px; padding:16px; font-size:12.5px; line-height:2; color:var(--ink-muted); }
+    #tab-help .arch-box b { color:var(--ink); }
+
+    #tab-help .faq-item { border-bottom:1px solid var(--glass-border); padding:13px 2px; }
+    #tab-help .faq-item:last-child { border-bottom:none; }
+    #tab-help .faq-q { font-size:13.5px; font-weight:600; color:var(--ink); margin-bottom:5px; }
+    #tab-help .faq-q::before { content:"Q · "; color:#4ECDC4; font-family:'JetBrains Mono',monospace; }
+    #tab-help .faq-a { font-size:13px; color:var(--ink-muted); line-height:1.8; }
+    #tab-help .faq-a::before { content:"A · "; color:var(--ink-tertiary); }
+  </style>
+
+  <!-- 阅读进度条（点击目录展开章节即增长） -->
+  <div class="tut-progress"><i></i></div>
+
+  <!-- 头部 -->
+  <div class="tut-hero">
+    <div>
+      <h1><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4ECDC4" stroke-width="2.2" stroke-linecap="round"><use href="#i-grid"/></svg>使用教程 · <span class="grad">功能导览</span></h1>
+      <div class="sub">38 个功能标签页 · 7 大分组 · 268 个 API 接口 · 零费用本地运行</div>
+    </div>
+    <div class="tut-actions">
+      <button class="btn btn-s" onclick="location.href='/docs'" style="font-size:12.5px;padding:7px 14px;">📖 API 文档</button>
+      <button class="btn btn-s" onclick="switchToTab('tab-guide')" style="font-size:12.5px;padding:7px 14px;">智能流程</button>
+      <button class="btn btn-p" onclick="switchToTab('tab-nlq')" style="font-size:12.5px;padding:7px 14px;">AI 助手</button>
+    </div>
+  </div>
+
+  <!-- 概览：演练卡 + KPI -->
+  <div class="tut-overview">
+    <div style="background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:14px;padding:16px;">
+      <div style="font-size:11px;font-weight:600;color:var(--ink-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">交互式演练 · 点击逐步引导</div>
+      <div class="wt-grid">
+        <div class="wt-card" style="background:linear-gradient(135deg,rgba(94,106,210,.12),rgba(255,107,107,.08));border-color:rgba(94,106,210,.20);" onclick="startWalkthrough('did')">
+          <div class="t">📊 DID 双重差分</div>
+          <div class="d">政策评估：处理组/对照组 × 试点前后 → 因果效应。</div>
+          <div class="go" style="color:#FF6B6B;">▶ 开始演练</div>
+        </div>
+        <div class="wt-card" style="background:linear-gradient(135deg,rgba(255,107,107,.09),rgba(255,142,83,.08));border-color:rgba(255,107,107,.20);" onclick="startWalkthrough('fund')">
+          <div class="t">📈 基金分析</div>
+          <div class="d">公募净值 → 年化收益 / 回撤 / 夏普 / Calmar / Sortino。</div>
+          <div class="go" style="color:#FF6B6B;">▶ 开始演练</div>
+        </div>
+        <div class="wt-card" style="background:linear-gradient(135deg,rgba(78,205,196,.12),rgba(69,183,209,.08));border-color:rgba(78,205,196,.20);" onclick="startWalkthrough('fixedincome')">
+          <div class="t">🧾 固定收益分析</div>
+          <div class="d">债券估值 / 久期凸性 / 收益率曲线 / 信用利差 / 压力测试。</div>
+          <div class="go" style="color:#FF6B6B;">▶ 开始演练</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:14px;padding:16px;">
+      <div style="font-size:11px;font-weight:600;color:var(--ink-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">实时概览</div>
+      <div class="kpi-grid">
+        <div class="ui-kpi" style="padding:16px;">
+          <div class="ui-kpi-top" style="margin-bottom:10px;"><div class="ui-kpi-ico"><svg><use href="#i-db"/></svg></div><span class="ui-kpi-label">数据文件</span></div>
+          <div class="ui-kpi-val" style="font-size:22px;" id="db-file-count">-</div>
+        </div>
+        <div class="ui-kpi" style="padding:16px;">
+          <div class="ui-kpi-top" style="margin-bottom:10px;"><div class="ui-kpi-ico cyan"><svg><use href="#i-brain"/></svg></div><span class="ui-kpi-label">已保存模型</span></div>
+          <div class="ui-kpi-val" style="font-size:22px;" id="db-model-count">-</div>
+        </div>
+        <div class="ui-kpi" style="padding:16px;">
+          <div class="ui-kpi-top" style="margin-bottom:10px;"><div class="ui-kpi-ico pos"><svg><use href="#i-grid"/></svg></div><span class="ui-kpi-label">功能标签页</span></div>
+          <div class="ui-kpi-val" style="font-size:22px;">38</div>
+        </div>
+        <div class="ui-kpi" style="padding:16px;">
+          <div class="ui-kpi-top" style="margin-bottom:10px;"><div class="ui-kpi-ico warn"><svg><use href="#i-chart"/></svg></div><span class="ui-kpi-label">API 接口</span></div>
+          <div class="ui-kpi-val" style="font-size:22px;">268</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快捷入口 -->
+  <div style="margin-bottom:6px;">
+    <div style="font-size:11px;font-weight:600;color:var(--ink-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">快捷入口</div>
+    <div class="quick-grid">
+      <div onclick="switchToTab('tab-guide')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(34,211,238,.14);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"><use href="#i-layer"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">智能流程</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">AI 推荐操作路径</div></div>
+      </div>
+      <div onclick="switchToTab('tab-nlq')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(59,130,246,.14);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"><use href="#i-chat"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">NLQ 自然语言</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">问什么问题出什么图</div></div>
+      </div>
+      <div onclick="switchToTab('tab-analyze')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:var(--success-glow);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round"><use href="#i-chart"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">数据分析</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">描述统计 / 相关性</div></div>
+      </div>
+      <div onclick="switchToTab('tab-ml')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:var(--warning-glow);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><use href="#i-brain"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">机器学习</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">回归 / 分类 / 聚类</div></div>
+      </div>
+      <div onclick="switchToTab('tab-report')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(34,211,238,.14);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"><use href="#i-doc"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">报告生成</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">模板化 HTML/Word 报告</div></div>
+      </div>
+      <div onclick="switchToTab('tab-agent-flow')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(94,106,210,.16);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b93e8" stroke-width="2" stroke-linecap="round"><use href="#i-layer"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">Agent 流程</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">多 Agent 并行画布回放</div></div>
+      </div>
+      <div onclick="switchToTab('tab-troubleshooting')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:12px;cursor:pointer;transition:.15s;">
+        <div style="width:36px;height:36px;border-radius:9px;background:rgba(255,107,107,.14);display:grid;place-items:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2" stroke-linecap="round"><use href="#i-brain"/></svg></div>
+        <div><div style="font-size:13.5px;font-weight:600;color:var(--ink);">故障排查</div><div style="font-size:11.5px;color:var(--ink-subtle);margin-top:2px;">症状 → 原因 → 步骤</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据文件卡片 -->
+  <div class="ui-card" style="overflow:hidden;margin-top:18px;">
+    <div class="ui-card-head" style="padding:14px 20px;">
+      <h3 style="font-size:14px;"><svg><use href="#i-table"/></svg>数据文件</h3>
+      <button class="btn btn-s" style="padding:5px 12px;font-size:12px;" onclick="switchToTab('tab-store')">管理文件</button>
+    </div>
+    <div id="db-files" style="padding:16px 20px;min-height:48px;">
+      <span style="color:var(--ink-subtle);font-size:13px;">加载中...</span>
+    </div>
+  </div>
+
+  <!-- 章节导航 + 正文（手风琴：默认折叠，点击展开） -->
+  <div class="tut-layout">
+    <!-- 左侧粘性目录 -->
+    <nav class="tut-toc">
+      <div class="toc-h">目录 · 点击展开</div>
+      <a href="#ch-quick" onclick="tutToggleChapter('ch-quick');return false;"><span class="dot"></span>一、快速开始</a>
+      <a href="#ch-dataset" onclick="tutToggleChapter('ch-dataset');return false;"><span class="dot"></span>二、演示数据集</a>
+      <a href="#ch-modules" onclick="tutToggleChapter('ch-modules');return false;"><span class="dot"></span>三、功能模块详解</a>
+      <a href="#ch-shortcuts" onclick="tutToggleChapter('ch-shortcuts');return false;"><span class="dot"></span>四、键盘快捷键</a>
+      <a href="#ch-scenarios" onclick="tutToggleChapter('ch-scenarios');return false;"><span class="dot"></span>五、常见使用场景</a>
+      <a href="#ch-arch" onclick="tutToggleChapter('ch-arch');return false;"><span class="dot"></span>六、技术架构速览</a>
+      <a href="#ch-faq" onclick="tutToggleChapter('ch-faq');return false;"><span class="dot"></span>七、常见问题 FAQ</a>
+    </nav>
+
+    <!-- 正文 -->
+    <div>
+      <!-- 移动端章节 chips -->
+      <div class="tut-chips">
+        <a href="#ch-quick" onclick="tutToggleChapter('ch-quick');return false;">快速开始</a>
+        <a href="#ch-dataset" onclick="tutToggleChapter('ch-dataset');return false;">数据集</a>
+        <a href="#ch-modules" onclick="tutToggleChapter('ch-modules');return false;">功能模块</a>
+        <a href="#ch-shortcuts" onclick="tutToggleChapter('ch-shortcuts');return false;">快捷键</a>
+        <a href="#ch-scenarios" onclick="tutToggleChapter('ch-scenarios');return false;">场景</a>
+        <a href="#ch-arch" onclick="tutToggleChapter('ch-arch');return false;">架构</a>
+        <a href="#ch-faq" onclick="tutToggleChapter('ch-faq');return false;">FAQ</a>
+      </div>
+
+      <!-- ====== 一、快速开始 ====== -->
+      <details class="tut-ch-d" id="ch-quick">
+        <summary class="tut-ch-sum"><span class="num">1</span> 快速开始 <span class="ch-sub">3 步上手 · 快捷键速记</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="tut-callout">
+            <b>📦 系统环境：</b>Windows · Python 3.11 · Flask + pandas + sklearn + matplotlib + Plotly<br>
+            <b>🚀 启动方式：</b>双击 start.bat → 浏览器访问 http://127.0.0.1:5000<br>
+            <b>📊 演示/示例数据：</b>位于「存储」标签页可选，常用：<br>
+            　· <b>长期护理保险面板</b>（长期护理保险试点是否缓解了家庭消费结构降级…xlsx · 373行×18列 · 31省份 2013–2024 · DID 政策评估演示）<br>
+            　· <b>finance_ml_final_project_data.csv</b>（1200行×27列 · 金融风控/信贷违约预测）<br>
+            　· <b>Sales Analysis Report 1.xlsx</b>（7991行×12列 · 销售订单分析）<br><br>
+            <b>⚡ 3 步上手：</b><br>
+            1️⃣ <b>选择文件</b> → 在<b>顶栏下拉框</b>选择数据文件（所有标签页共享同一文件）→ 点击「📈 分析」查看概览<br>
+            2️⃣ <b>绘制图表</b> → 选择 X 轴（如"省份"）和 Y 轴（如"生存型消费占比"） → 选择图表类型 → 生成<br>
+            3️⃣ <b>深入分析</b> → 切换「相关性」「分组统计」「机器学习」等标签页进一步挖掘<br>
+            <b>💡 快捷键：</b>Ctrl+Shift+1~9 切换标签页 | Ctrl+K 全局搜索 | Ctrl+Shift+A AI助手 | Ctrl+Enter 执行操作 | Ctrl+Shift+L 切换主题 | ? 查看所有快捷键<br>
+            <b>🔑 数据源配置：</b>tushare token 已内置（secure_config），baostock 免费免配置，akshare 依赖网络连通性<br>
+            <b>🧭 看 AI 到底干了什么：</b>AI 助手每次问答的轨迹都会画到「🧭 Agent 流程」画布上——节点状态、连线流动、逐步耗时、失败原因一目了然（多 Agent 并行时会看到多个节点同时亮起）<br>
+            <b>🔧 卡住了怎么办：</b>先到「🔧 排查」手册按症状对号入座（9 类高频故障、含可直接复制的排查命令），再按<b>看日志 → 看接口 → 重启生效</b>三板斧走
+          </div>
+        </div>
+      </details>
+
+      <!-- ====== 二、演示数据集 ====== -->
+      <details class="tut-ch-d" id="ch-dataset">
+        <summary class="tut-ch-sum"><span class="num">2</span> 演示数据集说明<span class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="tut-callout" style="background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.20);">
+            <b>数据文件：</b>长期护理保险试点是否缓解了家庭消费结构降级基于双重差分法的实证评估1.xlsx<br>
+            <b>数据主题：</b>中国 31 省份长期护理保险（长护险）试点与家庭消费结构 — DID 政策评估演示面板<br>
+            <b>时间范围：</b>2013 — 2024 年（12 年）<br>
+            <b>数据量：</b>373 行 × 18 列（含「试点/处理组」「政策前后」等 DID 变量）<br><br>
+            <b>列名及含义：</b>
+            <table class="tut-tbl">
+              <tr><td class="k">省份</td><td>31 个省级行政区（北京、上海…）</td></tr>
+              <tr><td class="k">年份</td><td>2013-2024</td></tr>
+              <tr><td class="k">生存型消费占比（%）</td><td>食品、住房等基本消费占比</td></tr>
+              <tr><td class="k">发展型消费占比（%）</td><td>教育、医疗、交通等消费占比</td></tr>
+              <tr><td class="k">享受型消费占比（%）</td><td>文化娱乐、旅游等消费占比</td></tr>
+              <tr><td class="k">失能老人占比（%）</td><td>完全/部分失能老人比例</td></tr>
+              <tr><td class="k">老年慢性病患病率（%）</td><td>高血压、糖尿病等慢性病患病率</td></tr>
+              <tr><td class="k">居民人均可支配收入</td><td>单位：元</td></tr>
+              <tr><td class="k">平均家庭户规模</td><td>每户人口数</td></tr>
+              <tr><td class="k">城镇化率</td><td>城镇人口占比</td></tr>
+              <tr><td class="k">大专及以上人口占比（%）</td><td>高等教育人口比例</td></tr>
+              <tr><td class="k">城镇调查失业率</td><td>城镇登记失业率</td></tr>
+              <tr><td class="k">农村就业率</td><td>农村劳动力就业率</td></tr>
+              <tr><td class="k">人均地区生产总值</td><td>人均 GDP</td></tr>
+            </table>
+            <b>DID 专属变量：</b>除上表消费/人口/经济列外，本面板还含「是否试点（处理组）」「政策前后（时点）」等双重差分标识列，用于「treat×post」交互项回归——可直接在「DID 计量」标签页选择省份/年份/处理组与政策时点运行政策评估。<br>
+            <b>其他示例：</b>finance_ml_final_project_data.csv（1200×27，信贷客户风控/违约预测）、Sales Analysis Report 1.xlsx（7991×12，销售订单明细分析）。
+          </div>
+        </div>
+      </details>
+
+      <!-- ====== 三、功能模块详解 ====== -->
+      <details class="tut-ch-d" id="ch-modules">
+        <summary class="tut-ch-sum"><span class="num">3</span> 功能模块详解 <span class="ch-sub">36 个核心能力</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="toolbar">
+            <button class="btn btn-s btn-sm" id="tut-expand" style="font-size:12px;padding:5px 12px;">展开全部</button>
+            <button class="btn btn-s btn-sm" id="tut-collapse" style="font-size:12px;padding:5px 12px;">收起全部</button>
+            <span class="sp">点击卡片展开详细说明</span>
+          </div>
+          <div class="tut-modules">
+
+            <details class="tut-mod">
+              <summary><div class="ico">🏠</div><div class="m-head"><div class="m-title">3.1 数据概览</div><div class="m-badge">仪表盘 / 快捷入口 / 文件列表</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body">默认进入的首页式仪表盘（tab-overview）：<br>
+                &nbsp;&nbsp;• <b>4 张 KPI 卡片</b>：数据文件数、已保存模型数、功能标签页数、API 接口数，实时统计<br>
+                &nbsp;&nbsp;• <b>快捷入口</b>：一键跳转到智能流程 / 自然语言查数 / 数据分析 / 机器学习 / 报告等核心模块<br>
+                &nbsp;&nbsp;• <b>数据文件列表</b>：展示「存储」中的当前文件，便于快速定位<br><br>
+                <b>用途：</b>首次进入先建立全局认知，再进入具体功能标签页。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📥</div><div class="m-head"><div class="m-title">3.2 数据接入</div><div class="m-badge">上传 / 存储 / 爬取 / 数据库直连</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>上传 tab：</b>支持 CSV、Excel (.xlsx/.xls)、TXT、PDF 文件上传。<br>
+                &nbsp;&nbsp;• 自动检测文件编码（UTF-8 / GBK）<br>
+                &nbsp;&nbsp;• 文件安全校验（类型 + 大小 + 魔数检查）<br>
+                &nbsp;&nbsp;• 上传后自动生成 CSV 备用文件<br><br>
+                <b>存储 tab：</b>管理已上传和生成的数据文件。<br>
+                &nbsp;&nbsp;• 查看文件列表及大小、删除 / 下载<br>
+                &nbsp;&nbsp;• 数据血缘快照（Git 风格）：创建快照 → 一键回滚<br><br>
+                <b>爬取 tab：</b>网页数据采集，输入 URL → 自动提取表格数据；动态页面需配置 Selenium。<br><br>
+                <b>数据库直连 tab（🔗）：</b>连接 MySQL / PostgreSQL / ClickHouse / SQLite。<br>
+                &nbsp;&nbsp;• 密码加密存储（接口永不回传明文）<br>
+                &nbsp;&nbsp;• 自然语言生成 SQL，只读执行（见 3.17 NLQ 与 3.26 安全中心）<br><br>
+                <b>使用示例：</b>点击「上传」→ 选择本地 Excel → 文件出现在「存储」→ 各分析模块自动识别</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🧹</div><div class="m-head"><div class="m-title">3.3 数据清洗</div><div class="m-badge">9 种清洗操作 · 支持撤销</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>9 种清洗操作：</b>
+                <table class="tut-tbl">
+                  <tr><td class="k">去重</td><td>删除重复行，保留首次出现</td></tr>
+                  <tr><td class="k">缺失值填充</td><td>均值 / 中位数 / 众数 / 前值填充</td></tr>
+                  <tr><td class="k">异常值剔除</td><td>sigma 倍数法（1σ / 2σ / 3σ）</td></tr>
+                  <tr><td class="k">文本清洗</td><td>去空格/特殊字符/HTML标签</td></tr>
+                  <tr><td class="k">分类编码</td><td>Label / One-Hot 编码</td></tr>
+                  <tr><td class="k">日期标准化</td><td>统一日期格式</td></tr>
+                  <tr><td class="k">批量替换</td><td>正则表达式替换</td></tr>
+                  <tr><td class="k">条件过滤</td><td>按条件筛选行</td></tr>
+                  <tr><td class="k">缺失热力图</td><td>可视化缺失值分布</td></tr>
+                </table>
+                <br><b>操作步骤：</b>点击「清洗」→ 选文件 → 初始化 → 选操作设参数执行 → 保存（结果存为 cleaned_data.csv）。<b>支持撤销</b>：每步有日志，可一键撤回。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📈</div><div class="m-head"><div class="m-title">3.4 数据分析</div><div class="m-badge">描述统计 / 相关性 / 分组</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>描述性统计：</b>均值、标准差、最小/25%/50%/75%/最大值、偏度、峰度、中位数，自动生成结论。<br><br>
+                <b>相关性分析：</b>数值列两两 Pearson 相关系数，生成热力图矩阵。<br><br>
+                <b>分组统计：</b>按任意列（如"省份"）分组查看统计量。<br><br>
+                <b>示例：</b>描述性统计看消费结构概况 → 相关性分析看收入与消费 r 值 → 分组统计按省份比较差异。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📊</div><div class="m-head"><div class="m-title">3.5 智能图表</div><div class="m-badge">自定义绘图 / Plotly 交互</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>支持类型：</b>柱状图 / 折线图 / 散点图 / 直方图 / 箱线图；X、Y 轴均可多选列。<br>
+                <b>两种模式：</b>静态图 (PNG, matplotlib，适合嵌入报告) / 交互图 (Plotly，缩放/悬停/下载)。<br><br>
+                <b>智能优化：</b><br>
+                &nbsp;&nbsp;• 分类变量自动处理，避免类型转换错误<br>
+                &nbsp;&nbsp;• 标签自动旋转：≤5 不旋转，6-12 个 30°，>20 个 60°<br>
+                &nbsp;&nbsp;• 长标签自动切换水平条形图<br><br>
+                <b>示例：</b>X=省份，Y=生存型消费占比，柱状图 → 31 省对比（自动横向、标签旋转）。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔢</div><div class="m-head"><div class="m-title">3.6 表格工具</div><div class="m-badge">JOIN / 公式 / 透视表 / 抽样</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>多表 JOIN：</b>左/右/内/外连接，按公共列合并<br>
+                <b>公式计算：</b>12 种金融/统计公式：同比(YoY)、环比(MoM)、滚动平均、Z-score、波动率等<br>
+                <b>透视表：</b>按行列汇总，支持 sum/mean/count 等聚合<br>
+                <b>交叉表：</b>分类变量频数统计<br>
+                <b>数据抽样：</b>随机 / 分层 / 时间分段抽样<br><br>
+                <b>示例：</b>公式=YoY 列=人均地区生产总值 算同比增长；行=省份 列=年份 值=生存型消费占比 做透视。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔍</div><div class="m-head"><div class="m-title">3.7 A股筛选器</div><div class="m-badge">PE / ROE / 市值 / 行业 / 涨跌幅</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>按市盈率 PE、最低 ROE、市值、市净率 PB、股价、最低涨跌幅、行业关键词 多条件筛选全部 A 股（约 5500 只，首次加载 10-20 秒）。<br><br>
+                <b>操作：</b>填写条件（留空=不限）→「开始筛选」→ 结果表格展示 →「导出 CSV」。<br><br>
+                <b>⚠️ 提示：</b>结果不构成投资建议，投资有风险，入市需谨慎。该能力与「3.13 金融分析」中的股票筛选同源，此处为独立标签页入口。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">⏱</div><div class="m-head"><div class="m-title">3.8 时序分析</div><div class="m-badge">分解 / ADF / ARIMA / Prophet</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>7 种时序操作：</b>
+                <table class="tut-tbl">
+                  <tr><td class="k">日期特征提取</td><td>年/月/日/星期/季度/是否周末</td></tr>
+                  <tr><td class="k">重采样</td><td>日→周→月→季→年聚合</td></tr>
+                  <tr><td class="k">Prophet 预测</td><td>自动处理节假日/趋势</td></tr>
+                  <tr><td class="k">滚动窗口</td><td>移动平均/标准差/求和</td></tr>
+                  <tr><td class="k">时序分解</td><td>趋势+季节性+残差</td></tr>
+                  <tr><td class="k">ADF 检验</td><td>平稳性检验，自动差分</td></tr>
+                  <tr><td class="k">ARIMA/SARIMA</td><td>自回归移动平均，自动选参</td></tr>
+                </table>
+                <br><b>示例：</b>选年份为日期列、消费占比为数值列 → 时序分解看趋势/季节 → Prophet 预测未来 3 年。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔬</div><div class="m-head"><div class="m-title">3.9 假设检验</div><div class="m-badge">11 种统计检验</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>支持的检验：</b>t检验（独立/配对/单样本）、卡方检验、ANOVA 方差分析、Mann-Whitney U、Shapiro-Wilk 正态性、Kolmogorov-Smirnov、Levene 方差齐性、Welch's t-test 等（均已接入后端 API）。<br><br>
+                <b>操作步骤：</b>选文件 → 选检验类型 → 选比较列 →「运行检验」→ 看 p 值/统计量/结论 → 可生成图表。<br><br>
+                <b>示例：</b>比较东部与西部省份生存型消费占比差异 → 独立 t 检验。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🧠</div><div class="m-head"><div class="m-title">3.10 机器学习</div><div class="m-badge">训练 / 预测 / 特征工程</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>算法：</b>回归（Linear/Ridge/Lasso/RF/GBDT/SVR/XGBoost）、分类（Logistic/RF/SVM/KNN）、聚类（KMeans/DBSCAN/层次）。<br><br>
+                <b>流程：</b>选文件 → 选 y 与 X → 选任务/算法 → 调测试集比例 → 训练 → 看 MSE/R²/特征重要性 → 模型存为 .pkl。<br><br>
+                <b>特征工程：</b>自动标准化+多项式+交互特征；特征筛选 3 选 1：<b>F 检验</b>/<b>斯皮尔曼秩相关</b>（对非线性单调与异常值更稳健）/<b>互信息</b>。<br><br>
+                <b>预测：</b>加载模型 → 输入新数据 → 一键预测。机器学习页另含「特征相关性(Spearman)」卡片，对导入数据做秩相关矩阵分析。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🃏</div><div class="m-head"><div class="m-title">3.11 信用评分卡</div><div class="m-badge">分箱 / WOE-IV / 评分刻度 / PSI</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>用途：</b>金融风控信用评分建模，将违约概率转成易读分数。<br><br>
+                <b>流程：</b>① 选文件（目标列 0/1，1=违约）→ ② 特征分箱（等距/等频/卡方），算 WOE 与 IV（IV>0.1 有效）→ ③ 逻辑回归 → ④ 评分刻度（基准分/ODDS/PDO）→ ⑤ 评估 AUC/KS（AUC>0.7 良好）、PSI（<0.1 稳定）。<br><br>
+                <b>示例：</b>用 output/credit_*.csv 训练 → 看分箱表、IV 排名、KS 曲线、PSI 报告。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📝</div><div class="m-head"><div class="m-title">3.12 NLP 文本分析</div><div class="m-badge">分词 / 情感 / 关键词 / 词云</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能（依赖 jieba 分词）：</b><br>
+                &nbsp;&nbsp;• <b>分词统计</b>：中文分词 + 词频统计<br>
+                &nbsp;&nbsp;• <b>情感分析</b>：正 / 负 / 中性判定<br>
+                &nbsp;&nbsp;• <b>TF-IDF 关键词</b>：提取文本关键术语<br>
+                &nbsp;&nbsp;• <b>词云</b>：可视化高频词<br>
+                &nbsp;&nbsp;• <b>RAG 知识库</b>：结合知识库做领域问答<br><br>
+                <b>示例：</b>粘贴研报/评论文本 → 分词统计看高频词 → 情感分析看整体情绪 → TF-IDF 提取关键词 → 词云呈现。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">💰</div><div class="m-head"><div class="m-title">3.13 金融分析</div><div class="m-badge">数据 / 可视化 / 建模 / 回测 / 五因子</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>数据获取（金融数据 tab）：</b><br>
+                &nbsp;&nbsp;• akshare：A股/港股/美股/ETF/期货/外汇/龙虎榜/涨停板<br>
+                &nbsp;&nbsp;• tushare：日/周/月K线、资金流向、十大股东（需 token）<br>
+                &nbsp;&nbsp;• <b>baostock：免费无限频、无需 token</b>——K线（前/后/不复权）、证券列表、沪深300/上证50/中证500 成分、四大财务报表、分红、行业、交易日历、ST 状态<br><br>
+                <b>金融可视化 tab：</b>K线/MA/MACD/RSI/布林带/成交量/OBV/CCI/ATR；高级交互图（资金流向/筹码分布/热力图/收益曲线/最大回撤）；多股对比；框选 K 线联动过滤。<br><br>
+                <b>金融建模 tab：</b><br>
+                &nbsp;&nbsp;• <b>CAPM</b>：Alpha / Beta / Sharpe 比率<br>
+                &nbsp;&nbsp;• <b>Fama-French 五因子</b>：MKT/SMB/HML/RMW/CMA，季度末截面分组，输出因子收益统计与累计曲线（baostock，30 只×1 年约 1-2 分钟）<br>
+                &nbsp;&nbsp;• <b>策略回测</b>：MA 金叉死叉 / MACD + 胜率·回撤·收益<br>
+                &nbsp;&nbsp;• <b>预测模型对比</b>：7 种模型 MAE/MSE/RMSE/R²；模型保存复用<br><br>
+                <b>示例：</b>取 600519 茅台日K → K线+MACD → 回测 MA 交叉 → 看夏普与最大回撤。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📈</div><div class="m-head"><div class="m-title">3.14 固定收益分析</div><div class="m-badge">久期 / 凸性 / 曲线 / 利差 / 压力测试</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>单债计算器：</b>输入票息 / YTM / 期限 / 付息频率 → 净价、麦考利久期、<b>修正久期(年化)</b>、凸性、DV01、应计利息。<br><br>
+                <b>组合分析：</b>上传债券持仓 CSV（name,coupon,ytm,maturity,freq,face,market_value）或逐行录入 → 逐债指标 + 组合加权修正久期 / 凸性 / DV01(货币)。<br><br>
+                <b>收益率曲线：</b>输入各期限点（3M/2Y/10Y/30Y）收益率 → 形态判定（陡峭/平坦/倒挂）+ 关键利差（10Y-2Y、10Y-3M）。<br><br>
+                <b>信用利差：</b>输入信用债 YTM / 基准 YTM /（可选）PD、LGD → 信用利差、OAS、期望损失 PD×LGD。<br><br>
+                <b>利率压力测试：</b>平行冲击 ±bp → 组合价值变动%（久期 + 凸性二阶修正）。<br><br>
+                <b>示例：</b>10Y/票息3%/YTM3.5% 国债 → 价格 95.81、修正久期 8.53、凸性 83.78；+50bp 冲击组合价值约 −3.4%。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📑</div><div class="m-head"><div class="m-title">3.15 财务报表分析</div><div class="m-badge">三大报表 / 比率 / 杜邦</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>支持：</b>资产负债表 / 利润表 / 现金流量表；财务比率（流动比率、资产负债率、ROE、ROA、毛利率、净利率）；杜邦分析；雷达图；输入股票代码自动获取财报。<br><br>
+                <b>操作：</b>输入股票代码 → 选报表类型 → 获取 → 看比率和图表。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📊</div><div class="m-head"><div class="m-title">3.16 DID 计量分析</div><div class="m-badge">双重差分政策评估</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>用途：</b>面向政策评估的双重差分（DID）回归，论文级输出（Table 1-6 格式）。<br><br>
+                <b>变量设置：</b>treatment（处理组）/ time（政策时点）/ outcome（因变量）/ 控制变量。<br><br>
+                <b>分阶段分析：</b><br>
+                &nbsp;&nbsp;① 数据清洗与描述统计（Table 1）、相关性矩阵<br>
+                &nbsp;&nbsp;② 基准 DID 回归（Table 2，支持逐步加控制变量 / 标准化系数）<br>
+                &nbsp;&nbsp;③ 稳健性检验：平行趋势 / 安慰剂 / 子样本回归<br>
+                &nbsp;&nbsp;④ 异质性分析：分区域 / 老龄化 / 城乡 / 收入<br>
+                &nbsp;&nbsp;⑤ 机制分析：中介效应 / 交互项<br>
+                &nbsp;&nbsp;⑥ 结果导出（论文 Ready 表格）<br><br>
+                <b>示例：</b>长护险试点对家庭消费结构的影响（clean.csv）→「🚀 一键运行完整分析」。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">💬</div><div class="m-head"><div class="m-title">3.17 NLQ 自然语言查数</div><div class="m-badge">自然语言 → SQL → 图表</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>用自然语言提问，自动生成 SQL 并执行（也支持数据库直连场景）。<br><br>
+                <b>使用：</b>输入"统计各省份生存型消费占比平均值" / "2020 年城镇化率最高的 5 省" / "人均 GDP 与教育水平相关性" → 自动生成 SQL → 执行 → 结果 + 图表。<br><br>
+                <b>高级：</b>置信度评估（低时反问澄清）、A/B 测试对比 Prompt、Bad Case 收集、反馈闭环（点赞/点踩）。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔍</div><div class="m-head"><div class="m-title">3.18 RAG 智能问答</div><div class="m-badge">知识库检索 + 引用来源</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>上传文档（PDF/TXT/CSV）→ 构建知识库 → 智能问答。<br><br>
+                <b>使用：</b>上传 → 自动分块向量化 → 输入问题 → 混合检索（BM25 + 向量语义）→ 答案 + 引用来源。<br><br>
+                <b>特点：</b>本地 Embedding（bge-m3）零费用、中英混合、专名精确匹配。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📄</div><div class="m-head"><div class="m-title">3.19 报告生成</div><div class="m-badge">HTML / Word 导出</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>自动收集：</b>各标签页生成的图表自动收集到报告面板。<br>
+                <b>模板：</b>无模板 / 家庭照护研究 / EDA 探索性分析 / 金融分析。<br><br>
+                <b>导出：</b><br>
+                &nbsp;&nbsp;• <b>HTML 报告</b>：预览 → 选模板 → 下载<br>
+                &nbsp;&nbsp;• <b>Word 报告</b>：点击「📝 导出 Word」→ 用系统文件选择器<b>自选保存路径与文件名</b>（默认 data.tool报告_日期.docx），含标题/结论/图表/表格<br><br>
+                <b>操作：</b>生成图表 → 切「报告」→ 选模板 → 生成 → 导出 HTML 或 Word。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">⛓</div><div class="m-head"><div class="m-title">3.20 Pipeline 工作流</div><div class="m-badge">自动化流水线 DAG</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>⛓ Pipeline（自动化流水线）：</b><br>
+                &nbsp;&nbsp;• 创建 DAG：数据获取 → 清洗 → 训练 → 预测<br>
+                &nbsp;&nbsp;• 可视化节点与连接<br>
+                &nbsp;&nbsp;• 支持手动 / 定时触发执行<br>
+                &nbsp;&nbsp;• 查看执行历史与日志<br><br>
+                <b>💡 与定时任务配合：</b>把 Pipeline 配置为「⏰ 定时任务」周期运行，实现无人值守的重复分析（见 3.27）。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🤖</div><div class="m-head"><div class="m-title">3.21 AI 助手</div><div class="m-badge">对话分析 / 代码执行 / 建议闭环</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>打开：</b>右上角「AI 助手」按钮或 Ctrl+Shift+A。<br><br>
+                <b>⚡ 双模式：</b><br>
+                &nbsp;&nbsp;• <b>快速模式</b>：知识库命中秒回原文，未命中且是实时/行情问题再走 LLM 简短快答<br>
+                &nbsp;&nbsp;• <b>深度思考</b>：知识综合归纳、聊天联网搜索、分析请求走 Agent 深度分析（真实调用工具）<br><br>
+                <b>📚 知识问答：</b>直接问"什么是市盈率""LPR 是什么"→ 秒回知识点，自动标注「📚 知识点库」来源（覆盖 142 条金融/银行/税务/ML/固收知识点，见 3.35 知识点库）。<br><br>
+                <b>智能分析：</b>自动感知顶栏选中文件 → 说"帮我分析当前文件"→ 自动执行描述统计 → 对话中展示结论并同步渲染到对应标签页；深度分析（Agent）自动调用 <b>32 个真实工具</b>生成结构化报告（核心结论/数据概况/分析发现/分析建议）。<br><br>
+                <b>🤝 多 Agent 并行协作：</b>当请求是"全面分析 / 研究报告 / 尽调 / 完整评估"这类需要多视角的作业时，会自动进入<b>多 Agent 并行管线</b>——市场分析师、量化建模师、风控合规官三个阶段<b>同时点火</b>，各绑不同模型，最后由终稿合成统一交叉验证。请求只涉及单一职责时<b>只跑命中的阶段</b>（纯规则判定，不额外消耗 LLM 额度）。详见 3.32。<br><br>
+                <b>💡 建议闭环：</b>分析完给出「建议操作」卡片 →「✅ 采纳并执行」自动执行网站功能并同步到报告页。<br><br>
+                <b>代码执行：</b>"画散点图分析 xx.csv 中 A 和 B 的关系"→ 生成 Python 执行（沙箱 30s 超时、模块白名单、禁文件操作）。<br><br>
+                <b>默认模型：</b>日日新 <b>GLM-5.2</b>（1M 上下文、免费公测）。可在「AI 助手」顶部的模型下拉框切换 Provider / 模型（日日新 / 深度求索 / OpenAI 兼容 / 本地 Ollama）；多 Agent 管线的三个阶段模型可分别钉扎，例如 市场 glm-5.2 ∥ 量化 sensenova-6.8-flash-lite ∥ 风控 deepseek-v4-flash。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔎</div><div class="m-head"><div class="m-title">3.22 全局搜索</div><div class="m-badge">命令面板 Ctrl+K</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>快捷键：</b>Ctrl+K 打开命令面板，38 个标签页快速跳转。<br>
+                <b>用法：</b>输入关键字模糊搜索（如"机器"→ 机器学习）→ 方向键选择 + Enter 跳转，Esc 关闭。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔐</div><div class="m-head"><div class="m-title">3.23 用户认证</div><div class="m-badge">多用户 / API Key / RBAC</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>多用户架构：</b>JWT + 多租户隔离，每用户独立工作空间。<br>
+                <b>角色（RBAC）：</b>guest（只读）/ user（管理自己数据）/ admin（查看统计、管理用户）。<br><br>
+                <b>使用：</b>「登录」注册（用户名+邮箱+密码）→ 获 24h Token →「API Key 管理」创建密钥。<br>
+                <b>默认管理员：</b>admin / admin123。<br>
+                <b>认证方式：</b>Authorization: Bearer &lt;token&gt; 或 X-API-Key: &lt;key&gt;。<br>
+                <b>配额：</b>普通用户默认 500 次/天、100K Token/天（管理员可调）。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🤝</div><div class="m-head"><div class="m-title">3.24 多 Agent 协同</div><div class="m-badge">任务拆解 / 链路追踪</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>复杂任务自动拆解为多步，Agent 逐步执行并验证（规划器 + 执行器 + 验证器 + 编排器，失败重试最多 2 次）。<br><br>
+                <b>使用：</b>「多Agent」→ 登录后输入任务（如"分析缺失值→ML预测→生成报告"）→ 自动拆解执行 →「执行链路追踪」看每步工具调用/耗时。<br><br>
+                <b>调用链：</b>序号/工具名/参数/结果预览/耗时/状态（success/failed/cached）。<br><br>
+                <b>与 3.32 的分工：</b>本页解决"<b>一个任务怎么拆成多步</b>"（逐步串行 + 失败重试）；3.32 多 Agent 并行管线解决"<b>多个专家怎么同时开工</b>"（并行 + 终稿汇总）。前者是纵向拆解，后者是横向分工。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🗄️</div><div class="m-head"><div class="m-title">3.25 知识库管理</div><div class="m-badge">多租户 / 文档管理</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>创建个人知识库、上传文档、管理内容，多租户隔离。<br><br>
+                <b>使用：</b>「知识库管理」→ 登录 → 创建知识库 → 上传 PDF/Word/TXT/MD → 自动分块供 RAG 检索。<br><br>
+                <b>知识点索引：</b>「📚 知识点」收录 <b>142 条</b>核心概念（10 个领域），支持关键词搜索与按领域 / 按所属标签页筛选，详见 3.35。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔐</div><div class="m-head"><div class="m-title">3.26 安全中心</div><div class="m-badge">状态 / 防护 / 审计</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>系统状态：</b>内存 / CPU / 磁盘 / 请求量实时看板（需 admin 权限）。<br><br>
+                <b>安全防护：</b><br>
+                &nbsp;&nbsp;• SQL 注入防护 + 速率限制（Flask-Limiter）<br>
+                &nbsp;&nbsp;• 数据库直连密码加密存储，接口永不回传明文<br>
+                &nbsp;&nbsp;• <b>审计日志</b>：数据库直连的查询/导出全程留痕，可追溯（见 3.17 NLQ、3.2 数据库直连）<br><br>
+                <b>用途：</b>面向管理员的安全总览与合规审计入口。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">⏰</div><div class="m-head"><div class="m-title">3.27 定时任务</div><div class="m-badge">Scheduler 周期运行</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>把重复任务（数据抓取、清洗、模型重训、报告生成、Pipeline 触发）配置为定时/周期运行。<br><br>
+                <b>使用：</b>「定时任务」→ 新建任务 → 选择触发频率（如每天/每周）→ 查看执行历史与状态、支持手动触发。<br><br>
+                <b>与 Pipeline 配合：</b>将 3.20 的流水线挂到定时任务，实现无人值守的端到端自动化。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🧭</div><div class="m-head"><div class="m-title">3.28 智能流程向导</div><div class="m-badge">场景 → 操作路径</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>选择分析场景（如"全流程自动化""消费结构研究"），AI 自动规划最优操作路径，以步骤卡片串联相关标签页，点击直接跳转执行。<br><br>
+                <b>使用：</b>「智能流程」→ 选场景 →「推荐流程」→ 按步骤卡片依次跳转对应标签页。<br>
+                <b>入口：</b>顶部仪表盘「智能流程」快捷入口，或侧边栏对应卡片。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📁</div><div class="m-head"><div class="m-title">3.29 文件批量管理</div><div class="m-badge">勾选 / 批量删除</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>位置：</b>「上传」标签页 →「📌 选择要分析的文件」区域。<br><br>
+                <b>操作：</b>点击文件名选文件（顶栏同步）/ 勾选复选框标记待删 / 全选 /「🗑 批量删除」（二次确认）/ 单个删除 ✕ / 刷新 ↻。<br><br>
+                <b>提示：</b>删除同时清缓存；内置测试数据可能不可删。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📊</div><div class="m-head"><div class="m-title">3.30 基金分析</div><div class="m-badge">净值 → 夏普 / 年化 / 回撤 / Calmar / Sortino</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>针对公募基金净值的风险收益指标分析，覆盖两个输入入口：<br>
+                &nbsp;&nbsp;• <b>① 按基金代码取数</b>：输入 6 位基金代码（如 005827 易方达蓝筹精选）→ 一键拉取历史净值并计算指标；数据源可选 akshare（无需 token）/ tushare（需 token），可调无风险利率 rf。<br>
+                &nbsp;&nbsp;• <b>② 净值 CSV 计算</b>：粘贴包含「日期 + 净值」列的 CSV（date,nav 或 日期,单位净值，自动识别净值列）。<br><br>
+                <b>输出指标：</b>区间收益、年化收益、年化波动率、夏普比率（Sharpe）、最大回撤、Calmar、Sortino 等。<br><br>
+                <b>示例：</b>选 005827 → 计算指标 → 看近一年年化/夏普/最大回撤，评估基金风险收益比。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🧩</div><div class="m-head"><div class="m-title">3.31 模板市场</div><div class="m-badge">一键复用分析场景</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>功能：</b>「模板」标签页内置常见分析场景模板，一键在本站内复用。<br><br>
+                <b>使用：</b>打开「模板」→ 展示模板卡片（名称 / 类别 / 说明）→ 点击「🚀 一键使用」→ 自动跳转对应功能标签页 + 预填参数 + 直接执行；可「↻ 刷新」重新加载模板列表。<br><br>
+                <b>与智能流程的区别：</b>模板是「具体参数已预填、点一下即执行」的成品预设；智能流程（3.28）是按场景规划多步骤操作路径的向导。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🧠</div><div class="m-head"><div class="m-title">3.32 多 Agent 并行协作管线</div><div class="m-badge">三阶段并行 · 按需命中 · 终稿合成</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>是什么：</b>遇到需要"多视角 + 多方法"的作业时，AI 助手不再由一个模型从头写到尾，而是<b>派出多个专家 Agent 同时开工</b>，最后由「终稿合成」把各方结论交叉验证、统一成一份报告。<br><br>
+                <b>三个专家角色与模型钉扎：</b>
+                <table class="tut-tbl">
+                  <tr><td class="k">市场分析师</td><td>宏观 / 行业 / 景气 / 估值视角 · glm-5.2</td></tr>
+                  <tr><td class="k">量化建模师</td><td>数据 / 统计 / 建模 / 回测视角 · sensenova-6.8-flash-lite</td></tr>
+                  <tr><td class="k">风控合规官</td><td>风险 / 合规 / 稳健性 / 压力测试视角 · deepseek-v4-flash</td></tr>
+                  <tr><td class="k">终稿合成</td><td>交叉验证 + 统一成文（主模型，不参与轮换）</td></tr>
+                </table>
+                <br><b>核心设计 ① · 并行不累加：</b>三个阶段是<b>同时点火</b>而不是排队，总耗时 ≈ 最慢的那个阶段 + 终稿合成时间，<b>不是三者相加</b>。<br><br>
+                <b>核心设计 ② · 按需命中（不是每次都全跑）：</b>由<b>纯规则</b>判定该叫哪几位专家，<b>零额外 LLM 调用</b>：
+                <table class="tut-tbl">
+                  <tr><td class="k">含「全面 / 完整 / 全方位 / 尽调」+ 分析类词</td><td>三阶段全跑</td></tr>
+                  <tr><td class="k">只命中某个职责关键词（如"风控"）</td><td>只跑命中的那个阶段</td></tr>
+                  <tr><td class="k">挂了数据文件、无明确职责</td><td>补一位量化建模师</td></tr>
+                  <tr><td class="k">什么信号都没有</td><td>保底只跑市场分析师</td></tr>
+                </table>
+                <br><b>核心设计 ③ · 阶段间不传产出：</b>三个专家各查各的，交叉验证统一交给终稿。若把上游产出喂给下游，并行就退化成了串行，反而更慢。<br><br>
+                <b>稳定性设计：</b>每个阶段有独立会话隔离、独立取消与检查点，<b>单个阶段失败 / 超时不影响其他阶段</b>；失败（如模型限流 429）会被判定为<b>降级而不是假成功</b>——降级文本不会进入终稿，避免污染结论。阶段编号与进度提示随命中数量动态变化（只跑一个就显示 1/1）。<br><br>
+                <b>实测（三阶段全跑）：</b>串行 <b>435s</b> → 并行 <b>277s</b>（提速约 1.57×）；三条阶段的启动时间戳落在 <b>5 毫秒</b>内，这是并行的直接证据。开启按需命中后：单阶段端到端 <b>48s</b>，三阶段 <b>211s</b>。<br><br>
+                <b>怎么用：</b>无需任何配置。在 AI 助手里说"对当前文件做一次全面的研究报告"即自动触发；触发后到「🧭 Agent 流程」（3.33）就能看到三个节点同时亮起。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🧭</div><div class="m-head"><div class="m-title">3.33 Agent 流程可视化画布</div><div class="m-badge">真实轨迹回放 · 节点状态 · 问题定位</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>位置：</b>「🤖 AI 提效」组 → <b>🧭 Agent 流程</b>；AI 助手顶栏的诊断入口也可进入。<br><br>
+                <b>是什么：</b>把 AI 助手每一次问答的<b>真实运行轨迹</b>画成流程图——走了哪些节点、按什么顺序、各花多少时间、哪一步失败、失败原因是什么。不是示意图，是真实执行记录的重放。<br><br>
+                <b>怎么用：</b>
+                <table class="tut-tbl">
+                  <tr><td class="k">运行记录下拉</td><td>选一次历史运行回放；选「跟随最新一次运行」时，你每提一次问画布自动切到那一次</td></tr>
+                  <tr><td class="k">刷新列表</td><td>重新拉取运行清单</td></tr>
+                  <tr><td class="k">重载画布</td><td>保持当前选中运行重画</td></tr>
+                  <tr><td class="k">新窗口打开</td><td>全屏查看，适合演示 / 投屏</td></tr>
+                </table>
+                <br><b>看图要点：</b>节点颜色 = 状态（成功 / 失败 / 跳过）；连线 = 数据流方向；<b>多 Agent 并行时会看到多个节点同时开始</b>，各自计时互不阻塞；出问题会把报错挂在对应节点上。<br><br>
+                <b>数据来源：</b>由本站 <code>/api/assistant/flowviz/*</code> 同源接口<b>直接读取轨迹文件</b>提供，不依赖额外服务、不需要另开端口。<br><br>
+                <b>用途：</b>① 排查"AI 为什么慢 / 为什么没出结果 / 到底哪一步失败"；② 给同事或面试官演示多 Agent 协作的实际形态。<br><br>
+                <b>小提示：</b>画布页面体积较大，采用<b>首次进入标签页才加载</b>的懒加载策略，不影响站点首屏速度。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🌐</div><div class="m-head"><div class="m-title">3.34 数据源导航</div><div class="m-badge">免费数据源目录 · 分类检索 · 一键直达</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>位置：</b>「数据接入」组 → <b>🌐 数据源</b>。<br><br>
+                <b>功能：</b>按分类浏览免费数据源目录——官方统计 / 金融行情 / 债券货币 / 开放数据 / 学术研究等，支持关键词搜索（如"统计局""GDP""股票""汇率"），点「打开」直达官网取数。<br><br>
+                <b>站内 vs 站外：</b>
+                <table class="tut-tbl">
+                  <tr><td class="k">站内已接入五源</td><td>AkShare / Tushare / Baostock / yfinance / FRED：A股·港股·美股、全球指数与外汇、美债收益率、基金净值与持仓、债券收益率、期货，以及中国宏观（GDP/CPI/PPI/PMI/LPR/社融/M0-M2）与美国宏观利率（失业率/CPI/非农/利差/SOFR），见 3.13</td></tr>
+                  <tr><td class="k">站内未覆盖（行业 / 企业 / 专利 / 国际等）</td><td>用本页目录直达官网下载 CSV → 回「上传」导入分析</td></tr>
+                </table>
+                <br><b>接口目录：</b>访问 <code>/api/finance/catalog</code> 可取完整数据源清单（含分类与参数说明）；也可直接让 AI 助手用自然语言调用这些接口取数。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">📚</div><div class="m-head"><div class="m-title">3.35 知识点库</div><div class="m-badge">142 条概念 · 10 个领域 · 搜索筛选</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>位置：</b>「知识库」组 → <b>📚 知识点</b>。<br><br>
+                <b>内容：</b>142 条核心概念，覆盖 10 个领域：金融数据 / 机器学习 / 统计分析 / 时序分析 / 金融建模 / 数据处理 / NLP 与 RAG / 可视化 / AI 提效 / 系统工程。每条都标注它属于哪个功能标签页，便于"看到了解 → 立刻上手验证"。<br><br>
+                <b>怎么用：</b>① 顶部搜索框输关键词；② 按「知识领域」或「所属标签页」筛选；③ 点卡片看完整释义。<br><br>
+                <b>与 AI 助手的联动：</b>AI 助手回答概念类问题时<b>优先命中知识点库</b>并标注「📚 知识点库」来源，秒回且不消耗模型额度；只有实时行情 / 深度分析类问题才走大模型。<br><br>
+                <b>与「知识库管理」（3.25）的区别：</b>本页是<b>内置通用知识点</b>（随产品提供）；知识库管理是<b>你自己上传的企业 / 个人文档</b>（多租户隔离，供 RAG 检索）。</div>
+            </details>
+
+            <details class="tut-mod">
+              <summary><div class="ico">🔧</div><div class="m-head"><div class="m-title">3.36 故障排查手册</div><div class="m-badge">症状 → 原因 → 步骤 · 9 类高频故障</div></div><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+              <div class="m-body"><b>位置：</b>「数据接入」组 → <b>🔧 排查</b>。<br><br>
+                <b>覆盖 9 类高频故障</b>，每类给出「可能原因 + 分步排查路径 + 可直接复制的命令」：
+                <table class="tut-tbl">
+                  <tr><td class="k">🤖 AI 助手不返回结果</td><td>模型是否已选 / Key 是否有效 / 网络是否通</td></tr>
+                  <tr><td class="k">🗄️ 数据库连接失败</td><td>驱动缺失（pymysql / psycopg2）/ 凭证 / 端口 / 只读护栏拦截</td></tr>
+                  <tr><td class="k">🖥️ 页面空白或功能不显示</td><td>浏览器 / Service Worker 缓存了旧 JS</td></tr>
+                  <tr><td class="k">🚀 服务启动失败 / 闪退</td><td>端口占用 / 依赖缺失 / 残留双实例</td></tr>
+                  <tr><td class="k">📄 数据文件打不开 / 乱码 / 上传失败</td><td>编码 / 格式 / 体积 / 安全校验拦截</td></tr>
+                  <tr><td class="k">📊 图表不显示 / 中文乱码</td><td>字体缺失 / CDN 加载失败 / 图片未生成</td></tr>
+                  <tr><td class="k">⏰ 定时任务不执行</td><td>调度器未启动 / cron 格式错 / 任务已停用</td></tr>
+                  <tr><td class="k">🃏 评分卡建模报错</td><td>目标列非 0/1 / 样本太少 / 分箱不收敛</td></tr>
+                  <tr><td class="k">🕷️ 爬取无结果</td><td>页面结构变化 / 反爬 / 选择器失配</td></tr>
+                </table>
+                <br><b>怎么用：</b>顶部输入症状关键词自动过滤 → 点「展开排查步骤」看完整路径。<br><br>
+                <b>通用三板斧（记这三条能解决大多数问题）：</b>① <b>看日志</b>——启动窗口的滚动输出即服务日志，结构化日志在 <code>logs/</code>；② <b>看接口</b>——F12 → Network，失败请求看状态码与 <code>error</code> 字段；③ <b>重启生效</b>——改过后端代码必须重启（重新双击 <code>start.bat</code>），改过前端 JS 后按 <b>Ctrl+F5</b>。</div>
+            </details>
+
+          </div>
+        </div>
+      </details>
+
+      <!-- ====== 四、键盘快捷键 ====== -->
+      <details class="tut-ch-d" id="ch-shortcuts">
+        <summary class="tut-ch-sum"><span class="num">4</span> 键盘快捷键<span class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="tut-callout">
+            <table class="tut-tbl">
+              <tr><td class="k">Ctrl + Shift + 1~9</td><td>快速切换到侧边栏第 N 个标签页</td></tr>
+              <tr><td class="k">Ctrl + K</td><td>全局搜索 / 命令面板（模糊跳转任意标签页）</td></tr>
+              <tr><td class="k">Ctrl + Shift + A</td><td>打开 / 关闭 AI 助手</td></tr>
+              <tr><td class="k">Ctrl + Enter</td><td>执行当前标签页的主要操作</td></tr>
+              <tr><td class="k">Ctrl + Shift + L</td><td>切换深色/浅色主题</td></tr>
+              <tr><td class="k">Esc</td><td>关闭加载遮罩</td></tr>
+              <tr><td class="k">?</td><td>显示/隐藏快捷键帮助面板</td></tr>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- ====== 五、常见使用场景 ====== -->
+      <details class="tut-ch-d" id="ch-scenarios">
+        <summary class="tut-ch-sum"><span class="num">5</span> 常见使用场景 <span class="ch-sub">20 个端到端示例</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="scn-grid">
+            <div class="scn"><div class="s-t">场景 1 · 快速探索数据</div><div class="s-d">上传数据 →「分析」→ 描述性统计 → 相关性分析 → 绘制柱状图和散点图</div></div>
+            <div class="scn"><div class="s-t">场景 2 · 预测建模</div><div class="s-d">「机器学习」→ 选目标列和特征列 → 选算法（如 Random Forest）→ 训练 → 看 R² → 保存模型</div></div>
+            <div class="scn"><div class="s-t">场景 3 · 时序趋势分析</div><div class="s-d">「时序分析」→ 选日期列 → 时序分解 → ADF 检验 → Prophet 预测未来趋势</div></div>
+            <div class="scn"><div class="s-t">场景 4 · 信用评分与风控</div><div class="s-d">「评分卡」→ 选 0/1 目标列 → 分箱看 IV → 逻辑回归训练 → 评分刻度 → 看 AUC/KS/PSI</div></div>
+            <div class="scn"><div class="s-t">场景 5 · 生成分析报告</div><div class="s-d">完成分析 →「报告」→ 图表已自动收集 → 选模板 → 导出 HTML 或 Word（自选路径）</div></div>
+            <div class="scn"><div class="s-t">场景 6 · 自然语言提问</div><div class="s-d">「自然语言查数」→ 输入"各省份人均GDP排名"→ 自动生成 SQL 和图表 → 点赞/反馈</div></div>
+            <div class="scn"><div class="s-t">场景 7 · 数据清洗流程</div><div class="s-d">「清洗」→ 初始化 → 去重 → 缺失值填充 → 异常值剔除 → 保存 → cleaned_data.csv 供后续分析</div></div>
+            <div class="scn"><div class="s-t">场景 8 · 自动化流水线</div><div class="s-d">「Pipeline」→ 创建流水线 → 加节点（获取→清洗→训练→预测）→ 连接 → 运行；挂到「定时任务」周期执行</div></div>
+            <div class="scn"><div class="s-t">场景 9 · AI 一句话分析</div><div class="s-d">顶栏选中文件 →「AI 助手」→"帮我分析当前文件"→ 自动执行描述统计并展示结论；或"画散点图分析 xx 和 yy 的关系"</div></div>
+            <div class="scn"><div class="s-t">场景 10 · 多因子选股分析</div><div class="s-d">「金融建模」→ 五因子模型 → 选样本/区间 → 运行 → 看 SMB/HML/RMW/CMA 因子收益，判断市场风格</div></div>
+            <div class="scn"><div class="s-t">场景 11 · 固定收益久期与压力测试</div><div class="s-d">「固定收益」→ 单债算修正久期/凸性 → 上传持仓 CSV 看组合加权久期 → 利率压力测试看 ±bp 价值变动</div></div>
+            <div class="scn"><div class="s-t">场景 12 · NLP 文本挖掘</div><div class="s-d">「NLP 分析」→ 粘贴研报/评论 → 分词统计 + 情感分析 + TF-IDF 关键词 + 词云，快速把握文本情绪与主题</div></div>
+            <div class="scn"><div class="s-t">场景 13 · DID 政策效应评估</div><div class="s-d">「DID 计量」→ 设 treatment/time/outcome →「一键运行完整分析」→ 基准回归 + 平行趋势 + 异质性 + 导出论文表</div></div>
+            <div class="scn"><div class="s-t">场景 14 · 企业知识库建设</div><div class="s-d">「知识库管理」→ 创建知识库 → 上传企业文档 → 结合「RAG 问答」智能检索，知识按用户隔离</div></div>
+            <div class="scn"><div class="s-t">场景 15 · 数据库直连查数</div><div class="s-d">「数据库直连」→ 新建连接（密码加密）→ 自然语言生成只读 SQL 执行 → 全程审计留痕，无需导出文件</div></div>
+            <div class="scn"><div class="s-t">场景 16 · 复杂任务多Agent执行</div><div class="s-d">「多Agent」→ 登录后输入复杂任务 → 自动拆解步骤 →「执行链路追踪」看每步工具调用和耗时</div></div>
+            <div class="scn"><div class="s-t">场景 17 · 安全与审计</div><div class="s-d">「安全中心」→ admin 登录后看系统状态/审计日志，核查数据库直连的查询与导出记录</div></div>
+            <div class="scn" style="border-left-color:#8b93e8;"><div class="s-t">场景 18 · 多 Agent 并行研究（旗舰）</div><div class="s-d">顶栏选中文件 →「AI 助手」→ 说"对当前文件做一次全面的研究报告"→ 市场/量化/风控三位专家<b>同时开工</b> → 终稿合成交叉验证 → 到「🧭 Agent 流程」看三个节点同时亮起的并行轨迹</div></div>
+            <div class="scn" style="border-left-color:#8b93e8;"><div class="s-t">场景 19 · 用画布排查 AI 慢 / 没结果</div><div class="s-d">「🧭 Agent 流程」→ 选最近一次运行 → 看哪个节点耗时长、哪个节点报错、报的什么错 → 对照「🔧 排查」手册处理（如限流 429 属瞬时限速，稍后重试）</div></div>
+            <div class="scn" style="border-left-color:#4ECDC4;"><div class="s-t">场景 20 · 站内没有的数据怎么找</div><div class="s-d">「🌐 数据源」→ 搜关键词（如"专利""统计局"）→ 按分类定位免费数据源 → 官网下载 CSV → 回「上传」导入 → 后续分析全站可用</div></div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ====== 六、技术架构 ====== -->
+      <details class="tut-ch-d" id="ch-arch">
+        <summary class="tut-ch-sum"><span class="num">6</span> 技术架构速览<span class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="arch-box">
+            <b>后端：</b>Flask + waitress（8 线程 WSGI）· 32 个路由蓝图 · 285 条运行时路由（其中 /api 268 条）<br>
+            <b>前端：</b>原生 JavaScript（零构建）· 38 个标签页 / 7 大分组 · ECharts + Plotly 双引擎<br>
+            <b>数据处理：</b>pandas + NumPy + DuckDB · DataFrame 缓存（LRU）<br>
+            <b>可视化：</b>matplotlib（静态）+ Plotly（交互式）<br>
+            <b>机器学习：</b>scikit-learn · XGBoost · 自动调参 GridSearchCV<br>
+            <b>数据库：</b>SQLite + SQLAlchemy ORM（用户/API Key/调用日志/知识库）<br>
+            <b>认证：</b>JWT Token + API Key 双通道 · RBAC（guest/user/admin）<br>
+            <b>Agent 引擎：</b>LangGraph StateGraph + Checkpoint（可中断恢复）· <b>32 个领域工具</b> · <b>多 Agent 并行管线</b>（三专家并行 + 纯规则按需命中 + 终稿合成）· 三层超时护栏（单工具 90s / 整轮 600s / 流式看门狗 300s）· 调用链追踪与画布回放 · 工具缓存（带文件指纹失效）<br>
+            <b>RAG 检索：</b>TF-IDF + BM25 + 语义向量 三路 RRF 融合（语义路为零依赖 LSA 实现）· Cross-Encoder 精排为可选依赖（未启用）· 142 条知识点 + 自建知识库 · 数字—来源溯源审计<br>
+            <b>安全防护：</b>gzip 压缩 · IP 限流（Flask-Limiter）· 文件上传安全校验（类型/大小/魔数）· SQL 只读护栏 · 审计日志 · 凭据加密库（cryptography）<br>
+            <b>数据存储：</b>CSV/Excel · pickle 模型 · SQL 快照 · SQLite 持久化<br>
+            <b>LLM：</b>默认<b>日日新 GLM-5.2</b>（免费公测），可切换 深度求索 / OpenAI 兼容 等 Provider 或本地 Ollama<br>
+            <b>端口：</b>默认 5000 · 启动：<code>start.bat</code>（生产，waitress）或 <code>python run_server.py</code>
+          </div>
+        </div>
+      </details>
+
+      <!-- ====== 七、常见问题 ====== -->
+      <details class="tut-ch-d" id="ch-faq">
+        <summary class="tut-ch-sum"><span class="num">7</span> 常见问题（FAQ）<span class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="tut-ch-body">
+          <div class="tut-callout" style="background:var(--bg-card);border-color:var(--glass-border);padding:6px 16px;">
+            <div class="faq-item"><div class="faq-q">启动失败，提示端口被占用？</div><div class="faq-a">关闭之前的命令行窗口，或任务管理器结束 python.exe 后重新双击 start.bat。</div></div>
+            <div class="faq-item"><div class="faq-q">图表中文显示为方框？</div><div class="faq-a">已自动配置 Microsoft YaHei 字体。如仍有问题，确认 C:\Windows\Fonts 存在中文字体。</div></div>
+            <div class="faq-item"><div class="faq-q">如何上传自己的数据？</div><div class="faq-a">「上传」→ 选 CSV/Excel → 自动检测编码导入，支持中文列名。</div></div>
+            <div class="faq-item"><div class="faq-q">生成的图表在哪里？</div><div class="faq-a">静态图在 output/charts/，同时「报告」自动收集；交互图（Plotly）在「智能图表」查看。</div></div>
+            <div class="faq-item"><div class="faq-q">如何切换深色/浅色主题？</div><div class="faq-a">右下角 🌙/☀️ 按钮，或 Ctrl+Shift+L，偏好自动保存。</div></div>
+            <div class="faq-item"><div class="faq-q">请求被限流（429 错误）？</div><div class="faq-a">上传/训练/筛选等重操作有速率限制，等待 1 分钟后重试即可。</div></div>
+            <div class="faq-item"><div class="faq-q">AI 助手没有自动分析？</div><div class="faq-a">先在顶栏下拉框选中数据文件，再对 AI 说"帮我分析当前文件"。</div></div>
+            <div class="faq-item"><div class="faq-q">大盘/数据概览显示的是上一交易日？</div><div class="faq-a">数据源降级链：腾讯实时 → 新浪实时 → akshare → baostock 日线。受限时降级为日线并标注日期，KPI 卡片显示"实时·日期"或"收盘 日期"。</div></div>
+            <div class="faq-item"><div class="faq-q">五因子模型运行很久？</div><div class="faq-a">需从 baostock 逐只拉行情与财务。30 只×1 年约 1-2 分钟属正常；可选 20 只或缩短区间至 6 个月。</div></div>
+            <div class="faq-item"><div class="faq-q">北向资金为何没有数据？</div><div class="faq-a">2024 年 8 月起交易所停止每日披露北向净买入，仅南向（港股通）完整。资金流向图显示南向净买入。</div></div>
+            <div class="faq-item"><div class="faq-q">知识库/多Agent 提示 404 / 未登录？</div><div class="faq-a">知识库、多Agent 等需登录。先「登录」注册/登录（默认 admin/admin123）再访问。</div></div>
+            <div class="faq-item"><div class="faq-q">AI 深度分析报错 "Agent error"？</div><div class="faq-a">检查 LLM 配置：默认模型为日日新 GLM-5.2（免费公测），可在「AI 助手」顶部下拉框切换 Provider 与模型。若报错含限流（429）字样，属账户瞬时速率限制，等数十秒重试即可。确认当前 Model API Key 有效期与账户余额后重试。</div></div>
+            <div class="faq-item"><div class="faq-q">怎么调用 API 接口？</div><div class="faq-a">登录后创建 API Key，请求头携带 X-API-Key: &lt;key&gt; 或 Authorization: Bearer &lt;JWT&gt;，返回 JSON。</div></div>
+            <div class="faq-item"><div class="faq-q">固定收益分析怎么用？</div><div class="faq-a">「固定收益」标签页：单债输入票息/YTM/期限/付息频率得久期凸性；上传持仓 CSV 看组合加权久期；收益率曲线看形态与利差；信用利差看 OAS；压力测试看 ±bp 价值变动。</div></div>
+            <div class="faq-item"><div class="faq-q">DID 回归结果如何解读？</div><div class="faq-a">关注交互项(treatment×time)系数与显著性(p 值)：显著为正说明政策提升因变量。先用「平行趋势检验」验证 DID 前提，再用「安慰剂/子样本」做稳健性。</div></div>
+            <div class="faq-item"><div class="faq-q">NLP 情感分析准吗？</div><div class="faq-a">基于通用情感词典，对标准财经/评论文本效果良好；高度口语化或反讽可能偏差。建议结合分词统计与 TF-IDF 关键词综合判断。</div></div>
+            <div class="faq-item"><div class="faq-q">如何查看审计日志？</div><div class="faq-a">用 admin 登录 →「安全中心」→ 查看系统状态与审计日志，数据库直连的每次查询/导出均留痕可追溯。</div></div>
+            <div class="faq-item"><div class="faq-q">多 Agent 并行分析为什么比串行快？</div><div class="faq-a">三个专家阶段是<b>同时点火</b>而不是排队等待，总耗时 ≈ 最慢的那个阶段 + 终稿合成时间，<b>不是三者相加</b>。同口径三阶段全跑对照：串行 <b>435s</b> → 并行 <b>277s</b>（提速约 1.57×），三条阶段的启动时间戳落在 5 毫秒内。开启按需命中后，单阶段只要 <b>48s</b>、三阶段 <b>211s</b>。<br><b>顺带提醒：</b>早前曾出现过一次 156s 的运行，那是<b>假快</b>——某个阶段被限流导致输出残废、终稿又被截断，产出不完整，不能当作正常耗时参考。</div></div>
+            <div class="faq-item"><div class="faq-q">我提问后为什么只跑了部分专家？</div><div class="faq-a">这是<b>按需命中</b>的预期行为：只有含「全面 / 完整 / 全方位 / 尽调」这类全域请求才三阶段全跑；否则只跑与问题职责相关的阶段。判定走纯规则，不额外消耗 LLM 额度，也避免无关专家产出噪音。想让三位专家都上场，就在提问里明确说"全面 / 完整 / 尽调"。</div></div>
+            <div class="faq-item"><div class="faq-q">某个专家阶段失败会怎样？</div><div class="faq-a">该阶段被标记为<b>降级</b>，其失败提示文本<b>不会进入终稿</b>（避免污染结论），其余阶段结果照常合成报告。失败节点与原因可在「🧭 Agent 流程」画布上直接看到。注意：模型限流（429）属瞬时限速，等待数十秒重试即可，不代表模型不可用。</div></div>
+            <div class="faq-item"><div class="faq-q">「🧭 Agent 流程」画布上看不到运行记录？</div><div class="faq-a">先到「AI 助手」提一次问产生轨迹，再回画布点「刷新列表」。保持「跟随最新一次运行」时，之后每次提问画布会自动切到那一次运行；也可以用下拉框回放任意历史运行。</div></div>
+          </div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+</div>

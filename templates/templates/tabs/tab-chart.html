@@ -1,0 +1,99 @@
+<div id="tab-chart" class="sec">
+  <!-- 智能图表推荐 -->
+  <div class="card">
+    <div class="c-head"><div class="c-title">📊 智能图表推荐</div><div class="c-sub">根据数据结构自动匹配最佳图表</div></div>
+    <div class="grid">
+      <div class="fg"><label>分析列</label><input id="chart-col" placeholder="列名"></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p" onclick="generateChart()">生成图表 + 洞察</button></div>
+    <div id="chart-result" class="mt"></div>
+    <div id="chart-insight"></div>
+  </div>
+
+  <!-- 交互图表（echarts：缩放/平移/悬停） -->
+  <div class="card" style="margin-top:24px;">
+    <div class="c-head"><div class="c-title">🕹 交互图表</div><div class="c-sub">echarts 渲染 · 缩放(dataZoom)/平移/悬停数值/toolbox</div></div>
+    <div class="grid">
+      <div class="fg"><label>X 列（可选，默认序号/日期）</label><input id="ech-x" placeholder="如 date"></div>
+      <div class="fg"><label>Y 列（逗号分隔，可多列）</label><input id="ech-y" placeholder="如 close, volume"></div>
+      <div class="fg"><label>图表类型</label>
+        <select id="ech-type"><option value="line">折线</option><option value="bar">柱状</option><option value="scatter">散点</option></select>
+      </div>
+    </div>
+    <div class="bgrp" style="margin-top:10px;">
+      <button class="btn btn-p" onclick="renderEcharts()">🕹 渲染交互图表</button>
+    </div>
+    <div id="ech-chart" style="width:100%;height:420px;margin-top:12px;"></div>
+  </div>
+</div>
+
+<script>
+let _echInst = null;
+async function renderEcharts() {
+  const file = getCurrentFile() || '';
+  if (!file) { showToast('请先选择数据文件', 'warning'); return; }
+  const y = document.getElementById('ech-y').value.trim();
+  if (!y) { showToast('请输入 Y 列', 'warning'); return; }
+  const chartDom = document.getElementById('ech-chart');
+  chartDom.innerHTML = '<div style="color:#888;font-size:12px;padding:20px;text-align:center;">加载中…</div>';
+  try {
+    const r = await fetch('/api/chart/echarts-data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: file, x: document.getElementById('ech-x').value.trim(),
+        y: y.split(/[,，]/).map(s=>s.trim()).filter(Boolean),
+        type: document.getElementById('ech-type').value })
+    });
+    const d = await r.json();
+    if (!d.ok) { chartDom.innerHTML = '<div style="color:#FF6B6B;font-size:12px;padding:20px;">' + d.error + '</div>'; return; }
+    if (!window.echarts) { chartDom.innerHTML = '<div style="color:#FF6B6B;font-size:12px;padding:20px;">echarts 未加载（检查网络）</div>'; return; }
+    if (_echInst) { _echInst.dispose(); _echInst = null; }
+    const inst = echarts.init(chartDom);
+    _echInst = inst;
+    const type = document.getElementById('ech-type').value;
+    const series = d.series.map(function (s) {
+      return { name: s.name, type: type, data: s.data, smooth: type === 'line',
+        symbolSize: 5, sampling: 'lttb' };
+    });
+    inst.setOption({
+      tooltip: { trigger: 'axis' },
+      toolbox: { feature: { dataZoom: { yAxisIndex: 'none' }, restore: {}, saveAsImage: {} } },
+      dataZoom: [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 8 }],
+      legend: { data: d.series.map(function (s) { return s.name; }), top: 4 },
+      grid: { left: 48, right: 24, top: 40, bottom: 48 },
+      xAxis: { type: 'category', data: d.x, name: document.getElementById('ech-x').value.trim() || '序号' },
+      yAxis: { type: 'value', scale: true },
+      series: series,
+    });
+    window.addEventListener('resize', function () { if (_echInst) _echInst.resize(); });
+  } catch (e) {
+    chartDom.innerHTML = '<div style="color:#FF6B6B;font-size:12px;padding:20px;">加载失败: ' + e.message + '</div>';
+  }
+}
+
+async function generateChart() {
+  const file = getCurrentFile() || '';
+  const col = document.getElementById('chart-col')?.value || 'sales';
+  if (!file) return alert('选择文件');
+  
+  const res = document.getElementById('chart-result');
+  res.innerHTML = '加载中...';
+  try {
+    const r = await fetch('/api/chart/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({file, column: col})
+    });
+    const d = await r.json();
+    if (d.chart) {
+      res.innerHTML = '<div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:16px;">' +
+        '<div style="font-weight:600;color:#FF6B6B;">推荐: ' + d.chart.chart_name + '</div>' +
+        '<div style="color:#888;font-size:12px;">' + d.chart.reason + '</div></div>';
+    }
+    if (d.insight) {
+      document.getElementById('chart-insight').innerHTML = 
+        '<div style="background:rgba(94,106,210,0.1);border-radius:8px;padding:12px;margin-top:12px;">' +
+        '<b>💡 洞察: </b>' + d.insight.summary + '</div>';
+    }
+  } catch(e) { res.innerHTML = 'Error: ' + e.message; }
+}
+
+</script>

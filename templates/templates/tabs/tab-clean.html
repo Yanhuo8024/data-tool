@@ -1,0 +1,157 @@
+<!-- ======================== 清洗 ======================== -->
+<div id="tab-clean" class="sec">
+  <!-- 当前文件指示器 -->
+  <div class="current-file-bar" id="cleanFileBar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="cleanFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">数据清洗</div>
+      <div class="c-sub">去重 / 补值 / 异常值剔除</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>缺失值处理</label>
+        <select id="c-fill">
+          <option value="none">不处理</option>
+          <option value="drop">删除含空行</option>
+          <option value="mean">均值填充</option>
+          <option value="median">中位数填充</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>异常值剔除（sigma，0=跳过）</label>
+        <input id="c-out" type="number" value="0" step="0.5" min="0">
+      </div>
+      <div class="fg">
+        <label>&nbsp;</label>
+        <div class="chk"><input type="checkbox" id="c-dup" checked><label for="c-dup">删除重复行</label></div>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="doClean()">执行清洗</button>
+    </div>
+  </div>
+  <div class="card hide" id="cl-diag-card">
+    <div class="c-head"><div class="c-title">诊断报告</div></div>
+    <div id="cl-diag"></div>
+  </div>
+  <div class="card hide" id="cl-res-card">
+    <div class="c-head">
+      <div class="c-title">清洗完成</div>
+      <button class="btn btn-g btn-sm" onclick="dl('clean.csv')">下载 clean.csv</button>
+    </div>
+    <div id="cl-info"></div>
+  </div>
+
+  <!-- ========== 缺失值热力图 ========== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">缺失值分析</div><div class="c-sub">缺失分布热力图 — 直观查看数据完整性</div></div>
+    <div class="bgrp"><button class="btn btn-p" onclick="showMissingHeatmap()">生成热力图</button></div>
+    <div id="ca-miss-res" class="mt"></div>
+    <div id="ca-miss-chart" class="cg"></div>
+  </div>
+
+  <!-- ========== 字段处理 ========== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">字段处理</div><div class="c-sub">文本清洗 / 分类编码 / 日期标准化 / 批量替换 / 条件过滤</div></div>
+
+    <div class="eyebrow">操作日志</div>
+    <div class="grid">
+      <div class="fg s2"><label>日志记录</label><div id="ca-log" style="font-size:12px;color:var(--ink-muted);max-height:100px;overflow-y:auto;padding:8px;background:rgba(255,255,255,0.02);border-radius:6px;">请先点击"初始化日志"</div></div>
+    </div>
+    <div class="bgrp" style="margin-top:8px;">
+      <button class="btn btn-g btn-sm" onclick="initCleanAdv()">初始化日志</button>
+      <button class="btn btn-w btn-sm" onclick="undoCleanAdv()">撤销上一步</button>
+      <button class="btn btn-g btn-sm" onclick="saveCleanAdv()">保存结果</button>
+    </div>
+
+    <div class="eyebrow" style="margin-top:16px;">文本清洗</div>
+    <div class="grid">
+      <div class="fg"><label>目标列</label><input id="ca-text-col" placeholder="列名"></div>
+      <div class="fg"><label>选项</label>
+        <div><label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="ca-trim" checked> 去空格</label></div>
+        <div><label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="ca-lower"> 转小写</label></div>
+        <div><label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="ca-special" checked> 去特殊符号</label></div>
+        <div><label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="ca-tokenize"> 分词 (jieba)</label></div>
+      </div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p btn-sm" onclick="doCleanText()">执行文本清洗</button></div>
+
+    <div class="eyebrow" style="margin-top:16px;">分类变量编码</div>
+    <div class="grid">
+      <div class="fg"><label>目标列</label><input id="ca-enc-col" placeholder="列名"></div>
+      <div class="fg"><label>编码方式</label><select id="ca-enc-type"><option value="onehot">独热编码</option><option value="label">标签编码</option></select></div>
+      <div class="fg"><label><input type="checkbox" id="ca-enc-drop"> 去掉首类</label></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p btn-sm" onclick="doCleanEncode()">执行编码</button></div>
+
+    <div class="eyebrow" style="margin-top:16px;">日期标准化</div>
+    <div class="grid">
+      <div class="fg"><label>目标列</label><input id="ca-date-col" placeholder="列名"></div>
+      <div class="fg"><label>目标格式</label><select id="ca-date-fmt"><option value="%Y-%m-%d">2024-01-15</option><option value="%Y/%m/%d">2024/01/15</option><option value="%Y%m%d">20240115</option></select></div>
+      <div class="fg"><label><input type="checkbox" id="ca-date-rm" checked> 删除非法日期</label></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p btn-sm" onclick="doCleanDate()">标准化日期</button></div>
+
+    <div class="eyebrow" style="margin-top:16px;">批量替换与过滤</div>
+    <div class="grid">
+      <div class="fg"><label>目标列</label><input id="ca-rep-col" placeholder="列名"></div>
+      <div class="fg"><label>旧值</label><input id="ca-rep-old" placeholder="查找值"></div>
+      <div class="fg"><label>新值</label><input id="ca-rep-new" placeholder="替换为"></div>
+      <div class="fg"><label><input type="checkbox" id="ca-rep-regex"> 正则模式</label></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p btn-sm" onclick="doCleanReplace()">批量替换</button></div>
+
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg"><label>目标列</label><input id="ca-filt-col" placeholder="列名"></div>
+      <div class="fg"><label>操作符</label><select id="ca-filt-op"><option value="eq">等于</option><option value="neq">不等于</option><option value="gt">大于</option><option value="lt">小于</option><option value="contains">包含</option><option value="null">为空</option><option value="notnull">非空</option></select></div>
+      <div class="fg"><label>值</label><input id="ca-filt-val" placeholder="比较值"></div>
+    </div>
+    <div class="bgrp"><button class="btn btn-p btn-sm" onclick="doCleanFilter()">条件过滤</button></div>
+  </div>
+
+  <!-- ========== 数据血缘图 & 快照管理 ========== -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">数据血缘图 & 快照管理</div>
+      <div class="c-sub">DAG 可视化数据流转 · 类 Git 快照回滚</div>
+    </div>
+    
+    <!-- DAG 可视化区域 -->
+    <div style="margin:12px 0;">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+        <button class="btn btn-p btn-sm" onclick="takeSnapshot()">📸 创建快照</button>
+        <button class="btn btn-g btn-sm" onclick="loadSnapshots()">刷新快照</button>
+        <span style="color:#888;font-size:12px;margin-left:auto;" id="snap-count">0 个快照</span>
+      </div>
+      
+      <!-- DAG 图形容器 -->
+      <div id="dag-container" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:16px;min-height:120px;overflow-x:auto;">
+        <div id="dag-canvas" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="color:#666;width:100%;text-align:center;padding:30px;">点击"创建快照"记录数据流转节点</div>
+        </div>
+      </div>
+      
+      <!-- 快照列表 -->
+      <div id="snapshot-list" style="margin-top:12px;max-height:300px;overflow-y:auto;">
+        <div style="color:#666;text-align:center;padding:20px;">暂无快照</div>
+      </div>
+    </div>
+    
+    <!-- 快照回滚对话框 -->
+    <div id="rollback-dialog" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;">
+      <div style="background:var(--bg-surface);width:90%;max-width:500px;margin:50px auto;padding:20px;border-radius:12px;">
+        <h3 style="margin-bottom:12px;">回滚到快照</h3>
+        <p style="color:#888;font-size:13px;margin-bottom:16px;">选择要恢复的快照版本：</p>
+        <div id="rollback-list" style="max-height:300px;overflow-y:auto;margin-bottom:16px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn" style="background:#666;" onclick="closeRollbackDialog()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

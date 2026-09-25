@@ -1,0 +1,110 @@
+<!-- ======================== Agent 流程可视化 ======================== -->
+<div id="tab-agent-flow" class="sec">
+  <div class="card" style="padding:14px 16px;">
+    <div class="c-head" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <div class="c-title">🧭 Agent 流程可视化</div>
+        <div class="c-sub">AI 助手真实运行轨迹的画布回放：节点状态 · 连线流动 · 逐步计时 · 问题报错</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <label style="color:var(--ink-subtle);font-size:13px;">运行记录</label>
+        <select id="agentFlowRunSel" class="input" style="min-width:260px;max-width:340px;"
+                onchange="agentFlowVizLoad(this.value)">
+          <option value="">跟随最新一次运行</option>
+        </select>
+        <button class="btn btn-s" onclick="agentFlowVizRefreshRuns(true)">刷新列表</button>
+        <button class="btn btn-s" onclick="agentFlowVizReload()">重载画布</button>
+        <button class="btn btn-s" onclick="agentFlowVizOpen()">新窗口打开</button>
+      </div>
+    </div>
+    <div style="margin-top:8px;color:var(--ink-subtle);font-size:12px;">
+      数据由本站 <code>/api/assistant/flowviz/*</code> 同源提供，直接读取轨迹文件，无需额外服务。
+      「跟随最新一次运行」时，你在 AI 助手里每提一次问，画布会自动切到那次运行。
+    </div>
+  </div>
+
+  <div style="position:relative;margin-top:12px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#0f1115;">
+    <iframe id="agentFlowVizFrame"
+            title="Agent 流程可视化器"
+            data-src="/static/agent-flow-viz.html"
+            style="display:block;width:100%;height:calc(100vh - 260px);min-height:520px;border:0;">
+    </iframe>
+  </div>
+</div>
+
+<script>
+/* Agent 流程可视化（画布版）
+   ------------------------------------------------------------------
+   画布本体是独立页面 static/agent-flow-viz.html（单文件、自带主题与全局变量），
+   用 iframe 隔离，避免它与主站的 CSS/JS 全局命名冲突。
+   接口同源：/api/assistant/flowviz/{runs,spec,state,raw}（由 flowviz_adapter 直读 trace_store）。 */
+(function () {
+  var FRAME_ID = 'agentFlowVizFrame';
+  var loadedRuns = false;
+
+  function frame() { return document.getElementById(FRAME_ID); }
+
+  /* 首次进入标签页才设置 src：209KB 的页面不拖慢站点首屏 */
+  window.agentFlowVizInit = function () {
+    var f = frame();
+    if (!f) return;
+    if (!f.getAttribute('src')) {
+      var ds = f.getAttribute('data-src') || '/static/agent-flow-viz.html';
+      f.setAttribute('src', ds);
+    }
+    window.agentFlowVizRefreshRuns(false);
+  };
+
+  /* 拉取运行清单填充下拉框（可点「刷新列表」强制刷新） */
+  window.agentFlowVizRefreshRuns = function (force) {
+    var sel = document.getElementById('agentFlowRunSel');
+    if (!sel) return;
+    if (loadedRuns && !force) return;
+    var keep = sel.value;
+    fetch('/api/assistant/flowviz/runs?limit=30', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) throw new Error((j && j.error) || '读取失败');
+        var runs = j.runs || [];
+        loadedRuns = true;
+        sel.innerHTML = '<option value="">跟随最新一次运行</option>';
+        runs.forEach(function (it) {
+          var o = document.createElement('option');
+          o.value = it.run_id;
+          var bits = [];
+          if (it.user_message) bits.push(String(it.user_message).slice(0, 34));
+          if (it.model) bits.push(it.model);
+          if (it.ok === false) bits.push('失败');
+          o.textContent = it.run_id + (bits.length ? '  ·  ' + bits.join(' · ') : '');
+          sel.appendChild(o);
+        });
+        sel.value = keep || '';
+      })
+      .catch(function (e) {
+        sel.innerHTML = '<option value="">运行清单读取失败：' + (e && e.message) + '</option>';
+      });
+  };
+
+  /* 切换运行：空值 = 跟随最新（画布会自动跟随新运行）；有值 = 钉住回放那一次 */
+  window.agentFlowVizLoad = function (runId) {
+    var f = frame();
+    if (!f) return;
+    f.setAttribute('src', runId
+      ? '/static/agent-flow-viz.html?run=' + encodeURIComponent(runId)
+      : '/static/agent-flow-viz.html');
+  };
+
+  /* 重载当前画布（保持当前选中的运行） */
+  window.agentFlowVizReload = function () {
+    var sel = document.getElementById('agentFlowRunSel');
+    window.agentFlowVizLoad(sel ? sel.value : '');
+  };
+
+  window.agentFlowVizOpen = function () {
+    var sel = document.getElementById('agentFlowRunSel');
+    var id = sel ? sel.value : '';
+    window.open(id ? '/static/agent-flow-viz.html?run=' + encodeURIComponent(id)
+                   : '/static/agent-flow-viz.html', '_blank');
+  };
+})();
+</script>

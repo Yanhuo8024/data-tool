@@ -1,0 +1,229 @@
+<!-- ======================== 分析 ======================== -->
+<div id="tab-analyze" class="sec">
+  <!-- 当前文件指示器 -->
+  <div class="current-file-bar" id="analyzeFileBar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="analyzeFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+  <!-- 功能选择卡片 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">📈 统计分析</div>
+      <div class="c-sub">选择数据后，点击下方功能按钮</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>分组列</label>
+        <select id="a-group"><option value="">无分组</option></select>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="doDescribe()">描述统计</button>
+      <button class="btn btn-w" onclick="doCorrelation()">相关性</button>
+      <button class="btn btn-w" onclick="doGroup()">数据分组</button>
+    </div>
+  </div>
+
+  <!-- 数据分组卡片（独立显示） -->
+  <div class="card hide" id="an-group-card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">📊 数据分组统计</div>
+      <div class="c-sub">按分组列计算各组统计量</div>
+    </div>
+    <div id="an-group-result" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- 高性能分析（DuckDB） -->
+  <div class="card" style="margin-top:16px;">
+    <div class="c-head">
+      <div class="c-title">⚡ 高性能分析 <span class="vue-tag" id="an-engine-tag">DuckDB</span></div>
+      <div class="c-sub">列式引擎 · GB 级数据秒级聚合 · 只读 SQL（自动安全护栏）</div>
+    </div>
+    <div class="bgrp" style="margin-top:10px;">
+      <button class="btn btn-p" onclick="anQuickDescribe()">⚡ 快速统计（DuckDB）</button>
+    </div>
+    <div id="an-quick-stat" style="overflow-x:auto;margin-top:10px;"></div>
+    <div style="margin-top:14px;">
+      <label>SQL 查询（仅只读：SELECT/WITH，自动拦截写操作与危险函数）</label>
+      <textarea id="an-sql" rows="3" style="width:100%;font-family:monospace;font-size:12px;margin-top:6px;" placeholder="SELECT city, count(*) AS cnt FROM {当前文件视图} GROUP BY city ORDER BY cnt DESC"></textarea>
+    </div>
+    <div class="bgrp" style="margin-top:10px;">
+      <button class="btn btn-p" onclick="anSqlQuery()">▶ 执行查询</button>
+      <button class="btn btn-s" onclick="loadAnalyticsStatus()">刷新引擎状态</button>
+    </div>
+    <div style="font-size:11px;color:#999;margin-top:6px;">提示：SQL 中表名 = 文件名（去扩展名），如文件 <code>finance_ml_final_project_data.csv</code> 对应表 <code>v_finance_ml_final_project_data</code>；示例：<code>SELECT city, count(*) AS cnt FROM v_finance_ml_final_project_data GROUP BY city</code>。写操作/危险函数会被安全护栏拦截。</div>
+    <div id="an-sql-result" style="overflow-x:auto;margin-top:10px;"></div>
+  </div>
+
+  <!-- 描述性统计结果 -->
+  <div class="card hide" id="an-st-card" style="margin-top:16px;">
+    <div class="c-head"><div class="c-title">描述性统计</div></div>
+    <div id="an-stats" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- 相关性分析结果 -->
+  <div class="card hide" id="an-corr-card" style="margin-top:16px;">
+    <div class="c-head"><div class="c-title">相关性分析</div></div>
+    <div id="an-corr" style="overflow-x:auto;"></div>
+  </div>
+</div>
+
+<script>
+// 加载文件的列信息
+async function loadAColumns() {
+  const file = getCurrentFile();
+  if (!file) return;
+  
+  try {
+    const r = await fetch('/api/ml/columns?file=' + encodeURIComponent(file));
+    const d = await r.json();
+    if (d.error) return;
+    
+    const groupSel = document.getElementById('a-group');
+    groupSel.innerHTML = '<option value="">无分组</option>';
+    d.columns.forEach(col => {
+      const opt = document.createElement('option');
+      opt.value = col; opt.textContent = col;
+      groupSel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+async function doDescribe() {
+  const file = getCurrentFile();
+  if (!file) return alert('请选择数据源文件');
+  document.getElementById('an-st-card').classList.remove('hide');
+  document.getElementById('an-corr-card').classList.add('hide');
+  document.getElementById('an-group-card').classList.add('hide');
+  const r = await fetch('/api/describe', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ file })
+  });
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  const html = d.stats_html || '<p>无结果</p>';
+  document.getElementById('an-stats').innerHTML = html;
+  // 保存到报告
+  saveChartToReport('', '描述性统计', d.stats_conclusion || '', '分析', html);
+}
+
+async function doCorrelation() {
+  const file = getCurrentFile();
+  if (!file) return alert('请选择数据源文件');
+  document.getElementById('an-corr-card').classList.remove('hide');
+  document.getElementById('an-st-card').classList.add('hide');
+  document.getElementById('an-group-card').classList.add('hide');
+  const r = await fetch('/api/correlation', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ file })
+  });
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  const html = d.corr_html || '<p>无结果</p>';
+  document.getElementById('an-corr').innerHTML = html;
+  // 保存到报告
+  saveChartToReport('', '相关性分析', d.corr_conclusion || '', '分析', html);
+}
+
+async function doGroup() {
+  const file = getCurrentFile();
+  const groupCol = document.getElementById('a-group').value;
+  if (!file) return alert('请选择数据源文件');
+  if (!groupCol) return alert('请选择分组列');
+  
+  document.getElementById('an-group-card').classList.remove('hide');
+  document.getElementById('an-st-card').classList.add('hide');
+  document.getElementById('an-corr-card').classList.add('hide');
+  
+  const r = await fetch('/api/group', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ file, group: groupCol })
+  });
+  const d = await r.json();
+  if (d.error) { alert(d.error); return; }
+  const html = d.html || '<p>无结果</p>';
+  document.getElementById('an-group-result').innerHTML = html;
+  // 保存到报告
+  saveChartToReport('', '数据分组统计: ' + groupCol, '', '分析', html);
+}
+
+// ============ 高性能分析（DuckDB） ============
+async function loadAnalyticsStatus() {
+  try {
+    const r = await fetch('/api/analytics/status');
+    const d = await r.json();
+    const tag = document.getElementById('an-engine-tag');
+    if (tag) { tag.textContent = d.duckdb ? 'DuckDB' : 'pandas 降级'; tag.style.background = d.duckdb ? '#42b883' : '#e6a23c'; }
+  } catch (e) {}
+}
+
+async function anQuickDescribe() {
+  const file = getCurrentFile() || '';
+  const el = document.getElementById('an-quick-stat');
+  if (!file) { showToast('请先选择数据文件', 'warning'); return; }
+  el.innerHTML = '<div style="color:#888;font-size:12px;">统计中…</div>';
+  try {
+    const r = await fetch('/api/analytics/describe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: file })
+    });
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">' + d.error + '</div>'; return; }
+    let html = '<div style="font-size:12px;color:#888;margin-bottom:6px;">引擎: <b>' + d.engine + '</b> · 总行数 <b>' + d.rows.toLocaleString() + '</b> · 列 ' + d.columns.length + ' 个</div>';
+    if (d.stats && Object.keys(d.stats).length) {
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<thead><tr style="text-align:left;color:#888;border-bottom:1px solid rgba(0,0,0,.08);">' +
+        '<th style="padding:5px 8px;">列</th><th style="padding:5px 8px;">count</th><th style="padding:5px 8px;">mean</th>' +
+        '<th style="padding:5px 8px;">std</th><th style="padding:5px 8px;">min</th><th style="padding:5px 8px;">p50</th><th style="padding:5px 8px;">max</th></tr></thead><tbody>';
+      Object.keys(d.stats).forEach(function (c) {
+        const s = d.stats[c];
+        html += '<tr><td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;font-weight:600;">' + c + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + s.count + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + (s.mean == null ? '—' : s.mean) + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + (s.std == null ? '—' : s.std) + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + (s.min == null ? '—' : s.min) + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + (s.p50 == null ? '—' : s.p50) + '</td>' +
+          '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + (s.max == null ? '—' : s.max) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    } else {
+      html += '<div style="color:#aaa;font-size:12px;margin-top:6px;">无数值列可统计</div>';
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">统计失败: ' + e.message + '</div>'; }
+}
+
+async function anSqlQuery() {
+  const file = getCurrentFile() || '';
+  const sql = document.getElementById('an-sql').value.trim();
+  const el = document.getElementById('an-sql-result');
+  if (!file) { showToast('请先选择数据文件', 'warning'); return; }
+  if (!sql) { showToast('请输入 SQL', 'warning'); return; }
+  el.innerHTML = '<div style="color:#888;font-size:12px;">执行中…</div>';
+  try {
+    const r = await fetch('/api/analytics/query', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: file, sql: sql })
+    });
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">' + d.error + '</div>'; return; }
+    let html = '<div style="font-size:12px;color:#888;margin-bottom:6px;">引擎: <b>' + d.engine + '</b> · 返回 ' + d.rows + ' 行 × ' + d.columns.length + ' 列</div>';
+    if (d.data && d.data.length) {
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<thead><tr style="text-align:left;color:#888;border-bottom:1px solid rgba(0,0,0,.08);">' +
+        d.columns.map(function (c) { return '<th style="padding:5px 8px;">' + c + '</th>'; }).join('') +
+        '</tr></thead><tbody>' +
+        d.data.map(function (row) {
+          return '<tr>' + d.columns.map(function (c) { return '<td style="padding:5px 8px;border-bottom:1px solid #f2f2f2;">' + (row[c] == null ? '' : row[c]) + '</td>'; }).join('') + '</tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      html += '<div style="color:#aaa;font-size:12px;">无结果</div>';
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = '<div style="color:#FF6B6B;font-size:12px;">查询失败: ' + e.message + '</div>'; }
+}
+
+setTimeout(loadAnalyticsStatus, 500);
+</script>

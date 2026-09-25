@@ -1,0 +1,586 @@
+<div id="tab-ai-assistant" class="sec">
+  <div class="ai-shell">
+
+    <div class="ai-main">
+    <!-- 顶部栏：品牌 + 模式/模型/操作 -->
+    <header class="ai-topbar">
+      <div class="ai-brand">
+        <div class="ai-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-5A8 8 0 1 1 21 12z"/><path d="M9 11h6M9 15h4"/></svg></div>
+        <div class="ai-brand-text">
+          <b>AI 助手</b>
+          <span>金融量化研究助手</span>
+        </div>
+      </div>
+
+      <div class="ai-tools">
+        <div class="ai-seg" title="回答模式：⚡ 快速（知识秒回 · 轻量分析） / 🧠 深度思考（联网 + 工具分析）">
+          <button id="ai-mode-btn" class="ai-seg-btn" onclick="toggleAIMode()">⚡</button>
+          <span class="ai-seg-cap">模式</span>
+        </div>
+
+        <div class="ai-model-wrap">
+          <select id="ai-model-select" onchange="switchAIModel(this.value)" title="切换 AI 模型" class="ai-model-select">
+            <option value="sensenova_glm-5.2">☁️ 日日新·GLM-5.2 (免费)</option>
+            <option value="sensenova_deepseek-v4-flash">☁️ 日日新·DeepSeek-V4-Flash (免费)</option>
+            <option value="sensenova_deepseek-v4-pro">☁️ 日日新·DeepSeek-V4-Pro (免费)</option>
+            <option value="sensenova_sensenova-6.8-flash-lite">☁️ 日日新·6.8-Flash-Lite (免费)</option>
+            <option value="ollama_qwen2.5:7b">🥇 本地 Qwen2.5-7B (免费)</option>
+            <option value="ollama_qwen2.5:14b">本地 Qwen2.5-14B (免费)</option>
+            <option value="groq_llama-3.1-70b-versatile">☁️ Groq Llama-70B (免费)</option>
+            <option value="zhipu_glm-4-flash">☁️ 智谱 GLM-4 Flash (免费)</option>
+            <option value="dashscope_qwen-turbo">☁️ 阿里 qwen-turbo (便宜)</option>
+          </select>
+        </div>
+
+        <button class="ai-icon-btn" onclick="toggleAISettings()" title="模型设置">⚙️</button>
+        <button class="ai-icon-btn" onclick="window.open('/static/agent-problems.html','_blank')" title="Agent 问题页：时间统计与优化方向">🩺</button>
+        <button class="ai-icon-btn" onclick="window.open('/static/agent-flow.html','_blank')" title="Agent 流程追踪">🧭</button>
+        <button class="ai-icon-btn ai-icon-new" onclick="newAIConversation()" title="新建对话（开始一个独立会话）">＋</button>
+        <button class="ai-icon-btn ai-icon-danger" onclick="clearAIChat()" title="清空当前对话">🗑</button>
+      </div>
+    </header>
+
+    <!-- 模型设置面板 -->
+    <div class="ai-settings ai-drawer" id="ai-settings" style="display:none;">
+      <div class="ai-drawer-title">⚙️ 模型设置</div>
+      <div class="ai-drawer-grid">
+        <div class="fg"><label>模型提供商</label>
+          <select id="llm-provider" onchange="onProviderChange()">
+            <option value="sensenova" selected>商汤日日新 SenseNova (免费)</option>
+            <optgroup label="── 国产 ──">
+              <option value="deepseek">深度求索 DeepSeek</option>
+              <option value="zhipu">智谱 GLM (免费)</option>
+              <option value="dashscope">阿里通义千问 DashScope</option>
+              <option value="baidu">百度千帆 文心一言</option>
+              <option value="doubao">字节豆包 (方舟 ark)</option>
+              <option value="moonshot">月之暗面 Kimi</option>
+              <option value="yi">零一万物 Yi</option>
+              <option value="hunyuan">腾讯混元</option>
+              <option value="spark">讯飞星火</option>
+            </optgroup>
+            <optgroup label="── 海外 ──">
+              <option value="openai">OpenAI / GPT</option>
+              <option value="anthropic">Anthropic Claude</option>
+              <option value="google">Google Gemini (免费层)</option>
+              <option value="xai">xAI Grok</option>
+              <option value="mistral">Mistral AI</option>
+              <option value="azure">Azure OpenAI</option>
+              <option value="groq">Groq (Llama 加速, 免费)</option>
+            </optgroup>
+            <optgroup label="── 本地 / 自定义 ──">
+              <option value="ollama">Ollama (本地)</option>
+              <option value="custom">自定义 (OpenAI 兼容)</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="fg"><label>API Key</label><input type="password" id="llm-api-key" placeholder="sk-... (留空用服务端密钥)" /></div>
+        <div class="fg" id="custom-url-row" style="display:none"><label>API URL</label><input type="text" id="llm-api-url" placeholder="https://api.openai.com/v1/chat/completions" /></div>
+        <div class="fg"><label>模型版本</label><select id="llm-model"></select></div>
+      </div>
+      <div class="bgrp">
+        <button class="btn btn-p btn-sm" onclick="saveLLMConfig()">保存</button>
+        <button class="btn btn-s btn-sm" onclick="testLLMConnection()">测试</button>
+        <button class="btn btn-w btn-sm" onclick="clearLLMConfig()">清除</button>
+      </div>
+      <div class="ai-pipe-sec">
+        <label class="ai-pipe-switch"><input type="checkbox" id="pipeline-enable" onchange="onPipelineEnableChange()" /> 多Agent协作 · 多模型协作（自动分配模型，降低 429）</label>
+        <div id="ai-pipe-body" style="display:none; margin-top:8px;">
+          <label class="ai-pipe-switch"><input type="checkbox" id="pipeline-auto" onchange="onPipelineAutoChange()" /> 🤖 自动选择大模型（推荐 · 无需手动配置）</label>
+          <div id="ai-pipe-auto-summary" class="ai-pipe-hint"></div>
+          <div id="ai-pipe-manual" style="display:none;">
+          <div class="ai-pipe-hint">为名下阶段分别指定大模型；未配置的阶段沿用上方全局模型。</div>
+          <div class="ai-pipe-row"><label>市场分析师</label>
+            <select id="pipe-market-provider" onchange="onPipeProviderChange('market')"></select>
+            <select id="pipe-market-model"></select>
+          </div>
+          <div class="ai-pipe-row"><label>量化建模师</label>
+            <select id="pipe-quant-provider" onchange="onPipeProviderChange('quant')"></select>
+            <select id="pipe-quant-model"></select>
+          </div>
+          <div class="ai-pipe-row"><label>风控合规官</label>
+            <select id="pipe-risk-provider" onchange="onPipeProviderChange('risk')"></select>
+            <select id="pipe-risk-model"></select>
+          </div>
+          <div class="ai-pipe-row"><label>终稿合成</label>
+            <select id="pipe-final-provider" onchange="onPipeProviderChange('final')"></select>
+            <select id="pipe-final-model"></select>
+          </div>
+          </div>
+        </div>
+      </div>
+      <div class="ai-pipe-sec">
+        <label class="ai-pipe-switch" style="font-weight:600;" title="这两项决定了本机数据是否会离开本机；默认值、当前生效值与开关位置一并在下方显示">🔐 数据出境</label>
+        <div class="ai-pipe-hint">清单见 <code>design/DATA_EGRESS.md</code>；取值优先级：环境变量 &gt; 此处设置 &gt; 默认开启。</div>
+        <div id="ai-egress-body"></div>
+      </div>
+    </div>
+
+    <!-- Skills 技能（可折叠） -->
+    <div id="ai-skills-panel" class="ai-skills">
+      <button type="button" class="ai-skills-toggle" onclick="toggleSkillsPanel()">
+        <span>🧩 Skills 技能</span>
+        <span id="ai-skills-count" class="ai-skills-count"></span>
+        <span class="ai-skills-hint" id="ai-skills-toggle-hint">展开 ▾</span>
+      </button>
+      <div id="ai-skills-body" class="ai-skills-body" style="display:none;">
+        <div id="ai-skills-list" class="ai-skills-list"></div>
+        <div class="ai-skills-hint">导入 Skill（SKILL.md 格式，含 --- name/description --- frontmatter）：</div>
+        <textarea id="ai-skill-md" rows="4" class="ai-skill-md" placeholder="---&#10;name: my-skill&#10;description: 技能描述&#10;---&#10;技能正文（注入 AI 助手的提示）..."></textarea>
+        <div class="ai-skills-import-row">
+          <input type="file" id="ai-skill-zip" accept=".zip" />
+          <button class="btn btn-p btn-sm" onclick="importSkillFromForm()">导入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 上下文状态条 -->
+    <div class="ai-statusbar" id="ai-context-bar">
+      <svg class="ai-status-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+      <span id="ai-ctx-file" style="display:none;">📁 <b>未选文件</b></span>
+      <span id="ai-ctx-tab"></span>
+      <span id="ai-egress-hint" class="ai-egress-hint" style="display:none;"></span>
+      <span class="ai-status-spacer"></span>
+    </div>
+
+    <!-- 消息区 -->
+    <div class="ai-assistant-messages ai-messages" id="ai-messages"></div>
+
+    <!-- 输入区 -->
+    <div class="ai-composer">
+      <div id="ai-image-previews" class="ai-image-previews"></div>
+      <div class="ai-inputbar">
+        <button class="ai-attach" onclick="pickAIImage()" title="上传图片识图">📷</button>
+        <input type="file" id="ai-image-input" accept="image/*" multiple style="display:none;" onchange="handleAIImages(this)" />
+        <input type="text" id="ai-input" class="ai-input" placeholder="问我任何事：查看文件、分析数据、生成图表…" />
+        <button id="ai-stop-btn" class="ai-stop" onclick="stopAIGeneration()" title="停止生成" style="display:none;">■</button>
+        <button class="ai-send" onclick="sendAIMessage()" title="发送 (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
+        </button>
+      </div>
+    </div>
+    </div><!-- /ai-main -->
+
+    <!-- 侧边栏：分析结论 + 会话列表（多会话，可切换/删除） -->
+    <aside class="ai-rail" id="aiRail">
+      <div class="ai-rail-head">
+        <span class="ai-rail-label">💬 AI 记录</span>
+        <span id="aiRailCount" class="ai-rail-count" style="display:none;"></span>
+        <button class="ai-rail-toggle" id="aiRailToggle" type="button" onclick="toggleAiSidebar()" title="收起/展开">«</button>
+      </div>
+      <div class="ai-rail-body">
+        <div class="ai-sb-title">📋 分析结论</div>
+        <div class="ai-sb-list" id="aiSbConclusions"><div class="ai-sb-empty">暂无分析结论</div></div>
+        <div class="ai-sb-title">💬 会话<span class="ai-sb-new" onclick="newAIConversation()" title="新建对话">＋</span></div>
+        <div class="ai-sb-list" id="aiSbChat"><div class="ai-sb-empty">暂无对话记录</div></div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<style>
+/* ============================================================
+   AI 助手标签页 — 电光蓝科技金融风（作用域：#tab-ai-assistant）
+   ============================================================ */
+#tab-ai-assistant { padding: 0; }
+
+
+/* ---- 主外壳：左边聊天 + 右边 AI 记录栏 ---- */
+#tab-ai-assistant .ai-shell {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: calc(100vh - 128px);
+  min-height: 600px;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(1200px 500px at 100% 0%, rgba(34,211,238,.06), transparent 60%),
+    linear-gradient(180deg, var(--bg-surface), var(--bg-deep));
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(7,11,18,.5);
+  position: relative;
+}
+/* 主聊天区（左列） */
+#tab-ai-assistant .ai-main {
+  display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0;
+}
+#tab-ai-assistant .ai-main > * { flex-shrink: 0; }
+#tab-ai-assistant .ai-main .ai-messages { flex: 1 1 auto; }
+
+/* AI 记录边栏（右列） */
+#tab-ai-assistant .ai-rail {
+  width: 300px; flex-shrink: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--glass-border);
+  background: linear-gradient(180deg, rgba(34,211,238,.04), transparent);
+  transition: width .2s ease;
+}
+#tab-ai-assistant .ai-rail.closed { width: 46px; }
+#tab-ai-assistant .ai-rail-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px; flex-shrink: 0;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap;
+}
+#tab-ai-assistant .ai-rail.closed .ai-rail-head { justify-content: center; padding: 12px 0; }
+#tab-ai-assistant .ai-rail.closed .ai-rail-label,
+#tab-ai-assistant .ai-rail.closed .ai-rail-count,
+#tab-ai-assistant .ai-rail.closed .ai-rail-body { display: none; }
+#tab-ai-assistant .ai-rail-count {
+  font-size: 10px; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px;
+  background: var(--primary-glow); color: var(--primary-hover);
+  display: grid; place-items: center; flex-shrink: 0;
+}
+#tab-ai-assistant .ai-rail-toggle {
+  margin-left: auto; flex-shrink: 0;
+  border: none; background: transparent; color: var(--ink-muted); cursor: pointer;
+  font-size: 14px; width: 28px; height: 28px; border-radius: 8px;
+}
+#tab-ai-assistant .ai-rail.closed .ai-rail-toggle { margin-left: 0; }
+#tab-ai-assistant .ai-rail-toggle:hover { color: var(--ink); background: var(--bg-card-hover); }
+#tab-ai-assistant .ai-rail-body { flex: 1; overflow-y: auto; min-height: 0; padding: 3px 13px 14px; }
+#tab-ai-assistant .ai-sb-title {
+  font-size: 11px; font-weight: 600; color: var(--ink-subtle); text-transform: uppercase;
+  letter-spacing: 1px; margin: 13px 2px 8px;
+}
+#tab-ai-assistant .ai-sb-item {
+  padding: 8px 10px; margin-bottom: 7px; border-radius: 9px; cursor: pointer;
+  background: var(--bg-card); border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--primary); transition: .15s;
+}
+#tab-ai-assistant .ai-sb-item.user { border-left-color: var(--ink-subtle); }
+#tab-ai-assistant .ai-sb-item:hover { background: var(--bg-card-hover); border-color: var(--glass-border-strong); }
+#tab-ai-assistant .ai-sb-item-text {
+  font-size: 12px; color: var(--ink); line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; word-break: break-word;
+}
+#tab-ai-assistant .ai-sb-item-meta { font-size: 10px; color: var(--ink-tertiary); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tab-ai-assistant .ai-sb-del {
+  float: right; margin-left: 8px; cursor: pointer; font-size: 13px; line-height: 1;
+  color: var(--ink-tertiary); user-select: none; border-radius: 4px; padding: 0 3px;
+}
+#tab-ai-assistant .ai-sb-del:hover { color: #e5484d; background: rgba(229, 72, 77, .12); }
+#tab-ai-assistant .ai-sb-empty { font-size: 12px; color: var(--ink-subtle); text-align: center; padding: 14px 0; }
+/* ---- 多会话：当前会话高亮 + 标题栏「新建」 ---- */
+#tab-ai-assistant .ai-sb-item.active {
+  border-left-color: var(--ds-blue); background: var(--bg-card-hover);
+  box-shadow: inset 0 0 0 1px var(--glass-border-strong);
+}
+#tab-ai-assistant .ai-sb-item.active .ai-sb-item-text { font-weight: 600; }
+#tab-ai-assistant .ai-sb-new {
+  float: right; cursor: pointer; font-size: 14px; line-height: 1;
+  color: var(--ink-subtle); border-radius: 5px; padding: 0 4px; font-weight: 700;
+}
+#tab-ai-assistant .ai-sb-new:hover { color: var(--ds-blue); background: var(--bg-card-hover); }
+#tab-ai-assistant .ai-icon-new { font-weight: 700; }
+
+/* ---- 顶部栏 ---- */
+#tab-ai-assistant .ai-topbar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255,255,255,.015);
+}
+#tab-ai-assistant .ai-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+#tab-ai-assistant .ai-logo {
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  box-shadow: 0 0 0 1px rgba(59,130,246,.4), 0 8px 26px rgba(59,130,246,.28);
+}
+#tab-ai-assistant .ai-logo svg { width: 22px; height: 22px; }
+#tab-ai-assistant .ai-brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+#tab-ai-assistant .ai-brand-text b { color: var(--ink); font-size: 16px; font-weight: 700; }
+#tab-ai-assistant .ai-brand-text span { color: var(--ink-subtle); font-size: 11px; }
+
+#tab-ai-assistant .ai-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+/* 模式/Agent 分段 */
+#tab-ai-assistant .ai-seg {
+  display: flex; align-items: center; gap: 4px;
+  border: 1px solid var(--glass-border); border-radius: 10px; padding: 3px 5px;
+  background: var(--bg-card);
+}
+#tab-ai-assistant .ai-seg-btn {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 7px;
+  color: var(--ink-muted);
+}
+#tab-ai-assistant .ai-seg-btn:hover { background: var(--bg-card-hover); color: var(--ink); }
+#tab-ai-assistant .ai-seg-cap { font-size: 10px; color: var(--ink-subtle); padding-right: 3px; }
+
+/* 模型选择 */
+#tab-ai-assistant .ai-model-wrap { position: relative; }
+#tab-ai-assistant .ai-model-select {
+  appearance: none; -webkit-appearance: none;
+  background: var(--bg-deep); border: 1px solid var(--glass-border); border-radius: 10px;
+  padding: 8px 28px 8px 12px; font-size: 12px; color: var(--ink); cursor: pointer;
+  max-width: 220px; color-scheme: dark;
+}
+#tab-ai-assistant .ai-model-wrap::after {
+  content: ""; position: absolute; right: 10px; top: 50%; transform: translateY(-55%);
+  width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--ink-muted); pointer-events: none;
+}
+#tab-ai-assistant .ai-model-select option { background: var(--bg-deep); color: var(--ink); }
+
+/* 图标按钮 */
+#tab-ai-assistant .ai-icon-btn {
+  border: 1px solid var(--glass-border); background: var(--bg-card); color: var(--ink-muted);
+  width: 34px; height: 34px; border-radius: 10px; cursor: pointer; font-size: 15px;
+  display: grid; place-items: center; transition: all .15s;
+}
+#tab-ai-assistant .ai-icon-btn:hover { color: var(--ink); border-color: var(--glass-border-strong); background: var(--bg-card-hover); }
+#tab-ai-assistant .ai-icon-danger:hover { color: var(--error); border-color: var(--error-glow); }
+
+/* ---- 模型设置抽屉 ---- */
+#tab-ai-assistant .ai-drawer {
+  padding: 14px 18px; border-bottom: 1px solid var(--glass-border);
+  background: rgba(255,255,255,.02);
+}
+#tab-ai-assistant .ai-drawer-title { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 12px; letter-spacing: .3px; }
+#tab-ai-assistant .ai-drawer-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 12px; align-items: end; }
+#tab-ai-assistant .ai-drawer .fg { margin: 0; }
+#tab-ai-assistant .ai-drawer label { font-size: 11px; }
+#tab-ai-assistant .ai-drawer .bgrp { margin-top: 14px; }
+#tab-ai-assistant .ai-settings-title { display: none; }
+
+/* ---- Skills ---- */
+#tab-ai-assistant .ai-skills { border-bottom: 1px solid var(--glass-border); }
+#tab-ai-assistant .ai-skills-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 16px; background: transparent; border: none; cursor: pointer;
+  font-size: 12px; color: var(--ink-muted); text-align: left;
+}
+#tab-ai-assistant .ai-skills-toggle:hover { color: var(--ink); }
+#tab-ai-assistant .ai-skills-count { font-size: 11px; color: var(--ink-subtle); }
+#tab-ai-assistant .ai-skills-hint { margin-left: auto; font-size: 11px; color: var(--ink-subtle); }
+#tab-ai-assistant .ai-skills-body { padding: 8px 16px 14px; }
+#tab-ai-assistant .ai-skills-list { margin-bottom: 12px; }
+#tab-ai-assistant .ai-skill-md {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  background: var(--bg-card); color: var(--ink); border: 1px solid var(--glass-border);
+  border-radius: 10px; padding: 9px 11px; font-size: 12px;
+}
+#tab-ai-assistant .ai-skills-import-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+#tab-ai-assistant .ai-skills-import-row input[type=file] { font-size: 12px; color: var(--ink-muted); flex: 1; }
+
+/* ---- 状态条 ---- */
+#tab-ai-assistant .ai-statusbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px; font-size: 11px; color: var(--ink-subtle);
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255,255,255,.01);
+}
+#tab-ai-assistant .ai-status-ico { width: 13px; height: 13px; opacity: .7; }
+#tab-ai-assistant .ai-status-spacer { flex: 1; }
+/* 数据出境知情提示：挂了文件时在上下文栏常驻显示，颜色克制不抢焦点 */
+#tab-ai-assistant .ai-egress-hint {
+  padding: 1px 8px; border-radius: 999px; font-size: 10px; white-space: nowrap;
+  color: var(--ink-subtle); border: 1px solid var(--glass-border); background: rgba(255,255,255,.03);
+}
+#tab-ai-assistant .ai-egress-tag { margin-left: 6px; font-size: 10px; color: var(--ink-subtle); opacity: .85; }
+
+/* ---- 消息区 ---- */
+#tab-ai-assistant .ai-messages {
+  flex: 1 1 auto; min-height: 0;
+  padding: 28px 26px; gap: 16px;
+}
+body.light-theme #tab-ai-assistant .ai-messages { background: transparent; }
+
+/* 空状态欢迎提示 */
+#tab-ai-assistant .ai-messages:empty::before {
+  content: "👋 你好！我是你的金融量化 AI 助手";
+  display: block; margin: auto; text-align: center;
+  font-size: 16px; font-weight: 600; color: var(--ink);
+  background: linear-gradient(120deg,var(--primary),var(--accent));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  padding-bottom: 10px;
+}
+#tab-ai-assistant .ai-messages:empty::after {
+  content: "你可以让我查看文件、分析数据、生成图表、做相关性/假设检验，或根据金融知识深入解读。";
+  display: block; margin: 0 auto auto; text-align: center;
+  font-size: 12px; color: var(--ink-subtle); white-space: pre-line;
+}
+
+/* 消息气泡 */
+#tab-ai-assistant .ai-msg {
+  padding: 14px 18px; border-radius: 16px; max-width: 84%;
+  font-size: 14px; line-height: 1.75; word-wrap: break-word;
+  box-shadow: 0 2px 10px rgba(7,11,18,.25);
+}
+#tab-ai-assistant .ai-msg.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff; border-bottom-right-radius: 4px;
+}
+#tab-ai-assistant .ai-msg.assistant {
+  align-self: flex-start;
+  background: var(--bg-card); border: 1px solid var(--glass-border);
+  border-bottom-left-radius: 4px; color: var(--ink);
+}
+#tab-ai-assistant .ai-msg.assistant pre {
+  background: rgba(0,0,0,.35); border: 1px solid var(--glass-border);
+  padding: 10px; border-radius: 8px; overflow-x: auto; margin: 8px 0; font-size: 11px;
+}
+#tab-ai-assistant .ai-msg.assistant code { background: rgba(0,0,0,.25); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+/* ---- 输入区 ---- */
+#tab-ai-assistant .ai-composer {
+  border-top: 1px solid var(--glass-border);
+  padding: 12px 18px 16px;
+  background: linear-gradient(180deg, rgba(13,19,32,.6), var(--bg-deep));
+}
+#tab-ai-assistant .ai-image-previews { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+
+#tab-ai-assistant .ai-inputbar {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--glass-border); border-radius: 15px;
+  background: var(--bg-deep); padding: 8px 10px;
+  transition: border-color .15s, box-shadow .15s;
+}
+#tab-ai-assistant .ai-inputbar:focus-within { border-color: var(--glass-border-strong); box-shadow: 0 0 0 3px rgba(34,211,238,.12); }
+#tab-ai-assistant .ai-attach {
+  border: none; background: transparent; color: var(--ink-muted); cursor: pointer;
+  font-size: 16px; width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+}
+#tab-ai-assistant .ai-attach:hover { color: var(--ink); background: var(--bg-card-hover); }
+#tab-ai-assistant .ai-input {
+  flex: 1; border: none; outline: none; background: transparent;
+  color: var(--ink); font-size: 14px; padding: 10px 4px; min-width: 0;
+}
+#tab-ai-assistant .ai-input::placeholder { color: var(--ink-subtle); }
+#tab-ai-assistant .ai-stop {
+  border: 1px solid var(--error-glow); background: rgba(248,113,113,.12); color: var(--error);
+  width: 36px; height: 36px; border-radius: 9px; cursor: pointer; font-size: 13px; flex-shrink: 0;
+}
+#tab-ai-assistant .ai-send {
+  border: none; cursor: pointer; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  box-shadow: 0 4px 14px rgba(34,211,238,.28);
+  transition: transform .15s, box-shadow .15s;
+}
+#tab-ai-assistant .ai-send svg { width: 18px; height: 18px; }
+#tab-ai-assistant .ai-send:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,211,238,.4); }
+
+/* ---- 浅色主题适配 ---- */
+body.light-theme #tab-ai-assistant .ai-shell {
+  background:
+    radial-gradient(1200px 500px at 100% 0%, rgba(34,211,238,.10), transparent 60%),
+    linear-gradient(180deg, #ffffff, #eef1f6);
+}
+body.light-theme #tab-ai-assistant .ai-msg.assistant pre { background: rgba(15,23,42,.04); }
+body.light-theme #tab-ai-assistant .ai-inputbar { background: #fff; }
+
+/* ---- 窄屏适配 ---- */
+@media (max-width: 767px) {
+  #tab-ai-assistant { padding: 0; }
+  #tab-ai-assistant .ai-shell { height: calc(100dvh - 120px); min-height: 440px; border-radius: 12px; }
+  #tab-ai-assistant .ai-topbar { padding: 12px 14px; gap: 10px; }
+  #tab-ai-assistant .ai-brand-text span { display: none; }
+  #tab-ai-assistant .ai-tools { width: 100%; margin-left: 0; }
+  #tab-ai-assistant .ai-model-select { max-width: 100%; flex: 1; }
+  #tab-ai-assistant .ai-msg { max-width: 92%; }
+  #tab-ai-assistant .ai-composer { padding: 8px 12px 12px; }
+  /* 窄屏：AI 记录栏收成窄条（可点击展开） */
+  #tab-ai-assistant .ai-rail { width: 46px; }
+  #tab-ai-assistant .ai-rail:not(.closed) { width: 240px; }
+  #tab-ai-assistant .ai-rail-body { padding: 3px 10px 12px; }
+}
+
+/* ============================================================
+   DeepSeek 深色极简主题覆盖（作用域：#tab-ai-assistant）
+   主色统一为 DeepSeek 蓝；居中窄列；无边框气泡；底部胶囊输入
+   为可逆覆盖：追加于末尾，删除本节即可整体回退到原电光蓝风
+   ============================================================ */
+#tab-ai-assistant {
+  --ds-blue: #4d6bfe;
+  --ds-blue-hover: #5b79ff;
+}
+/* 外壳：去电光蓝发光 → 深灰极简 */
+#tab-ai-assistant .ai-shell {
+  background: linear-gradient(180deg, #17181a, #0f1012);
+  background-image: none;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px rgba(0,0,0,.45);
+}
+/* 聊天区：居中窄列，两侧留白 */
+#tab-ai-assistant .ai-main .ai-messages {
+  align-self: center; width: 100%; max-width: 880px;
+  margin: 0 auto; padding: 34px 26px 20px;
+}
+/* 气泡：助手无边框纯文本，用户右侧蓝泡 */
+#tab-ai-assistant .ai-msg { box-shadow: none; line-height: 1.8; }
+#tab-ai-assistant .ai-msg.user {
+  align-self: flex-end;
+  background: var(--ds-blue); color: #fff;
+  border-radius: 18px 18px 6px 18px; max-width: 78%;
+}
+#tab-ai-assistant .ai-msg.assistant {
+  align-self: flex-start; background: transparent; border: none;
+  color: var(--ink); padding: 2px 2px;
+}
+#tab-ai-assistant .ai-msg.assistant.md { padding: 8px 2px; }
+#tab-ai-assistant .ai-msg.assistant pre { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
+#tab-ai-assistant .ai-msg.assistant code { background: rgba(77,107,254,.14); color: #a5b4ff; }
+/* 顶部栏：精简 + 蓝 logo */
+#tab-ai-assistant .ai-topbar { background: transparent; padding: 18px 26px 14px; }
+#tab-ai-assistant .ai-logo { background: var(--ds-blue); box-shadow: 0 6px 20px rgba(77,107,254,.32); }
+#tab-ai-assistant .ai-brand-text span { color: rgba(255,255,255,.5); }
+/* 图标按钮去掉 cyan */
+#tab-ai-assistant .ai-icon-btn:hover { color: var(--ink); }
+/* 输入区：居中窄列 + 胶囊输入框 + 圆形发送 */
+#tab-ai-assistant .ai-composer {
+  align-self: center; width: 100%; max-width: 880px;
+  padding: 4px 26px 24px; background: transparent; border-top: none;
+}
+#tab-ai-assistant .ai-inputbar {
+  border-radius: 26px; padding: 6px 6px 6px 18px;
+  background: #1f2226; border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+#tab-ai-assistant .ai-inputbar:focus-within { border-color: var(--ds-blue); box-shadow: 0 0 0 3px rgba(77,107,254,.18); }
+#tab-ai-assistant .ai-send {
+  background: var(--ds-blue); border-radius: 50%; width: 38px; height: 38px;
+  box-shadow: none; transition: background .15s;
+}
+#tab-ai-assistant .ai-send:hover { background: var(--ds-blue-hover); transform: none; }
+#tab-ai-assistant .ai-stop { border-radius: 50%; border-color: rgba(229,72,77,.5); }
+/* 状态条：更淡 */
+#tab-ai-assistant .ai-statusbar { background: transparent; padding: 8px 26px; }
+/* 右侧记录栏：蓝边、极简（收起逻辑保留） */
+#tab-ai-assistant .ai-rail { background: rgba(255,255,255,.015); }
+#tab-ai-assistant .ai-rail-count { background: rgba(77,107,254,.2); color: #a5b4ff; }
+#tab-ai-assistant .ai-sb-item { border-left: 3px solid var(--ds-blue); }
+/* 空状态欢迎：蓝字 */
+#tab-ai-assistant .ai-messages:empty::before {
+  background: linear-gradient(120deg, #6d8cff, var(--ds-blue));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+/* 浅色主题下的 DeepSeek 完整覆盖（外壳/代码块/记录栏的硬编码深色需在此还原为浅色） */
+body.light-theme #tab-ai-assistant .ai-shell {
+  background: linear-gradient(180deg, #fbfcfe, #eef1f6);
+  background-image: none;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 12px 32px rgba(0,0,0,.06);
+}
+body.light-theme #tab-ai-assistant .ai-topbar { background: transparent; }
+body.light-theme #tab-ai-assistant .ai-brand-text span { color: var(--ink-subtle); }
+body.light-theme #tab-ai-assistant .ai-msg.user { background: var(--ds-blue); }
+body.light-theme #tab-ai-assistant .ai-msg.assistant { color: var(--ink); }
+body.light-theme #tab-ai-assistant .ai-msg.assistant pre { background: #f5f6f8; border-color: rgba(0,0,0,.1); }
+body.light-theme #tab-ai-assistant .ai-msg.assistant code { background: rgba(77,107,254,.1); }
+body.light-theme #tab-ai-assistant .ai-inputbar { background: #fff; border-color: rgba(77,107,254,.25); box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+body.light-theme #tab-ai-assistant .ai-send { background: var(--ds-blue); }
+body.light-theme #tab-ai-assistant .ai-rail { background: rgba(0,0,0,.02); }
+body.light-theme #tab-ai-assistant .ai-sb-empty { color: var(--ink-subtle); }
+/* 窄屏：保留原有栏呈窄条逻辑，仅继续窄列居中 */
+@media (max-width: 767px) {
+  #tab-ai-assistant .ai-shell { height: calc(100dvh - 120px); min-height: 440px; }
+  #tab-ai-assistant .ai-main .ai-messages { padding: 22px 14px 12px; }
+  #tab-ai-assistant .ai-composer { padding: 4px 12px 14px; }
+  #tab-ai-assistant .ai-msg.user { max-width: 88%; }
+}
+</style>

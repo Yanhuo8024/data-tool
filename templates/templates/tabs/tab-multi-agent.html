@@ -1,0 +1,180 @@
+<!-- ======================== 多 Agent 协同 ======================== -->
+<div id="tab-multi-agent" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">🤖</span>
+    <span class="cf-label">多 Agent 协同</span>
+    <span class="cf-hint">任务拆解 · 多 Agent 协作 · 可视化追踪</span>
+  </div>
+
+  <!-- 任务输入 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">创建协同任务</div>
+      <div class="c-sub">输入复杂任务，系统自动拆解并分配多个 Agent 执行</div>
+    </div>
+    <div class="grid">
+      <div class="fg" style="grid-column:1/-1;margin:0;">
+        <label>任务描述</label>
+        <textarea id="agent-task-desc" rows="3" placeholder="输入复杂任务，例如：分析当前文件的缺失值情况，然后用随机森林预测目标变量，最后生成分析报告" style="width:100%;"></textarea>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="createAgentTask()">创建任务</button>
+      <button class="btn btn-g" onclick="loadAgentTasks()">刷新列表</button>
+    </div>
+  </div>
+
+  <!-- 任务列表 -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">任务列表</div>
+      <div class="c-sub">查看已创建的多 Agent 协同任务</div>
+    </div>
+    <div id="agent-task-list">
+      <div style="color:var(--ink-subtle);font-size:13px;">暂无任务</div>
+    </div>
+  </div>
+
+  <!-- 任务详情 -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">执行链路追踪</div>
+      <div class="c-sub">可视化展示 Agent 调用链和工具执行过程</div>
+    </div>
+    <div id="agent-trace">
+      <div style="color:var(--ink-subtle);font-size:13px;">选择任务查看调用链</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 多 Agent 协同 =====
+
+async function createAgentTask() {
+  const desc = document.getElementById('agent-task-desc').value.trim();
+  if (!desc) { alert('请输入任务描述'); return; }
+  
+  const token = getAccessToken();
+  if (!token) { alert('请先登录'); return; }
+  
+  try {
+    const r = await fetch('/api/agent/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ description: desc, file: getCurrentFile() })
+    });
+    const d = await r.json();
+    
+    if (d.ok) {
+      showToast('任务已创建', 'success');
+      document.getElementById('agent-task-desc').value = '';
+      loadAgentTasks();
+    } else {
+      showToast(d.error || '创建失败', 'error');
+    }
+  } catch(e) {
+    showToast('创建失败: ' + e.message, 'error');
+  }
+}
+
+async function loadAgentTasks() {
+  const token = getAccessToken();
+  if (!token) return;
+  
+  try {
+    const r = await fetch('/api/agent/tasks', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!r.ok || !d.tasks) {
+      const list = document.getElementById('agent-task-list');
+      if (list) list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">未登录或权限不足，登录后查看任务</div>';
+      return;
+    }
+    
+    const list = document.getElementById('agent-task-list');
+    if (d.tasks.length === 0) {
+      list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无任务</div>';
+      return;
+    }
+    
+    list.innerHTML = d.tasks.map(t => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--glass-border);cursor:pointer;" onclick="loadTaskDetail('${t.id}')">
+        <div>
+          <div style="font-weight:600;font-size:13px;">${t.description.slice(0,60)}${t.description.length > 60 ? '...' : ''}</div>
+          <div style="font-size:11px;color:var(--ink-subtle);">
+            <span style="color:${t.status === 'completed' ? '#10b981' : t.status === 'failed' ? '#ef4444' : '#f59e0b'};">${t.status}</span>
+            · ${t.steps} 步 · ${t.duration_ms || 0}ms
+          </div>
+        </div>
+        <button class="btn btn-sm btn-g" onclick="event.stopPropagation();deleteAgentTask('${t.id}')">删除</button>
+      </div>
+    `).join('');
+  } catch(e) {
+    console.error('加载任务失败:', e);
+  }
+}
+
+// onclick 调用名 alias（模板 onclick 用 loadTaskDetail）
+function loadTaskDetail(taskId) { return loadAgentTaskDetail(taskId); }
+
+async function loadAgentTaskDetail(taskId) {
+  const token = getAccessToken();
+  if (!token) return;
+  
+  try {
+    const r = await fetch('/api/agent/tasks/' + taskId, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    
+    const trace = document.getElementById('agent-trace');
+    if (!d.ok) {
+      trace.innerHTML = '<div style="color:var(--ink-subtle);">加载失败</div>';
+      return;
+    }
+    
+    trace.innerHTML = `
+      <div style="margin-bottom:16px;">
+        <div style="font-weight:600;font-size:14px;">${d.task.description}</div>
+        <div style="font-size:12px;color:var(--ink-subtle);">状态: ${d.task.status} | 总耗时: ${d.task.duration_ms}ms | Token: ${d.task.total_tokens}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${d.task.steps.map((s, i) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,.02);border-radius:6px;border-left:3px solid ${s.status === 'completed' ? '#10b981' : s.status === 'failed' ? '#ef4444' : '#f59e0b'};">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">${i+1}</div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:13px;">${s.name}</div>
+              <div style="font-size:11px;color:var(--ink-subtle);">${s.description.slice(0,80)}</div>
+              <div style="font-size:11px;color:var(--ink-subtle);">工具: ${s.tool_name || '-'} | 耗时: ${s.duration_ms}ms | 状态: ${s.status}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch(e) {
+    console.error('加载任务详情失败:', e);
+  }
+}
+
+async function deleteAgentTask(taskId) {
+  if (!confirm('确定要删除这个任务吗？')) return;
+  
+  const token = getAccessToken();
+  if (!token) return;
+  
+  try {
+    const r = await fetch('/api/agent/tasks/' + taskId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (d.ok) loadAgentTasks();
+  } catch(e) {
+    showToast('删除失败: ' + e.message, 'error');
+  }
+}
+
+// 初始化
+setTimeout(loadAgentTasks, 100);
+</script>

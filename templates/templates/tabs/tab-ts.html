@@ -1,0 +1,113 @@
+﻿<!-- ======================== 时序分析 ======================== -->
+<div id="tab-ts" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="tsFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+  <div class="card"><div class="c-head"><div class="c-title">时序分析</div><div class="c-sub">日期特征 / 重采样 / Prophet / 滚动窗口 / 时序分解 / ADF检验 / ARIMA</div></div></div>
+  <div class="card" style="padding:16px 20px;margin-bottom:20px;">
+    <div style="font-size:13px;color:var(--ink-muted);margin-bottom:10px;">快速导航（共7个功能模块）：</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <a href="#ts-sec1" style="padding:6px 14px;border-radius:6px;background:rgba(99,102,241,0.15);color:var(--primary);font-size:12px;text-decoration:none;border:1px solid rgba(99,102,241,0.3);" onclick="document.getElementById('ts-sec1').scrollIntoView({behavior:'smooth'});return false;">1. 日期特征拆解</a>
+      <a href="#ts-sec2" style="padding:6px 14px;border-radius:6px;background:rgba(99,102,241,0.15);color:var(--primary);font-size:12px;text-decoration:none;border:1px solid rgba(99,102,241,0.3);" onclick="document.getElementById('ts-sec2').scrollIntoView({behavior:'smooth'});return false;">2. 时序重采样</a>
+      <a href="#ts-sec3" style="padding:6px 14px;border-radius:6px;background:rgba(99,102,241,0.15);color:var(--primary);font-size:12px;text-decoration:none;border:1px solid rgba(99,102,241,0.3);" onclick="document.getElementById('ts-sec3').scrollIntoView({behavior:'smooth'});return false;">3. Prophet 预测</a>
+      <a href="#ts-sec4" style="padding:6px 14px;border-radius:6px;background:rgba(99,102,241,0.15);color:var(--primary);font-size:12px;text-decoration:none;border:1px solid rgba(99,102,241,0.3);" onclick="document.getElementById('ts-sec4').scrollIntoView({behavior:'smooth'});return false;">4. 滚动窗口计算</a>
+      <a href="#ts-sec5" style="padding:6px 14px;border-radius:6px;background:rgba(139,92,246,0.2);color:#a78bfa;font-size:12px;text-decoration:none;border:1px solid rgba(139,92,246,0.4);font-weight:600;" onclick="document.getElementById('ts-sec5').scrollIntoView({behavior:'smooth'});return false;">5. 时序分解 (新)</a>
+      <a href="#ts-sec6" style="padding:6px 14px;border-radius:6px;background:rgba(139,92,246,0.2);color:#a78bfa;font-size:12px;text-decoration:none;border:1px solid rgba(139,92,246,0.4);font-weight:600;" onclick="document.getElementById('ts-sec6').scrollIntoView({behavior:'smooth'});return false;">6. ADF 平稳性检验 (新)</a>
+      <a href="#ts-sec7" style="padding:6px 14px;border-radius:6px;background:rgba(139,92,246,0.2);color:#a78bfa;font-size:12px;text-decoration:none;border:1px solid rgba(139,92,246,0.4);font-weight:600;" onclick="document.getElementById('ts-sec7').scrollIntoView({behavior:'smooth'});return false;">7. ARIMA / SARIMA (新)</a>
+    </div>
+  </div>
+  <div id="ts-sec1" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">日期特征拆解</div>
+  <div class="grid">
+    <div class="fg"><label>日期列</label><input id="ts-date-col" placeholder="date"></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doDateFeatures()">提取特征</button><span id="ts-df-stat"></span></div>
+  <div class="card hide" id="ts-df-res-card"><div id="ts-df-info"></div><div id="ts-df-preview" style="overflow-x:auto;"></div></div>
+  <div id="ts-sec2" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">时序重采样</div>
+  <div class="grid">
+    <div class="fg"><label>日期列</label><input id="ts-rs-date" placeholder="date"></div>
+    <div class="fg"><label>数值列</label><input id="ts-rs-val" placeholder="value"></div>
+    <div class="fg"><label>频率</label><select id="ts-rs-freq"><option value="D">日</option><option value="W">周</option><option value="M">月</option><option value="Q">季</option></select></div>
+    <div class="fg"><label>聚合方式</label><select id="ts-rs-agg"><option value="mean">均值</option><option value="sum">求和</option><option value="max">最大</option><option value="min">最小</option></select></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doResample()">重采样</button><span id="ts-rs-stat"></span></div>
+  <div class="card hide" id="ts-rs-res-card"><div id="ts-rs-info"></div><div id="ts-rs-preview" style="overflow-x:auto;"></div></div>
+  <div id="ts-sec3" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">Prophet 预测</div>
+  <div class="grid">
+    <div class="fg"><label>日期列</label><input id="ts-pr-date" placeholder="date"></div>
+    <div class="fg"><label>数值列</label><input id="ts-pr-val" placeholder="value"></div>
+    <div class="fg"><label>预测周期</label><input id="ts-pr-periods" type="number" value="30" placeholder="30"></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doProphet()">预测</button><span id="ts-pr-stat"></span></div>
+  <div class="card hide" id="ts-pr-res-card"><div id="ts-pr-info"></div><div id="ts-pr-charts"></div></div>
+  <div id="ts-sec4" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">滚动窗口计算</div>
+  <div class="grid">
+    <div class="fg"><label>数值列</label><input id="ts-rl-val" placeholder="value"></div>
+    <div class="fg"><label>窗口大小</label><input id="ts-rl-window" type="number" value="20" placeholder="20"></div>
+  </div>
+  <div class="grid">
+    <div class="fg s2"><label>计算类型</label>
+      <div><label><input type="checkbox" value="rolling_mean" checked> 移动均值</label></div>
+      <div><label><input type="checkbox" value="rolling_std"> 移动标准差</label></div>
+      <div><label><input type="checkbox" value="ewma"> EWMA</label></div>
+      <div><label><input type="checkbox" value="rolling_volatility"> 年化波动率</label></div>
+      <div><label><input type="checkbox" value="rolling_sharpe"> 滚动夏普</label></div>
+    </div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doRolling()">计算</button><span id="ts-rl-stat"></span></div>
+  <div class="card hide" id="ts-rl-res-card"><div id="ts-rl-info"></div><div id="ts-rl-chart"></div></div>
+  <div id="ts-sec5" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">时序分解</div>
+  <div class="grid">
+    <div class="fg"><label>日期列</label><input id="ts-dc-date" placeholder="date"></div>
+    <div class="fg"><label>数值列</label><input id="ts-dc-val" placeholder="value"></div>
+    <div class="fg"><label>周期长度</label><input id="ts-dc-period" type="number" value="7" placeholder="7"></div>
+    <div class="fg"><label>模型</label><select id="ts-dc-model"><option value="additive">加性</option><option value="multiplicative">乘性</option></select></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doDecompose()">分解</button><span id="ts-dc-stat"></span></div>
+  <div class="card hide" id="ts-dc-res-card"><div id="ts-dc-info"></div><div id="ts-dc-chart"></div></div>
+  <div id="ts-sec6" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">ADF 平稳性检验</div>
+  <div class="grid">
+    <div class="fg"><label>数值列</label><input id="ts-adf-val" placeholder="value"></div>
+    <div class="fg"><label>差分阶数</label><input id="ts-adf-diff" type="number" value="1" min="0" max="5" placeholder="0=不差分"></div>
+    <div class="fg" style="align-self:end;padding-bottom:8px;"><label><input type="checkbox" id="ts-adf-auto"> 自动确定差分阶数</label></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doADF()">执行检验</button><span id="ts-adf-stat"></span></div>
+  <div class="card hide" id="ts-adf-res-card"><div id="ts-adf-result"></div><div id="ts-adf-chart"></div></div>
+  <div id="ts-sec7" style="scroll-margin-top:80px;"></div>
+  <div class="eyebrow">ARIMA / SARIMA 时序模型</div>
+  <div class="grid">
+    <div class="fg"><label>日期列</label><input id="ts-ar-date" placeholder="date（可选）"></div>
+    <div class="fg"><label>数值列</label><input id="ts-ar-val" placeholder="value"></div>
+    <div class="fg"><label>模型类型</label><select id="ts-ar-type"><option value="auto">自动 ARIMA</option><option value="arima">手动 ARIMA</option><option value="sarima">SARIMA</option></select></div>
+  </div>
+  <div class="grid">
+    <div class="fg s2"><label>ARIMA 阶数 (p,d,q)</label>
+      <div style="display:flex;gap:8px;">
+        <input id="ts-ar-p" type="number" value="2" min="0" max="10" style="width:60px;" placeholder="p">
+        <input id="ts-ar-d" type="number" value="1" min="0" max="5" style="width:60px;" placeholder="d">
+        <input id="ts-ar-q" type="number" value="1" min="0" max="10" style="width:60px;" placeholder="q">
+      </div>
+    </div>
+    <div class="fg s2"><label>季节阶数 (P,D,Q,s)</label>
+      <div style="display:flex;gap:8px;">
+        <input id="ts-ar-P" type="number" value="1" min="0" max="5" style="width:60px;" placeholder="P">
+        <input id="ts-ar-D" type="number" value="0" min="0" max="5" style="width:60px;" placeholder="D">
+        <input id="ts-ar-Q" type="number" value="1" min="0" max="5" style="width:60px;" placeholder="Q">
+        <input id="ts-ar-S" type="number" value="7" min="2" max="365" style="width:60px;" placeholder="s">
+      </div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="fg"><label>预测周期数</label><input id="ts-ar-periods" type="number" value="30" placeholder="30"></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doARIMA()">建模预测</button><span id="ts-ar-stat"></span></div>
+  <div class="card hide" id="ts-ar-res-card"><div id="ts-ar-info"></div><div id="ts-ar-chart"></div></div>
+</div>

@@ -1,0 +1,24 @@
+﻿<!-- ======================== 上传 ======================== -->
+<div id="tab-up" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">文件上传</div>
+      <div class="c-sub">CSV / XLSX / TXT</div>
+    </div>
+    <div class="uz" id="uz" onclick="document.getElementById('fi').click()">
+      <div class="uz-i">+</div>
+      <div class="uz-t">点击选择或拖拽 <strong>CSV/XLSX/TXT</strong> 文件到此处</div>
+      <div class="uz-h">.csv  .xlsx  .xls  .txt</div>
+    </div>
+    <input type="file" id="fi" multiple accept=".csv,.xlsx,.xls,.txt" style="display:none" onchange="fsChange(this)">
+    <div class="eyebrow" id="fl-title" style="display:none;margin-top:20px;">已导入文件</div>
+    <div id="fl"></div>
+    <div id="file-selector" class="file-selector" style="display:none;margin-top:16px;">
+      <div class="file-selector-title">📌 选择要分析的文件：</div>
+      <div id="file-list" class="file-list"></div>
+    </div>
+    <div id="up" class="mt hide">
+      <div class="flex"><spin></spin><span id="ust" style="font-size:13px;color:var(--ink-subtle)"></span></div>
+    </div>
+  </div>
+</div>

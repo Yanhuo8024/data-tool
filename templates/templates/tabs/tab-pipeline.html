@@ -1,0 +1,53 @@
+<!-- ======================== Pipeline ======================== -->
+<div id="tab-pipeline" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">Pipeline 流水线</div>
+      <div class="c-sub">DAG 自动化流水线 - 数据获取 → 清洗 → 建模 → 预测</div>
+    </div>
+    <div style="display:flex;gap:10px;margin:12px 0;">
+      <button class="btn" onclick="createPipeline()">+ 新建流水线</button>
+      <button class="btn" onclick="loadPipelineList()">刷新列表</button>
+      <span style="color:#888;line-height:38px;margin-left:auto;" id="pipe-count">0 个流水线</span>
+    </div>
+    <div id="pipe-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+</div>
+
+<!-- Pipeline Editor Modal -->
+<div id="pipe-editor" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000;background:rgba(0,0,0,0.8);overflow:auto;">
+  <div style="background:var(--bg-surface);width:90%;max-width:900px;margin:30px auto;padding:20px;border-radius:12px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:15px;">
+      <h3 id="pipe-edit-title">编辑流水线</h3>
+      <button class="btn" onclick="closePipeEditor()" style="background:#666;">关闭</button>
+    </div>
+    
+    <input type="hidden" id="pipe-edit-id">
+    <label>名称</label>
+    <input type="text" id="pipe-edit-name" placeholder="流水线名称" style="width:100%;margin-bottom:10px;">
+    <label>描述</label>
+    <input type="text" id="pipe-edit-desc" placeholder="描述（可选）" style="width:100%;margin-bottom:10px;">
+    
+    <div style="margin:15px 0;">
+      <h4>节点（按依赖顺序）</h4>
+      <div id="pipe-nodes"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <select id="new-node-type">
+          <option value="fetch">数据获取 (fetch)</option>
+          <option value="clean">数据清洗 (clean)</option>
+          <option value="model">模型训练 (model)</option>
+          <option value="predict">预测推理 (predict)</option>
+        </select>
+        <button class="btn" onclick="addNodeToEditor()">+ 添加节点</button>
+      </div>
+    </div>
+    
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn" onclick="runPipeline()">▶ 运行</button>
+      <button class="btn" onclick="savePipeline()" style="background:#27a644;">💾 保存</button>
+      <button class="btn btn-danger" onclick="deletePipeline()" style="background:#d32f2f;">🗑 删除</button>
+    </div>
+    
+    <div id="pipe-run-logs" style="display:none;margin-top:15px;background:#000;color:#0f0;font-family:monospace;padding:12px;max-height:300px;overflow:auto;border-radius:8px;font-size:12px;"></div>
+  </div>
+</div>

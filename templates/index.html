@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="theme-color" content="#08090a" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="data.tool">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+<title>data.tool v3.0 — Linear Tech</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_ver }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/design-new.css?v={{ asset_ver }}">
+  <script>window.ASSET_VER = {{ asset_ver|tojson }};</script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
+</head>
+<body class="no-touch">
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></symbol>
+      <symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></symbol>
+      <symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16"/></symbol>
+      <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 4 3 3 0 0 0 5 1V4a3 3 0 0 0-3-1zM15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 4 3 3 0 0 1-5 1"/></symbol>
+      <symbol id="i-coin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+      <symbol id="i-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 6.6 19l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.3 6.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H8a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V8a1.6 1.6 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+      <symbol id="i-layer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-5A8 8 0 1 1 21 12z"/></symbol>
+      <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+    </defs>
+  </svg>
+  <canvas id="particle-canvas"></canvas>
+  <div class="ambient-glow ambient-glow-1"></div>
+  <div class="ambient-glow ambient-glow-2"></div>
+  <div class="ambient-glow ambient-glow-3"></div>
+
+  <!-- Global Loading Overlay -->
+  <div id="global-loading">
+    <div class="spinner"></div>
+    <div class="loading-text">加载中...</div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div class="app" id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><svg><use href="#i-logo"/></svg></div>
+      <div class="brand-text"><b>data.tool</b><span>ANALYTICS OS</span></div>
+      <button id="sidebarCloseBtn" title="收起菜单" onclick="closeMobileSidebar()" style="display:none;background:none;border:none;color:var(--ink-subtle);font-size:18px;cursor:pointer;margin-left:auto;padding:4px 8px;">✕</button>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-row">
+        <span class="nav-cat">工作台</span>
+        <button class="nbtn on" data-t="tab-overview"><svg><use href="#i-grid"/></svg>数据概览</button>
+        <button class="nbtn" data-t="tab-templates">🧩 模板</button>
+        <button class="nbtn" data-t="tab-report">📄 报告</button>
+        <button class="nbtn" data-t="tab-multi-agent">🤖 多Agent</button>
+        <button class="nbtn" data-t="tab-scheduler">⏰ 定时任务</button>
+      </div>
+  <div class="nav-toggle" onclick="toggleAllNav()" title="收起/展开全部">☰</div>
+  <div class="nav-row">
+    <span class="nav-cat">数据接入</span>
+    <button class="nbtn" data-t="tab-up">上传</button>
+    <button class="nbtn" data-t="tab-datasources">🌐 数据源</button>
+    <button class="nbtn" data-t="tab-db">🗄️ 数据库直连</button>
+    <button class="nbtn" data-t="tab-scrape">爬取</button>
+    <button class="nbtn" data-t="tab-finance">金融数据</button>
+    <button class="nbtn" data-t="tab-store">存储</button>
+    <button class="nbtn" data-t="tab-help">使用教程</button>
+    <button class="nbtn" data-t="tab-troubleshooting">🔧 排查</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">数据处理</span>
+    <button class="nbtn" data-t="tab-clean">清洗</button>
+    <button class="nbtn" data-t="tab-screen">筛选器</button>
+    <button class="nbtn" data-t="tab-table">表格工具</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">分析洞察</span>
+    <button class="nbtn" data-t="tab-analyze">分析</button>
+    <button class="nbtn" data-t="tab-finance-viz">可视化</button>
+    <button class="nbtn" data-t="tab-ts">时序分析</button>
+    <button class="nbtn" data-t="tab-fixedincome">📈 固定收益</button>
+    <button class="nbtn" data-t="tab-fund">📊 基金分析</button>
+    <button class="nbtn" data-t="tab-fs">财务报表</button>
+    <button class="nbtn" data-t="tab-did">📊 DID计量</button>
+    <button class="nbtn" data-t="tab-ht">假设检验</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">算法建模</span>
+    <button class="nbtn" data-t="tab-ml">机器学习</button>
+    <button class="nbtn" data-t="tab-scorecard">🃏 评分卡</button>
+    <button class="nbtn" data-t="tab-finance-model">金融建模</button>
+    <button class="nbtn" data-t="tab-nlp">NLP分析</button>
+    <button class="nbtn" data-t="tab-pipeline">⛓ Pipeline</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">🤖 AI 提效</span>
+    <button class="nbtn" data-t="tab-ai-assistant">🤖 AI 助手</button>
+    <button class="nbtn" data-t="tab-nlq">💬 自然语言查数</button>
+    <button class="nbtn" data-t="tab-chart">📊 智能图表</button>
+    <button class="nbtn" data-t="tab-rag">🔍 RAG 问答</button>
+    <button class="nbtn" data-t="tab-agent-flow">🧭 Agent 流程</button>
+    <button class="nbtn" data-t="tab-security">🔐 安全中心</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">知识库</span>
+    <button class="nbtn" data-t="tab-knowledge">📚 知识点</button>
+    <button class="nbtn" data-t="tab-knowledge-mgmt">🗄️ 知识库管理</button>
+  </div>
+  <div class="nav-row nav-global" style="border-top:1px solid rgba(128,128,128,.25); margin-top:8px; padding-top:8px;">
+    <button class="nbtn nbtn-global" data-t="tab-auth">🔐 登录</button>
+  </div>
+</nav>
+    <div class="sidefoot">
+      <span class="status-dot"></span>
+      <span class="sf-text">在线 · <b>v3.0</b></span>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <button class="mobile-menu-btn" id="mobileMenuBtn" title="菜单"><svg><use href="#i-grid"/></svg></button>
+      <button class="collapse-btn desktop-only" id="collapseBtn" title="折叠侧边栏"><svg><use href="#i-layer"/></svg></button>
+      <div class="crumb desktop-only"><span>工作台</span><svg><use href="#i-chev"/></svg><b>数据概览</b></div>
+      <div class="sp"></div>
+      
+      <!-- 全局文件选择器 -->
+      <div class="file-selector-top" id="fileSelectorTop">
+        <span class="file-selector-label">📄</span>
+        <select id="globalFileSelect">
+          <option value="">选择文件...</option>
+        </select>
+      </div>
+      
+      <div class="sp"></div>
+      <label class="search">
+        <svg><use href="#i-search"/></svg>
+        <input id="searchInput" placeholder="搜索数据集、指标、任务…" />
+        <span class="kbd">⌘K</span>
+      </label>
+      <button class="icon-btn" id="theme-toggle" title="切换主题" onclick="toggleTheme()"><svg><use href="#i-spark"/></svg></button>
+      <button class="icon-btn" title="AI 助手" onclick="toggleAIAssistant&&toggleAIAssistant()"><svg><use href="#i-chat"/></svg></button>
+    </header>
+    <div class="content">
+{% include 'tabs/tab-overview.html' %}
+{% include 'tabs/tab-templates.html' %}
+{% include 'tabs/tab-help.html' %}
+{% include 'tabs/tab-troubleshooting.html' %}
+{% include 'tabs/tab-upload.html' %}
+{% include 'tabs/tab-datasources.html' %}
+{% include 'tabs/tab-finance.html' %}
+{% include 'tabs/tab-finance-viz.html' %}
+{% include 'tabs/tab-finance-model.html' %}
+{% include 'tabs/tab-scrape.html' %}
+{% include 'tabs/tab-clean.html' %}
+{% include 'tabs/tab-analyze.html' %}
+{% include 'tabs/tab-did.html' %}
+{% include 'tabs/tab-store.html' %}
+{% include 'tabs/tab-ml.html' %}
+{% include 'tabs/tab-scorecard.html' %}
+{% include 'tabs/tab-pipeline.html' %}
+{% include 'tabs/tab-table.html' %}
+{% include 'tabs/tab-fs.html' %}
+{% include 'tabs/tab-ts.html' %}
+{% include 'tabs/tab-ht.html' %}
+{% include 'tabs/tab-nlq.html' %}
+{% include 'tabs/tab-ai-assistant.html' %}
+{% include 'tabs/tab-rag.html' %}
+{% include 'tabs/tab-agent-flow.html' %}
+{% include 'tabs/tab-chart.html' %}
+{% include 'tabs/tab-security.html' %}
+{% include 'tabs/tab-report.html' %}
+{% include 'tabs/tab-screener.html' %}
+{% include 'tabs/tab-nlp.html' %}
+{% include 'tabs/tab-knowledge.html' %}
+{% include 'tabs/tab-knowledge-mgmt.html' %}
+{% include 'tabs/tab-auth.html' %}
+{% include 'tabs/tab-multi-agent.html' %}
+{% include 'tabs/tab-scheduler.html' %}
+{% include 'tabs/tab-db.html' %}
+{% include 'tabs/tab-fixedincome.html' %}
+{% include 'tabs/tab-fund.html' %}
+{% include 'tabs/tab-guide.html' %}
+    </div>
+
+</main>
+
+<!-- 底部浮动按钮 -->
+<div class="back-flow" id="back-flow-btn" onclick="switchToTab('tab-guide')">← 返回流程</div>
+
+<!-- 版本标记 v20260808：如果右下角看到此标记，说明新版本已加载 -->
+<div id="version-tag" style="position:fixed;bottom:4px;right:4px;font-size:9px;color:var(--ink-tertiary);z-index:9999;opacity:0.5;padding:2px 6px;background:rgba(0,0,0,0.3);border-radius:3px">v20260824a ✓</div>
+
+<!-- iOS Safe Area + Mobile-First Inline Styles -->
+<style>
+  /* Safe area for iPhone X+ */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Prevent iOS bounce scroll */
+  html { overscroll-behavior: none; }
+  /* Remove iOS tap highlight */
+  * { -webkit-tap-highlight-color: transparent; }
+  /* Prevent text selection on UI elements */
+  .nav, .header, .status-bar { -webkit-user-select: none; user-select: none; }
+  /* Smooth scrolling for iOS */
+  .ai-assistant-messages, .canvas-sidebar, .log {
+    -webkit-overflow-scrolling: touch;
+  }
+</style>
+
+<!-- Touch detection -->
+<script>
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+    document.body.classList.add('touch');
+    document.body.classList.remove('no-touch');
+  }
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/static/sw.js').catch(function() {});
+    });
+  }
+</script>
+
+<!-- 内联诊断脚本：直接显示加载状态 -->
+<script>
+window.__diagnostic = {
+  inlineLoaded: new Date().toLocaleTimeString(),
+  nbtnCount: document.querySelectorAll('.nbtn').length,
+  secCount: document.querySelectorAll('.sec').length,
+  templateSet: !!window.$,
+  echartsLoaded: false
+};
+window.addEventListener('load', function() {
+  // 加载完成后再次检查
+  window.__diagnostic.afterLoad = {
+    switchToTab: typeof window.switchToTab,
+    loadMultiFiles: typeof window.loadMultiFiles,
+    rf: typeof window.rf,
+    nbtnWithOnclick: [...document.querySelectorAll('.nbtn')].filter(b => b.onclick).length
+  };
+  // 在标签页状态栏显示诊断
+  var dbTime = document.getElementById('db-time');
+  if (dbTime) {
+    var d = window.__diagnostic.afterLoad;
+    dbTime.textContent = 'v20260808 | switchToTab: ' + d.switchToTab + ' | nbtn事件: ' + d.nbtnWithOnclick + '/' + window.__diagnostic.nbtnCount;
+  }
+});
+</script>
+
+<!-- 内联诊断 + 兜底导航事件绑定（保证即使 JS 文件全部失败，标签也能切换） -->
+<script>
+window.__diag = { t: new Date().toLocaleTimeString(), n: 0 };
+function __bindTabs() {
+  var tabs = ['tab-overview','tab-templates','tab-report','tab-multi-agent','tab-scheduler',
+              'tab-up','tab-datasources','tab-db','tab-scrape','tab-finance','tab-store','tab-help','tab-troubleshooting',
+              'tab-clean','tab-screen','tab-table',
+              'tab-analyze','tab-finance-viz','tab-ts','tab-fixedincome','tab-fund','tab-fs','tab-did','tab-ht',
+              'tab-ml','tab-scorecard','tab-finance-model','tab-nlp','tab-pipeline',
+              'tab-ai-assistant','tab-nlq','tab-chart','tab-rag','tab-security',
+              'tab-knowledge','tab-knowledge-mgmt','tab-auth','tab-guide'];
+  window.__diag.n = document.querySelectorAll('.nbtn').length;
+  for (var i = 0; i < tabs.length; i++) {
+    var btn = document.querySelector('.nbtn[data-t="' + tabs[i] + '"]');
+    if (!btn) continue;
+    btn.onclick = (function(tabId) {
+      return function() {
+        var buttons = document.querySelectorAll('.nbtn');
+        for (var j = 0; j < buttons.length; j++) buttons[j].classList.remove('on');
+        this.classList.add('on');
+        var secs = document.querySelectorAll('.sec');
+        for (var j = 0; j < secs.length; j++) secs[j].classList.remove('on');
+        var sec = document.getElementById(tabId);
+        if (sec) sec.classList.add('on');
+        try { localStorage.setItem('lastTab', tabId); } catch(e) {}
+      };
+    })(tabs[i]);
+  }
+}
+__bindTabs();
+window.__diag.bindOk = document.querySelectorAll('.nbtn[onclick]').length;
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js" defer></script>
+<script src="/static/chartStore.js?v={{ asset_ver }}" defer></script>
+<script src="/static/linkedKLine.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/data-analysis.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/finance.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/finance-sync.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/ml.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/fixedincome.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/fund.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/did.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/system.js?v={{ asset_ver }}" defer></script>
+<script src="/static/mobile-touch.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/core.js?v={{ asset_ver }}"></script>
+<script src="/static/js/version-check.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/lineage.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/global-search.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/walkthrough.js?v={{ asset_ver }}" defer></script>
+
+<!-- 移动端抽屉遮罩（放 .app 之外，避免占用 grid 列导致 main 塌陷） -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- AI 浮动入口（所有标签页可见） -->
+<button id="ai-fab" onclick="toggleAIAssistant&&toggleAIAssistant()" style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#FF6B6B,#22d3ee);color:#fff;border:none;box-shadow:0 4px 16px rgba(94,106,210,.4);cursor:pointer;font-size:22px;z-index:999;display:none;" title="打开 AI 助手">🤖</button>
+
+  <script>
+    var cb=document.getElementById('collapseBtn');
+    if(cb){cb.addEventListener('click',function(){var a=document.getElementById('app');if(a)a.classList.toggle('collapsed');});}
+    document.addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key&&e.key.toLowerCase()==='k'){e.preventDefault();if(window.openGlobalSearch)openGlobalSearch();}});
+    
+    // 移动端菜单
+    var mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    var sidebarOverlay = document.getElementById('sidebarOverlay');
+    if(mobileMenuBtn){
+      mobileMenuBtn.addEventListener('click',function(){
+        var a=document.getElementById('app');
+        if(a) a.classList.toggle('mobile-open');
+      });
+    }
+    if(sidebarOverlay){
+      sidebarOverlay.addEventListener('click',function(){
+        var a=document.getElementById('app');
+        if(a) a.classList.remove('mobile-open');
+      });
+    }
+  </script>
+</body>
+</html>

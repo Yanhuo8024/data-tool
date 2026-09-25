@@ -1,0 +1,62 @@
+<!-- ======================== 分析模板市场 ======================== -->
+<div id="tab-templates" class="sec">
+  <div style="max-width:1200px;margin:0 auto;padding:0 0 24px;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:#5E6AD2"><use href="#i-spark"/></svg>
+          <h1 style="font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.3px;margin:0">分析模板市场</h1>
+        </div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);">内置常见分析场景 · 一键复用（自动跳转 + 预填参数 + 执行）</div>
+      </div>
+      <button class="btn btn-s" onclick="loadTemplates()">↻ 刷新</button>
+    </div>
+    <div id="tpl-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+      <div style="color:var(--ink-subtle);font-size:13px;">加载中…</div>
+    </div>
+  </div>
+  <script>
+    window.__TPL = {};  // id -> template
+
+    async function loadTemplates() {
+      const el = document.getElementById('tpl-grid');
+      if (!el) return;
+      try {
+        const r = await fetch('/api/templates');
+        const d = await r.json();
+        if (!d.ok || !d.templates.length) { el.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无模板</div>'; return; }
+        d.templates.forEach(function (t) { window.__TPL[t.id] = t; });
+        el.innerHTML = d.templates.map(function (t) {
+          return '<div style="background:var(--bg-card,#151b2b);border:1px solid var(--glass-border,rgba(255,255,255,.08));border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:background .15s,border-color .15s;" onmouseenter="this.style.background=\'var(--bg-card-hover,#1e2538)\'" onmouseleave="this.style.background=\'var(--bg-card,#151b2b)\'">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="font-size:26px;">' + t.icon + '</div>' +
+            '<div><div style="font-size:15px;font-weight:700;color:var(--ink);">' + t.name + '</div>' +
+            '<div style="font-size:11px;color:var(--ink-subtle);">' + t.category + '</div></div></div>' +
+            '<div style="font-size:12px;color:var(--ink-muted);line-height:1.7;flex:1;">' + t.desc + '</div>' +
+            '<button class="btn btn-p" onclick="applyTemplateById(\'' + t.id + '\')">🚀 一键使用</button>' +
+            '</div>';
+        }).join('');
+      } catch (e) { el.innerHTML = '<div style="color:var(--error,#FF6B6B);font-size:13px;">加载失败: ' + e.message + '</div>'; }
+    }
+
+    // 一键复用：切 tab → 预填控件 → 自动执行 → 提示
+    function applyTemplateById(id) {
+      const tpl = window.__TPL[id];
+      if (!tpl) return;
+      try {
+        if (tpl.tab && typeof switchToTab === 'function') switchToTab(tpl.tab);
+        if (tpl.fills) tpl.fills.forEach(function (f) {
+          const el = document.getElementById(f.id);
+          if (el) {
+            el.value = f.value;
+            if (el.tagName === 'SELECT') { try { el.dispatchEvent(new Event('change')); } catch (e) {} }
+          }
+        });
+        if (tpl.trigger) { try { eval(tpl.trigger); } catch (e) { showToast('模板执行: ' + e.message, 'error'); } }
+        if (tpl.hint) showToast(tpl.hint, 'info');
+      } catch (e) { showToast('应用模板失败: ' + e.message, 'error'); }
+    }
+
+    setTimeout(loadTemplates, 100);
+  </script>
+</div>

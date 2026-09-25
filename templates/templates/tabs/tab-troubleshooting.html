@@ -1,0 +1,158 @@
+<!-- ======================== 故障排查手册 ======================== -->
+<div id="tab-troubleshooting" class="sec">
+  <div style="max-width:1200px;margin:0 auto;padding:0 0 24px;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:#FF6B6B"><use href="#i-brain"/></svg>
+          <h1 style="font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.3px;margin:0">故障排查手册</h1>
+        </div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);">症状 → 原因 → 自助排查路径 · 覆盖 AI 助手 / 数据库 / 服务 / 数据等高频问题</div>
+      </div>
+    </div>
+
+    <!-- 搜索 -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="fg s2">
+        <input id="ts-search" placeholder="输入症状关键词，如：AI 不返回 / 数据库连接失败 / 页面空白 / 端口占用…" oninput="filterTroubleshooting(this.value)">
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:8px;">提示：输入关键词后自动过滤；点击「展开排查步骤」查看完整路径。</div>
+    </div>
+
+    <!-- 排查项列表 -->
+    <div id="ts-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+      <div class="card" data-kw="AI 助手 不返回 没结果 空白 无响应 LLM 模型 ollama sensenova 日日新 key 网络">
+        <div class="c-head"><div class="c-title">🤖 AI 助手不返回结果</div><div class="c-sub" style="color:#FF6B6B;">高发</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>LLM 配置未生效 / Ollama 未启动 / API Key 缺失或过期 / 网络不通</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 检查「AI 助手」配置：模型是否选择（日日新 GLM-5.2 / DeepSeek-V4-Flash / Ollama 本地模型）；<br>
+          ② 若用 Ollama：确认已手动运行 <code>ollama serve</code>（网站启动不会自动拉起），并执行 <code>ollama list</code> 确认模型已拉取；<br>
+          ③ 若用日日新（sensenova）：Key 存于服务端加密凭据库 <code>.secure/credentials.enc</code>（非 .env）。可执行 <code>python -c "from secure_config import credentials_diagnostic; print(credentials_diagnostic())"</code> 自查；若提示 <code>backend_ok: False</code>，说明当前解释器缺 <code>cryptography</code>（<code>pip install cryptography</code>）；<br>
+          ④ 测试连通：AI 助手配置页「测试连接」；或访问 <code>/api/llm/test</code> 看返回；<br>
+          ⑤ 查看服务日志（start.bat 窗口 / logs/）是否有 <code>LLM</code> 相关报错。
+        </div>
+      </div>
+
+      <div class="card" data-kw="数据库 连接失败 DB 连不上 mysql postgres clickhouse sqlite 驱动 凭证 密码 主机 端口">
+        <div class="c-head"><div class="c-title">🗄️ 数据库连接失败</div><div class="c-sub" style="color:#FF6B6B;">高发</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>驱动未安装 / 凭证错误 / 主机端口不通 / 防火墙 / 只读护栏拦截</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 先点「测试连接」看具体报错：<code>No module named 'pymysql'</code> → 执行 <code>pip install pymysql</code>（PG 用 psycopg2、ClickHouse 用 clickhouse_connect）；<br>
+          ② 核对主机/端口/库名/用户名/密码（凭证加密存储，改密码需重新填写）；<br>
+          ③ 本机用 <code>netstat -ano | grep 端口</code> 确认数据库在监听；防火墙放行端口；<br>
+          ④ SQLite 连接：database 填 .db 文件绝对路径；<br>
+          ⑤ 若查询被拦：提示"只允许只读查询 / 禁止多语句 / 危险函数"→ 属安全护栏（sql_guard）拦截，属预期行为，改写 SQL 即可。
+        </div>
+      </div>
+
+      <div class="card" data-kw="页面空白 不显示 功能消失 缓存 版本 刷新 Ctrl F5 sw 白屏">
+        <div class="c-head"><div class="c-title">🖥️ 页面空白 / 功能不显示</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>浏览器缓存旧 JS / Service Worker 缓存 / 前端版本未更新</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 按 <b>Ctrl+F5</b> 强制刷新（清缓存重载）；<br>
+          ② 若仍异常：DevTools（F12）→ Application → Service Workers → Unregister（注销旧 SW）；<br>
+          ③ 确认后端已重启（改过代码后必须重启，见下方"服务启动失败"）；<br>
+          ④ 页面顶部若出现「检测到新版本」提示条，点击刷新。
+        </div>
+      </div>
+
+      <div class="card" data-kw="启动失败 端口占用 闪退 start.bat 起不来 依赖 模块找不到 python">
+        <div class="c-head"><div class="c-title">🚀 服务启动失败 / 闪退</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>端口被占用 / 依赖缺失 / Python 路径不对 / 残留双实例</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 端口占用：<code>netstat -ano | grep 5000</code> 找到 PID 后 <code>taskkill /PID xxx /F</code> 清理残留实例；<br>
+          ② 依赖缺失：<code>pip install -r requirements.txt</code>（或按报错补装）；<br>
+          ③ 启动用 <code>start.bat</code>（waitress 生产模式）或 <code>python run_server.py</code>；不要用 <code>python app.py</code>（那是开发模式）；<br>
+          ④ 看控制台首屏报错（UTF-8 已启用，中文可读）。
+        </div>
+      </div>
+
+      <div class="card" data-kw="数据文件 打不开 编码 乱码 csv xlsx 读取失败 上传 格式 大小">
+        <div class="c-head"><div class="c-title">📄 数据文件打不开 / 乱码 / 上传失败</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>编码不兼容 / 格式不支持 / 文件过大 / 安全校验拦截</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① CSV 乱码：优先 utf-8-sig，系统会自动尝试 gbk/gb18030；仍乱码则用 Excel 另存为 UTF-8 CSV；<br>
+          ② 支持格式：csv / xlsx / xls / json / txt；超大文件（>100MB）会自动抽样前 10 万行；<br>
+          ③ 上传被拒：检查文件是否含脚本宏/危险内容（validate_upload_file 安全校验，属预期拦截）。
+        </div>
+      </div>
+
+      <div class="card" data-kw="图表 不显示 中文乱码 方块 字体 matplotlib 图片 空白图">
+        <div class="c-head"><div class="c-title">📊 图表不显示 / 中文乱码</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>matplotlib 中文字体缺失 / CDN 加载失败 / 图片路径缓存</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 中文方块：确认系统装有微软雅黑/黑体（matplotlib 已自动注册 Windows 字体）；<br>
+          ② 图表空白：F12 Console 看是否有 JS 报错；网络异常时 ECharts/Plotly CDN 可能加载失败，刷新重试；<br>
+          ③ 图片类图表检查 output/charts/ 下是否生成。
+        </div>
+      </div>
+
+      <div class="card" data-kw="定时任务 不执行 调度器 worker 没跑 cron apscheduler">
+        <div class="c-head"><div class="c-title">⏰ 定时任务不执行</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>调度器未启动 / EMBED_SCHEDULER=0 但 worker 未运行 / cron 格式错误 / 任务停用</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 默认模式（EMBED_SCHEDULER=1）调度器随主服务内嵌启动，日志应有 <code>[Scheduler] 定时任务调度器已启动</code>；<br>
+          ② 若设置了 EMBED_SCHEDULER=0：必须同时运行 <code>python run_worker.py</code>，否则调度不执行；<br>
+          ③ 检查任务是否「启用」、cron 表达式是否合法（如 <code>0 9 * * *</code>）；<br>
+          ④ 查看执行历史（定时任务页）确认 last_status 与报错。
+        </div>
+      </div>
+
+      <div class="card" data-kw="评分卡 报错 分箱 woe 违约 数据 样本 训练失败">
+        <div class="c-head"><div class="c-title">🃏 评分卡建模报错</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>目标变量不是 0/1 / 样本太少 / 特征全缺失 / 分箱不收敛</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 目标列必须为 0/1 二分类（违约=1）；<br>
+          ② 样本量建议 ≥ 1000（好/坏样本均 ≥ 100）；<br>
+          ③ 特征列需为数值型且缺失率不宜过高；<br>
+          ④ 分箱报"无法单调"时改用非单调分箱或减少最大箱数。
+        </div>
+      </div>
+
+      <div class="card" data-kw="爬取 抓取 无数据 空 反爬 页面结构 选择器">
+        <div class="c-head"><div class="c-title">🕷️ 爬取无结果</div></div>
+        <div style="font-size:12.5px;color:var(--ink-subtle);margin-top:6px;"><b>可能原因：</b>页面结构变化 / 反爬 / 选择器不匹配 / 网络被墙</div>
+        <button class="btn btn-s btn-sm" style="margin-top:10px;" onclick="toggleTs(this)">展开排查步骤</button>
+        <div class="ts-detail hide" style="font-size:12.5px;line-height:1.9;color:#555;margin-top:8px;background:rgba(94,106,210,.05);border-radius:10px;padding:12px;">
+          ① 用浏览器 F12 核对选择器是否仍匹配当前页面结构；<br>
+          ② 部分站点有反爬（需 UA/延迟），可减少并发页数；<br>
+          ③ 金融类数据优先用「金融数据」内置接口（akshare 等），稳定性更高。
+        </div>
+      </div>
+    </div>
+
+    <!-- 日志查看指引 -->
+    <div class="card" style="margin-top:16px;">
+      <div class="c-head"><div class="c-title">📋 通用排查三板斧</div></div>
+      <div style="font-size:12.5px;line-height:2;color:#555;">
+        1. <b>看日志</b>：启动窗口（start.bat）滚动输出即服务日志；结构化日志在 <code>logs/</code> 目录；<br>
+        2. <b>看接口</b>：F12 → Network，找到失败的请求看状态码与响应 error 字段（多数接口会返回可读错误信息）；<br>
+        3. <b>重启生效</b>：改过后端代码必须重启（<code>start.bat</code> 重新运行）；改过前端 JS 后 <b>Ctrl+F5</b>。
+      </div>
+    </div>
+  </div>
+  <script>
+    function toggleTs(btn) {
+      var detail = btn.nextElementSibling;
+      if (detail) detail.classList.toggle('hide');
+      btn.textContent = detail.classList.contains('hide') ? '展开排查步骤' : '收起步骤';
+    }
+    function filterTroubleshooting(kw) {
+      kw = (kw || '').trim().toLowerCase();
+      var cards = document.querySelectorAll('#ts-list > .card');
+      cards.forEach(function (c) {
+        var keys = (c.getAttribute('data-kw') || '').toLowerCase();
+        var hit = !kw || keys.indexOf(kw) >= 0 || kw.split(/\s+/).every(function (k) { return keys.indexOf(k) >= 0; });
+        c.style.display = hit ? '' : 'none';
+      });
+    }
+  </script>
+</div>

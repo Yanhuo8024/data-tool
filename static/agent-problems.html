@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent 问题页 · data.tool</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1c2028; --border:#2a303b;
+    --text:#e6e8ee; --muted:#98a1b0; --accent:#8b8cf7;
+    --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; --info:#3b82f6; --skip:#94a3b8;
+    --shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f5f6f8; --panel:#fff; --panel2:#fafbfc; --border:#e2e5ea;
+      --text:#1b1f24; --muted:#6b7280; --accent:#4f46e5;
+      --shadow:0 1px 3px rgba(16,24,40,.06);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);
+         border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:650}
+  header .sub{color:var(--muted);font-size:12px}
+  .grow{flex:1}
+  a.btn,button{font:inherit;padding:5px 11px;border-radius:6px;border:1px solid var(--border);
+         background:var(--panel2);color:var(--text);cursor:pointer;text-decoration:none;display:inline-block}
+  a.btn:hover,button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{padding:14px 18px 40px;display:grid;gap:14px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+  .panel h2{font-size:12px;margin:0;padding:10px 13px;border-bottom:1px solid var(--border);
+            color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .panel h2 a{color:var(--accent);text-decoration:none;font-weight:500;float:right;text-transform:none;letter-spacing:0}
+  #kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .stat{padding:12px 14px}
+  .stat .k{color:var(--muted);font-size:11px;letter-spacing:.3px}
+  .stat .v{font-size:22px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+  .stat .d{color:var(--muted);font-size:11px;margin-top:3px}
+  .grid3{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:14px;align-items:start}
+  @media(max-width:1100px){.grid3{grid-template-columns:1fr}}
+  .pad{padding:10px 13px 13px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
+  .badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10.5px;color:#fff}
+  .b-critical{background:var(--err)} .b-warning{background:var(--warn)}
+  .b-info{background:var(--info)}
+  .c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-err{color:var(--err)}
+  .c-info{color:var(--info)} .c-muted{color:var(--muted)}
+  .dir{padding:11px 13px;border-bottom:1px solid var(--border)}
+  .dir:last-child{border-bottom:none}
+  .dir .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .dir .ttl{font-weight:650;font-size:13px}
+  .dir .meta{color:var(--muted);font-size:11px;margin-left:auto;font-variant-numeric:tabular-nums}
+  .dir ol{margin:7px 0 0 18px;padding:0;color:var(--text)}
+  .dir li{margin:3px 0;font-size:12px}
+  .barrow{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .barrow .lb{width:88px;color:var(--muted);font-size:11px;text-align:right;flex:none;
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .barrow .tr{flex:1;height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+  .barrow .tr i{display:block;height:100%;background:var(--accent);opacity:.75}
+  .barrow .vl{width:72px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px;color:var(--muted)}
+  .spark{display:flex;align-items:flex-end;gap:3px;height:64px;padding:4px 0}
+  .spark .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px;min-width:0}
+  .spark .col .b1{width:100%;background:var(--accent);opacity:.55;border-radius:2px 2px 0 0;min-height:1px}
+  .spark .col .b2{width:100%;background:var(--err);opacity:.75;border-radius:2px 2px 0 0;min-height:0}
+  .spark .col .lb{font-size:9px;color:var(--muted);white-space:nowrap}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  .tag{display:inline-block;padding:0 5px;border-radius:4px;font-size:10.5px;border:1px solid currentColor}
+  details summary{cursor:pointer;padding:8px 13px;color:var(--muted);font-size:11.5px}
+  .hintbox{padding:10px 13px;color:var(--muted);font-size:12px;border-top:1px solid var(--border)}
+  .prob-code{cursor:pointer}
+  .prob-code:hover{color:var(--accent)}
+  #sevFilter{padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit}
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent 问题页</h1>
+  <span class="sub" id="conn">加载中…</span>
+  <span class="grow"></span>
+  <label class="sub">样本
+    <select id="limitSel" style="margin-left:4px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text)">
+      <option value="50">50</option>
+      <option value="100" selected>100</option>
+      <option value="200">200</option>
+    </select>
+  </label>
+  <select id="sevFilter" title="严重度过滤">
+    <option value="">全部严重度</option>
+    <option value="critical">仅严重</option>
+    <option value="warning">严重+警告</option>
+    <option value="real" selected>真问题（隐藏闲聊类提示）</option>
+  </select>
+  <button id="autoBtn" class="on">自动刷新</button>
+  <button id="reloadBtn">立即刷新</button>
+  <a class="btn" href="/static/agent-flow.html">流程追踪</a>
+</header>
+
+<main>
+  <div id="kpis"></div>
+
+  <div class="grid3">
+    <section class="panel">
+      <h2>优化方向（按优先级）<a href="javascript:void(0)" onclick="scrollToProblems()">看问题台账 →</a></h2>
+      <div id="dirs"><div class="empty">加载中…</div></div>
+    </section>
+
+    <section class="panel">
+      <h2>耗时统计（每次运行）</h2>
+      <div class="pad" id="timeStats"></div>
+      <h2>阶段耗时 p95</h2>
+      <div class="pad" id="phaseTime"></div>
+    </section>
+
+    <section class="panel">
+      <h2>按日趋势（耗时 / 问题数）</h2>
+      <div class="pad" id="dayTrend"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="problemsPanel">
+    <h2>问题台账（收集到的问题）</h2>
+    <div class="scroll" style="max-height:none;overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>问题</th><th>级别</th><th class="num">次数</th><th class="num">占比</th>
+            <th class="num">出问题时均耗时</th><th>环节</th><th>最近出现</th><th>样例</th>
+          </tr>
+        </thead>
+        <tbody id="probBody"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>最近问题运行</h2>
+    <div style="overflow:auto">
+      <table>
+        <thead>
+          <tr><th>时间</th><th>消息</th><th>状态</th><th class="num">耗时</th><th>首要问题</th><th>建议</th></tr>
+        </thead>
+        <tbody id="badBody"><tr><td colspan="6" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hintbox">点击左侧「问题台账」中的问题码可跳到流程追踪页对照 run；完整时间线见 <a href="/static/agent-flow.html" style="color:var(--accent)">Agent 流程追踪</a>。</div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>诊断规则目录（RULE_CATALOG）</summary>
+      <div class="pad" id="catalog"></div>
+    </details>
+  </section>
+</main>
+
+<script>
+const $ = (s,r)=>(r||document).querySelector(s);
+const fmtMs = v => v==null ? '—' : (v>=1000 ? (v/1000).toFixed(v>=10000?0:1)+'s' : Math.round(v)+'ms');
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtTime = ts => { if(!ts) return '—'; try{ return new Date(ts).toLocaleString('zh-CN',{hour12:false}); }catch(e){ return '—'; } };
+const sevCls = s => s==='critical'?'b-critical':s==='warning'?'b-warning':'b-info';
+const sevTxt = s => s==='critical'?'严重':s==='warning'?'警告':'提示';
+let AUTO=true, TIMER=null, DATA=null;
+
+async function api(url){
+  const r = await fetch(url,{cache:'no-store'});
+  const j = await r.json().catch(()=>({ok:false,error:'响应不是 JSON'}));
+  if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+
+function scrollToProblems(){
+  $('#problemsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function sevPass(s, code){
+  const f = $('#sevFilter').value;
+  if(!f) return true;
+  if(f==='critical') return s==='critical';
+  if(f==='warning') return s==='critical'||s==='warning';
+  if(f==='real'){
+    // 真问题：隐藏纯闲聊形态的 info 噪声
+    if(code==='NO_TOOL_CALLS_NOFILE' || code==='NATIVE_DEGRADED' || code==='FORCE_FINAL') return false;
+    return true;
+  }
+  return true;
+}
+
+function renderWow(d){
+  const w = d.week_over_week;
+  if(!w){ return ''; }
+  const t = w.this_week||{}, l = w.last_week||{}, del = w.delta||{};
+  const fmtD = v => (v==null ? '—' : (v>0?'+':'') + v);
+  return `<div class="panel stat"><div class="k">本周 vs 上周</div>
+    <div class="d">运行 ${t.runs||0}（${fmtD(del.runs)}）· 问题 ${t.problems||0}（${fmtD(del.problems)}）</div>
+    <div class="d">均耗时 ${fmtMs(t.avg_ms)}（${del.avg_ms==null?'—':(del.avg_ms>0?'+':'')+fmtMs(Math.abs(del.avg_ms)).replace('—','') }）</div>
+    <div class="d">上周：运行 ${l.runs||0} · 问题 ${l.problems||0} · ${fmtMs(l.avg_ms)}</div></div>`;
+}
+
+function renderKpis(d){
+  const t = d.time||{};
+  const nProblems = (d.problems||[]).reduce((a,p)=>a+(p.count||0),0);
+  const _wowHtml = renderWow(d);
+  $('#kpis').innerHTML = [
+    ['样本运行', d.runs||0, `健康率 ${((d.healthy_rate||0)*100).toFixed(0)}%`],
+    ['平均耗时', fmtMs(t.avg_ms), `p50 ${fmtMs(t.p50_ms)}`],
+    ['p90 / p95', `${fmtMs(t.p90_ms)} / ${fmtMs(t.p95_ms)}`, `max ${fmtMs(t.max_ms)}`],
+    ['无问题均耗时', fmtMs(t.clean_avg_ms), `n=${t.clean_samples||0}`],
+    ['问题条目', (d.problems||[]).length, `累计出现 ${nProblems} 次`],
+    ['优化方向', (d.directions||[]).length, '按优先级排序'],
+  ].map(([k,v,dsc])=>`<div class="panel stat"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${dsc}</div></div>`).join('') + _wowHtml;
+}
+
+function renderTime(d){
+  const t = d.time||{};
+  const rows = [
+    ['样本数', t.samples],
+    ['平均', fmtMs(t.avg_ms)],
+    ['p50', fmtMs(t.p50_ms)],
+    ['p90', fmtMs(t.p90_ms)],
+    ['p95', fmtMs(t.p95_ms)],
+    ['最小 / 最大', `${fmtMs(t.min_ms)} / ${fmtMs(t.max_ms)}`],
+    ['无问题运行均值', fmtMs(t.clean_avg_ms)],
+  ];
+  $('#timeStats').innerHTML = `<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12px">
+    ${rows.map(([k,v])=>`<div class="c-muted">${k}</div><div class="mono" style="text-align:right">${v==null?'—':v}</div>`).join('')}
+  </div>
+  <div class="c-muted" style="margin-top:10px;font-size:11px">「出问题时均耗时」见下方问题台账；用于判断故障是否拖慢整体。</div>`;
+
+  const ph = t.by_phase||[];
+  if(!ph.length){ $('#phaseTime').innerHTML = '<div class="empty">暂无阶段耗时</div>'; return; }
+  const max = Math.max(...ph.map(x=>x.p95_ms||x.avg_ms||0), 1);
+  $('#phaseTime').innerHTML = ph.map(p=>{
+    const w = Math.min(100, ((p.p95_ms||0)/max)*100);
+    return `<div class="barrow" title="avg ${fmtMs(p.avg_ms)} / p50 ${fmtMs(p.p50_ms)} / max ${fmtMs(p.max_ms)}">
+      <div class="lb">${esc(p.label)}</div>
+      <div class="tr"><i style="width:${w.toFixed(1)}%"></i></div>
+      <div class="vl">${fmtMs(p.p95_ms)}</div></div>`;
+  }).join('') + `<div class="c-muted" style="margin-top:6px;font-size:11px">条长 = p95 耗时，悬停看 avg/p50/max</div>`;
+}
+
+function renderDay(d){
+  const days = (d.time&&d.time.by_day)||[];
+  if(!days.length){ $('#dayTrend').innerHTML = '<div class="empty">暂无按日数据</div>'; return; }
+  const maxMs = Math.max(...days.map(x=>x.avg_ms||0), 1);
+  const maxP = Math.max(...days.map(x=>x.problems||0), 1);
+  $('#dayTrend').innerHTML = `
+    <div class="spark">${days.map(x=>{
+      const h1 = Math.round(((x.avg_ms||0)/maxMs)*48);
+      const h2 = Math.round(((x.problems||0)/maxP)*28);
+      return `<div class="col" title="${x.day} · 均耗时 ${fmtMs(x.avg_ms)} · 问题 ${x.problems} · 运行 ${x.runs}">
+        <div class="b2" style="height:${h2}px"></div>
+        <div class="b1" style="height:${h1}px"></div>
+        <div class="lb">${String(x.day).slice(5)}</div>
+      </div>`;
+    }).join('')}</div>
+    <div class="c-muted" style="font-size:11px;margin-top:6px">
+      <span style="color:var(--accent)">■</span> 日均耗时
+      <span style="color:var(--err);margin-left:8px">■</span> 当日问题次数
+      · 共 ${days.length} 天
+    </div>
+    <div style="margin-top:8px">
+      <table><thead><tr><th>日期</th><th class="num">运行</th><th class="num">问题</th><th class="num">均耗时</th></tr></thead>
+      <tbody>${days.slice().reverse().map(x=>`<tr>
+        <td class="mono">${esc(x.day)}</td>
+        <td class="num">${x.runs}</td>
+        <td class="num">${x.problems||0}</td>
+        <td class="num">${fmtMs(x.avg_ms)}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+}
+
+function renderDirs(d){
+  const dirs = (d.directions||[]).filter(x=>{
+    if(!x.code) return true;
+    if(x.code.startsWith('SLOW_PHASE')||x.code==='TIME_SKEW') return true;
+    return sevPass(x.severity, x.code);
+  });
+  if(!dirs.length){ $('#dirs').innerHTML = '<div class="empty">当前筛选下暂无优化方向</div>'; return; }
+  $('#dirs').innerHTML = dirs.map(x=>`
+    <div class="dir">
+      <div class="top">
+        <span class="badge ${sevCls(x.severity)}">${sevTxt(x.severity)}</span>
+        <span class="ttl">${esc(x.title)}</span>
+        <span class="meta">优先级 ${x.priority}${x.count?` · ${x.count}次`:''}${x.rate!=null?` · ${(x.rate*100).toFixed(0)}%`:''}</span>
+      </div>
+      <div class="c-muted mono" style="margin-top:3px">${esc(x.code)}${x.phase?' · '+esc(x.phase):''}${x.avg_elapsed_ms!=null?' · 相关均耗时 '+fmtMs(x.avg_elapsed_ms):''}</div>
+      <ol>${(x.actions||[]).map(a=>`<li>${esc(a)}</li>`).join('')}</ol>
+    </div>`).join('');
+}
+
+function renderProblems(d){
+  const rows = (d.problems||[]).filter(p=>sevPass(p.severity, p.code));
+  if(!rows.length){ $('#probBody').innerHTML = '<tr><td colspan="8" class="empty">暂无问题</td></tr>'; return; }
+  $('#probBody').innerHTML = rows.map(p=>`
+    <tr>
+      <td>
+        <div style="font-weight:600">${esc(p.title)}</div>
+        <div class="mono c-muted prob-code" title="点击在流程追踪中查看"
+             onclick="window.open('/static/agent-flow.html','_blank')">${esc(p.code)}</div>
+      </td>
+      <td><span class="badge ${sevCls(p.severity)}">${sevTxt(p.severity)}</span></td>
+      <td class="num">${p.count}</td>
+      <td class="num">${(p.rate*100).toFixed(0)}%</td>
+      <td class="num">${fmtMs(p.avg_elapsed_ms)}</td>
+      <td>${esc(p.phase||'—')}</td>
+      <td class="c-muted" style="font-size:11px">
+        ${fmtTime(p.last_at)}
+        <div class="mono">${esc((p.last_run_id||'').slice(-12))}</div>
+      </td>
+      <td style="max-width:280px">
+        ${(p.samples||[]).slice(0,1).map(s=>`
+          <div style="font-size:11.5px">${esc(s.user_message||'(无消息)')}</div>
+          <div class="c-muted" style="font-size:11px">${esc(s.detail||'')}</div>
+        `).join('')}
+        ${(p.hints||[]).length?`<div class="c-info" style="font-size:11px;margin-top:2px">→ ${esc(p.hints[0])}</div>`:''}
+      </td>
+    </tr>`).join('');
+}
+
+function renderBad(d){
+  const rows = (d.recent_bad||[]).filter(x=>sevPass(x.severity, x.code));
+  if(!rows.length){ $('#badBody').innerHTML = '<tr><td colspan="6" class="empty">最近无问题运行</td></tr>'; return; }
+  $('#badBody').innerHTML = rows.map(x=>`
+    <tr>
+      <td class="c-muted" style="white-space:nowrap;font-size:11px">${fmtTime(x.mtime)}</td>
+      <td style="max-width:260px">
+        <div>${esc(x.user_message||'(无消息)')}</div>
+        <div class="mono c-muted">${esc(x.model||'')}</div>
+      </td>
+      <td><span class="badge ${sevCls(x.severity)}">${sevTxt(x.severity)}</span>
+          <div class="c-muted" style="font-size:11px">${esc(x.status)} · ${x.problem_count}项</div></td>
+      <td class="num">${fmtMs(x.elapsed_ms)}</td>
+      <td>
+        <div style="font-weight:600;font-size:12px">${esc(x.title||x.code||'')}</div>
+        <div class="c-muted" style="font-size:11px">${esc(x.detail||'')}</div>
+      </td>
+      <td class="c-info" style="font-size:11.5px;max-width:240px">${esc(x.hint||'')}</td>
+    </tr>`).join('');
+}
+
+function renderCatalog(d){
+  const cat = d.rule_catalog||[];
+  if(!cat.length){ $('#catalog').innerHTML = '<div class="empty">无规则目录</div>'; return; }
+  $('#catalog').innerHTML = `<table><thead><tr><th>代码</th><th>级别</th><th>标题</th><th>说明</th></tr></thead>
+    <tbody>${cat.map(r=>`<tr>
+      <td class="mono">${esc(r.code)}</td>
+      <td><span class="badge ${sevCls(r.severity)}">${sevTxt(r.severity)}</span></td>
+      <td>${esc(r.title)}</td>
+      <td class="c-muted">${esc(r.description)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+async function load(){
+  const limit = $('#limitSel').value || 100;
+  $('#conn').textContent = '刷新中…';
+  try{
+    const {data} = await api('/api/assistant/flows/problems?limit='+encodeURIComponent(limit));
+    DATA = data;
+    renderKpis(data);
+    renderTime(data);
+    renderDay(data);
+    renderDirs(data);
+    renderProblems(data);
+    renderBad(data);
+    renderCatalog(data);
+    $('#conn').textContent = `样本 ${data.runs||0} · ${data.generated_at||''}`;
+  }catch(e){
+    $('#conn').textContent = '加载失败：' + e.message;
+    $('#dirs').innerHTML = `<div class="empty">加载失败：${esc(e.message)}<br><span class="c-muted">请确认 Flask 已重启且轨迹目录可读</span></div>`;
+  }
+}
+
+function setAuto(v){
+  AUTO = v;
+  $('#autoBtn').classList.toggle('on', AUTO);
+  if(TIMER) clearInterval(TIMER);
+  if(AUTO) TIMER = setInterval(load, 30000);
+}
+
+$('#reloadBtn').onclick = load;
+$('#autoBtn').onclick = () => setAuto(!AUTO);
+$('#limitSel').onchange = load;
+$('#sevFilter').onchange = () => { if(DATA){ renderDirs(DATA); renderProblems(DATA); renderBad(DATA);} };
+
+load();
+setAuto(true);
+</script>
+</body>
+</html>

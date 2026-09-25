@@ -1,0 +1,217 @@
+<div id="tab-nlq" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">💬 自然语言查数</div>
+      <div class="c-sub">真实表结构 → LLM 生成只读 SQL → 人工审核 → 安全执行（自动限行，写入语句拦截）</div>
+    </div>
+
+    <div class="grid">
+      <div class="fg"><label>数据源</label>
+        <select id="nlq-source" style="width:100%;"><option value="">加载中…</option></select>
+      </div>
+      <div class="fg"><label>&nbsp;</label>
+        <button class="btn btn-s btn-sm" onclick="nlqLoadSources()">刷新数据源</button>
+        <span id="nlq-source-hint" style="font-size:12px;color:var(--ink-subtle);margin-left:8px;"></span>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-top:12px;"><label>问题（直接用中文描述你想查什么）</label>
+      <textarea id="nlq-input" placeholder="例如：每个 region 的 revenue 总和是多少&#10;按月份统计记录条数&#10;revenue 大于 800 的记录有哪些" style="width:100%;min-height:80px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:8px;" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))runNLQ()"></textarea>
+    </div>
+
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runNLQ()">🧠 生成 SQL</button>
+      <button class="btn btn-w btn-sm" onclick="clearNLQ()">清空</button>
+      <span style="font-size:12px;color:var(--ink-subtle);margin-left:8px;">Ctrl/⌘ + Enter 生成 · 先审核 SQL，确认无误再执行</span>
+    </div>
+
+    <div id="nlq-result" class="mt"></div>
+  </div>
+
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">查询历史</div>
+      <button class="btn btn-g btn-sm" onclick="clearNLQHistory()">清空</button>
+    </div>
+    <div id="nlq-history"></div>
+  </div>
+</div>
+
+<script>
+var _nlqHistory = [];
+var _nlqLastQuestion = '';
+
+async function nlqLoadSources() {
+  var sel = document.getElementById('nlq-source');
+  var hint = document.getElementById('nlq-source-hint');
+  if (!sel) return;
+  try {
+    var r = await fetch('/api/nlq/sources');
+    var d = await r.json();
+    var srcs = d.sources || [];
+    sel.innerHTML = '';
+    if (!srcs.length) {
+      sel.innerHTML = '<option value="">（无可用数据源）</option>';
+      hint.innerHTML = 'output/ 下没有 .db 文件，可到「🗄️ 数据库直连」页新建连接';
+      return;
+    }
+    srcs.forEach(function(s) {
+      var o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.label;
+      sel.appendChild(o);
+    });
+    hint.textContent = '共 ' + srcs.length + ' 个数据源';
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败</option>';
+    hint.textContent = e.message;
+  }
+}
+
+function nlqSource() {
+  var sel = document.getElementById('nlq-source');
+  return sel ? sel.value : '';
+}
+
+async function nlqPost(body) {
+  var r = await fetch('/api/nlq/query', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+async function runNLQ() {
+  var el = document.getElementById('nlq-input');
+  var q = (el.value || '').trim();
+  if (!q) { showToast('请输入问题', 'warning'); return; }
+  _nlqLastQuestion = q;
+  var box = document.getElementById('nlq-result');
+  box.innerHTML = '<div class="ai-msg assistant"><span class="spin"></span> 正在读取表结构并生成 SQL...</div>';
+  try {
+    var d = await nlqPost({question: q, source: nlqSource(), preview: true});
+    if (d.ok && d.sql) { nlqRenderPreview(d); return; }
+    box.innerHTML = nlqErrorHtml(d);
+  } catch (e) {
+    box.innerHTML = '<div class="ai-msg assistant" style="color:var(--error);">' + esc(e.message) + '</div>';
+  }
+}
+
+function nlqRenderPreview(d) {
+  var box = document.getElementById('nlq-result');
+  var html = '<div class="ai-msg assistant">' +
+    '<div style="font-weight:500;margin-bottom:6px;">生成的 SQL（请审核后执行）</div>' +
+    '<pre style="background:rgba(94,106,210,.06);border-radius:8px;padding:10px;font-size:12px;overflow:auto;white-space:pre-wrap;">' + esc(d.sql) + '</pre>' +
+    '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+    '<button class="btn btn-p btn-sm" onclick="nlqExecute()">✅ 确认执行</button>' +
+    '<button class="btn btn-s btn-sm" onclick="runNLQ()">🔄 重新生成</button>' +
+    '<span style="font-size:11px;color:var(--ink-subtle);">数据源：' + esc(d.source || '-') + '</span>' +
+    '</div></div>';
+  box.innerHTML = html;
+}
+
+async function nlqExecute() {
+  var pre = document.querySelector('#nlq-result pre');
+  if (!pre) { showToast('没有可执行的 SQL', 'warning'); return; }
+  var statement = pre.textContent || '';
+  var box = document.getElementById('nlq-result');
+  box.innerHTML = '<div class="ai-msg assistant"><span class="spin"></span> 执行中...</div>';
+  try {
+    var d = await nlqPost({question: _nlqLastQuestion, sql: statement, source: nlqSource()});
+    nlqRenderResult(d, statement);
+  } catch (e) {
+    box.innerHTML = '<div class="ai-msg assistant" style="color:var(--error);">执行失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+function nlqRenderResult(d, statement) {
+  var box = document.getElementById('nlq-result');
+  if (!d.ok) { box.innerHTML = nlqErrorHtml(d); return; }
+  var cols = d.columns || [];
+  var rows = d.rows || [];
+  var html = '<div class="ai-msg assistant">' +
+    '<pre style="background:rgba(94,106,210,.06);border-radius:8px;padding:10px;font-size:12px;overflow:auto;white-space:pre-wrap;">' + esc(d.sql || statement || '') + '</pre>' +
+    '<div style="font-size:12px;color:var(--ink-subtle);margin:6px 0;">' + rows.length + ' 行' + (d.truncated ? '（已达上限，结果被截断）' : '') + '</div>';
+  if (rows.length && cols.length) {
+    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>';
+    cols.forEach(function(c) {
+      html += '<th style="background:rgba(94,106,210,0.12);padding:6px 8px;text-align:left;border:1px solid rgba(0,0,0,0.08);">' + esc(String(c)) + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    rows.slice(0, 50).forEach(function(r) {
+      html += '<tr>';
+      cols.forEach(function(c, i) {
+        var v = Array.isArray(r) ? r[i] : r[c];
+        html += '<td style="padding:4px 8px;border:1px solid rgba(0,0,0,0.05);">' + esc(String(v === null ? 'NULL' : v)) + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    if (rows.length > 50) {
+      html += '<div style="font-size:11px;color:var(--ink-subtle);padding:4px;">… 还有 ' + (rows.length - 50) + ' 行未显示</div>';
+    }
+  } else {
+    html += '<div style="color:var(--ink-subtle);font-size:13px;">' + esc(d.notice || '没有返回记录') + '</div>';
+  }
+  if (d.notice && rows.length) {
+    html += '<div style="font-size:12px;color:var(--ink-subtle);margin-top:6px;">' + esc(d.notice) + '</div>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+  _nlqHistory.unshift({query: _nlqLastQuestion, sql: d.sql || statement, rows: rows.length,
+                       source: d.source, time: new Date().toLocaleTimeString()});
+  nlqRenderHistory();
+}
+
+function nlqErrorHtml(d) {
+  var msg = (d && d.errors && d.errors.length) ? d.errors.join('；') : ((d && d.error) || '生成失败');
+  var html = '<div class="ai-msg assistant" style="color:var(--error);">' + esc(msg) + '</div>';
+  if (d && d.source) {
+    html += '<div style="font-size:11px;color:var(--ink-subtle);margin-top:4px;">数据源：' + esc(d.source) + '</div>';
+  }
+  return html;
+}
+
+function nlqRenderHistory() {
+  var div = document.getElementById('nlq-history');
+  if (!div) return;
+  if (!_nlqHistory.length) {
+    div.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无查询历史</div>';
+    return;
+  }
+  var html = '<div style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;">';
+  _nlqHistory.slice(0, 20).forEach(function(h) {
+    html += '<div style="background:rgba(0,0,0,0.03);border-radius:6px;padding:8px;cursor:pointer;" onclick="nlqReplay(' + _nlqHistory.indexOf(h) + ')">' +
+      '<div style="font-size:13px;">' + esc(h.query) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-subtle);margin-top:4px;">' + esc(h.time) + ' · ' + h.rows + ' 行 · ' + esc(h.source || '-') + '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  div.innerHTML = html;
+}
+
+function nlqReplay(i) {
+  var h = _nlqHistory[i];
+  if (!h) return;
+  document.getElementById('nlq-input').value = h.query;
+  runNLQ();
+}
+
+function clearNLQ() {
+  document.getElementById('nlq-input').value = '';
+  document.getElementById('nlq-result').innerHTML = '';
+}
+
+function clearNLQHistory() {
+  _nlqHistory = [];
+  nlqRenderHistory();
+}
+
+document.addEventListener('click', function(e) {
+  if (e.target.dataset && e.target.dataset.t === 'tab-nlq') {
+    nlqLoadSources();
+    nlqRenderHistory();
+  }
+});
+</script>

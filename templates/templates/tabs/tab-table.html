@@ -1,0 +1,50 @@
+<!-- ======================== 表格工具模块 ======================== -->
+<div id="tab-table" class="sec">
+  <div class="card"><div class="c-head"><div class="c-title">表格工具</div><div class="c-sub">JOIN / 公式列 / 透视表 / 抽样</div></div></div>
+  
+  <div class="eyebrow">多表 JOIN 合并</div>
+  <div class="grid">
+    <div class="fg"><label>主表</label><select id="join-f1"></select></div>
+    <div class="fg"><label>从表</label><select id="join-f2"></select></div>
+    <div class="fg"><label>关联键（逗号分隔）</label><input id="join-keys" placeholder="id"></div>
+    <div class="fg"><label>连接类型</label><select id="join-type"><option value="inner">INNER</option><option value="left">LEFT</option><option value="right">RIGHT</option><option value="outer">OUTER</option></select></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doJoin()">执行 JOIN</button><span id="join-stat" style="font-size:13px;color:var(--ink-subtle)"></span></div>
+  <div class="card hide" id="join-res-card"><div class="c-head"><div class="c-title">JOIN 结果</div></div><div id="join-info"></div><div id="join-preview" style="overflow-x:auto;"></div></div>
+
+  <div class="eyebrow">公式衍生列</div>
+  <div class="grid">
+    <div class="fg"><label>公式表达式</label><input id="form-expr" placeholder="例如: {col}.pct_change()*100"></div>
+    <div class="fg"><label>新列名</label><input id="form-col" placeholder="new_col"></div>
+  </div>
+  <div style="font-size:11px;color:var(--ink-subtle);margin-bottom:8px;">内置公式参考：pct_change(涨跌幅) | log_return | amplitude(振幅) | ma(移动均值) | ema | volatility(波动率) | diff | rank | cumsum</div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doFormula()">生成新列</button><span id="form-stat"></span></div>
+  <div class="card hide" id="form-res-card"><div class="c-head"><div class="c-title">结果</div><button class="btn btn-g btn-sm" onclick="dlFormRes()">下载 CSV</button></div><div id="form-preview"></div></div>
+
+  <div class="eyebrow">透视表 / 交叉统计</div>
+  <div class="grid">
+    <div class="fg"><label>行维度</label><input id="piv-index" placeholder="列名"></div>
+    <div class="fg"><label>列维度</label><input id="piv-col" placeholder="列名（可选）"></div>
+    <div class="fg"><label>值字段</label><input id="piv-val" placeholder="列名"></div>
+    <div class="fg"><label>聚合函数</label><select id="piv-agg"><option value="mean">均值</option><option value="sum">求和</option><option value="count">计数</option><option value="max">最大值</option><option value="min">最小值</option><option value="std">标准差</option></select></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doPivot()">透视表</button><button class="btn btn-p" onclick="doCrosstab()">交叉表</button><span id="piv-stat"></span></div>
+  <div class="card hide" id="piv-res-card"><div class="c-head"><div class="c-title">结果</div></div><div id="piv-info"></div><div id="piv-preview" style="overflow-x:auto;"></div></div>
+
+  <div class="eyebrow">数据抽样</div>
+  <div class="grid">
+    <div class="fg"><label>抽样方式</label><select id="samp-type"><option value="random">随机抽样</option><option value="stratified">分层抽样</option><option value="time_segment">时序分段</option></select></div>
+    <div class="fg s2"><label>抽样数量 / 比例</label><input id="samp-n" placeholder="100 或 0.3"></div>
+  </div>
+  <div class="bgrp"><button class="btn btn-p" onclick="doSample()">执行抽样</button><span id="samp-stat"></span></div>
+  <div class="card hide" id="samp-res-card"><div class="c-head"><div class="c-title">抽样结果</div></div><div id="samp-info"></div><div id="samp-preview" style="overflow-x:auto;"></div></div>
+</div>
+
+<script>
+// 切换到表格工具 tab 时填充 JOIN 文件下拉
+document.addEventListener('click', (e) => {
+  if (e.target.dataset && e.target.dataset.t === 'tab-table') {
+    if (typeof loadJoinFiles === 'function') setTimeout(loadJoinFiles, 150);
+  }
+});
+</script>

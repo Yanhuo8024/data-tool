@@ -1,0 +1,47 @@
+<div id="tab-rag" class="sec">
+  <div class="card">
+    <div class="c-head"><div class="c-title">🔍 RAG 问答</div><div class="c-sub">知识库 + 用户文件融合检索 · LLM 综合回答</div></div>
+    <div class="grid">
+      <div class="fg s2">
+        <label>提问</label>
+        <input id="rag-question" placeholder="输入问题..." onkeydown="if(event.key==='Enter')askRAG()">
+        <button class="btn btn-p btn-sm" onclick="askRAG()">提问</button>
+      </div>
+    </div>
+    <div id="rag-result" class="mt"></div>
+    <div style="font-size:11px;color:#999;margin-top:8px;">
+      检索范围：企业知识库 + 内置知识点 + 你在「AI 助手」里选中的数据文件。
+      补充知识库文档请前往「🗄️ 知识库管理」页，上传后本页立即可检索到。
+    </div>
+  </div>
+</div>
+
+<script>
+async function askRAG() {
+  const q = ((document.getElementById('rag-question') || {}).value || '').trim();
+  if (!q) return;
+  const res = document.getElementById('rag-result');
+  res.innerHTML = '思考中...';
+  let d = {};
+  try {
+    const r = await fetch('/api/rag/query', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q })
+    });
+    d = await r.json();
+  } catch (e) {
+    res.innerHTML = '<span style="color:#c00">请求失败：' + esc(String(e)) + '</span>';
+    return;
+  }
+  const kb = (d.knowledge_hits || []).filter(Boolean);
+  const src = (d.sources || []).map(function (s) {
+    const sc = (s.score === null || s.score === undefined) ? '-' : s.score;
+    return '<div>' + esc(s.doc_name || '') +
+           ' <span style="color:#999">(相关度 ' + esc(String(sc)) + ')</span></div>';
+  }).join('');
+  res.innerHTML =
+    '<b>回答：</b>' + esc(d.answer || '无').replace(/\n/g, '<br>') +
+    (kb.length ? '<br><br><b>命中知识条目：</b>' + kb.map(function (x) { return esc(x); }).join('、') : '') +
+    (src ? '<br><br><b>来源：</b>' + src : '');
+}
+</script>

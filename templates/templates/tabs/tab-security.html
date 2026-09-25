@@ -1,0 +1,45 @@
+<div id="tab-security" class="sec">
+  <div class="card">
+    <div class="c-head"><div class="c-title">🔐 安全中心</div><div class="c-sub">SQL 注入防护 · 速率限制 · 审计日志</div></div>
+    <div class="grid">
+      <div class="fg s2"><label>SQL 安全检测</label>
+        <input id="sec-sql" placeholder="输入 SQL 检测...">
+        <button class="btn btn-p btn-sm" onclick="checkSQL()">检测</button>
+      </div>
+    </div>
+    <div id="sec-result" class="mt"></div>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <div class="c-head"><div class="c-title">系统状态</div></div>
+    <div id="sec-status" style="font-size:12px;color:var(--ink-subtle);">加载中...</div>
+  </div>
+</div>
+
+<script>
+async function checkSQL() {
+  const sql = document.getElementById('sec-sql').value;
+  if (!sql) return;
+  const r = await fetch('/api/security/validate', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({sql})
+  });
+  const d = await r.json();
+  document.getElementById('sec-result').innerHTML = d.valid 
+    ? '<span style="color:#10b981;">✓ 安全</span>' 
+    : '<span style="color:#ef4444;">✗ ' + d.reason + '</span>';
+}
+
+async function loadSecStatus() {
+  try {
+    const r = await fetch('/api/monitoring/health');
+    const d = await r.json();
+    document.getElementById('sec-status').innerHTML = '状态: ' + d.status + '<br>内存: ' + d.memory?.rss_mb + 'MB<br>CPU: ' + d.cpu_percent + '%';
+  } catch(e) {}
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.dataset && e.target.dataset.t === 'tab-security') {
+    setTimeout(loadSecStatus, 200);
+  }
+});
+</script>

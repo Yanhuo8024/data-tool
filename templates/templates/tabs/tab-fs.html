@@ -1,0 +1,90 @@
+﻿<!-- ======================== 财务报表分析 ======================== -->
+<div id="tab-fs" class="sec">
+<style>
+  /* 财务报表表格：黑底白字表头 + 白色滚动条 */
+  #fs-report-content { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #fff #222; }
+  #fs-report-content::-webkit-scrollbar { height: 10px; }
+  #fs-report-content::-webkit-scrollbar-track { background: #222; border-radius: 5px; }
+  #fs-report-content::-webkit-scrollbar-thumb { background: #fff; border-radius: 5px; }
+  #fs-report-content::-webkit-scrollbar-thumb:hover { background: #e5e7eb; }
+  #fs-report-content table { border-collapse: collapse; font-size: 12px; }
+  #fs-report-content thead tr,
+  #fs-report-content th { background: #000 !important; color: #fff !important; font-weight: 600; text-align: left; white-space: nowrap; }
+</style>
+  <div class="card"><div class="c-head"><div class="c-title">财务报表分析</div><div class="c-sub">利润表 / 资产负债表 / 现金流量表 · 财务比率 · 杜邦分析</div></div></div>
+
+  <div class="card">
+    <div class="c-head"><div class="c-title">数据获取</div><div class="c-sub">输入A股6位或港股HK+4位代码（如HK0700），自动拉取最新财报</div></div>
+    <div class="eyebrow">股票信息</div>
+    <div class="grid">
+      <div class="fg"><label>股票代码</label><input id="fs-symbol" placeholder="如 600519, 000001 / 港股 HK0700, HK9988"></div>
+      <div class="fg"><label>&nbsp;</label>
+        <button class="btn btn-p" onclick="doFetchFS()">获取财报数据</button>
+        <button class="btn btn-g btn-sm" onclick="doCalcFS()" style="margin-left:6px;">计算财务比率</button>
+      </div>
+    </div>
+    <span id="fs-stat" style="font-size:13px;color:var(--ink-subtle)"></span>
+  </div>
+
+  <!-- 三大报表 Tab 切换 -->
+  <div class="card hide" id="fs-data-card" style="margin-top:20px;">
+    <div class="c-head">
+      <div class="c-title">财报数据 <span id="fs-stock-name" style="color:var(--accent);font-weight:600;"></span></div>
+      <div class="flex gap" style="margin-left:auto;">
+        <button class="btn btn-sm" onclick="switchFSReport('income')" id="fs-btn-income" style="font-size:12px;padding:4px 12px;">利润表</button>
+        <button class="btn btn-sm" onclick="switchFSReport('balance')" id="fs-btn-balance" style="font-size:12px;padding:4px 12px;">资产负债表</button>
+        <button class="btn btn-sm" onclick="switchFSReport('cashflow')" id="fs-btn-cashflow" style="font-size:12px;padding:4px 12px;">现金流量表</button>
+      </div>
+    </div>
+    <div id="fs-report-content" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- 财务比率 -->
+  <div class="card hide" id="fs-ratio-card" style="margin-top:20px;">
+    <div class="c-head"><div class="c-title">财务比率分析</div><div class="c-sub">盈利能力 / 偿债能力 / 成长能力 / 营运能力</div></div>
+    <div id="fs-ratios"></div>
+    <div id="fs-conclusion"></div>
+  </div>
+
+  <!-- 杜邦分析 -->
+  <div class="card hide" id="fs-dupont-card">
+    <div class="c-head"><div class="c-title">杜邦分析 · ROE 分解</div></div>
+    <div id="fs-dupont-info"></div>
+  </div>
+
+  <!-- 图表 -->
+  <div class="card hide" id="fs-charts-card">
+    <div class="c-head"><div class="c-title">可视化图表</div></div>
+    <div class="cg" id="fs-charts"></div>
+  </div>
+
+  <!-- 估值分析：DCF 绝对估值 + 可比公司相对估值 -->
+  <div class="card" id="fs-valuation-card" style="margin-top:20px;">
+    <div class="c-head"><div class="c-title">估值分析 · 判断股价是否合理</div>
+      <div class="c-sub">绝对估值（DCF 现金流折现）/ 相对估值（可比公司分析）</div></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="eyebrow">① 绝对估值 · DCF 现金流折现</div>
+        <div class="fg"><label>盈利基数</label>
+          <select id="fs-dcf-base">
+            <option value="net_profit">净利润</option>
+            <option value="ocf">经营现金流</option>
+          </select></div>
+        <div class="fg"><label>高增长期增长率 %（留空自动取同比）</label><input id="fs-dcf-g1" placeholder="自动"></div>
+        <div class="fg"><label>折现率 %</label><input id="fs-dcf-r" value="9"></div>
+        <div class="fg"><label>永续增长率 %</label><input id="fs-dcf-g2" value="2.5"></div>
+        <div class="fg"><label>预测年限</label>
+          <select id="fs-dcf-years"><option value="5">5 年</option><option value="10">10 年</option></select></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="doDCF()">计算 DCF 估值</button></div>
+      </div>
+      <div>
+        <div class="eyebrow">② 相对估值 · 可比公司分析</div>
+        <div class="fg"><label>目标公司代码</label><input id="fs-peer-target" placeholder="600519 或 HK0700"></div>
+        <div class="fg"><label>可比公司代码（逗号分隔，最多 5 家）</label><input id="fs-peer-list" placeholder="如 600809, 000858, 603369"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-p" onclick="doPeerCompare()">开始对比分析</button></div>
+      </div>
+    </div>
+    <div id="fs-dcf-result" style="margin-top:14px;"></div>
+    <div id="fs-peer-result" style="margin-top:14px;"></div>
+  </div>
+</div>

@@ -1,0 +1,4386 @@
+<!-- ======================== 知识点库 ======================== -->
+<div id="tab-knowledge" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📚</span>
+    <span class="cf-label">全标签页知识点索引</span>
+    <span class="cf-hint" id="kb-count-hint">加载中...</span>
+  </div>
+
+  <style>
+    .kb-card { background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: .18s; }
+    .kb-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+    .kb-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); margin: 0 4px 4px 0; }
+  </style>
+
+  <!-- 搜索和筛选 -->
+  <div class="card">
+    <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+      <div class="fg" style="margin:0;">
+        <label>搜索知识点</label>
+        <input type="text" id="kb-search" placeholder="输入关键词搜索..." oninput="filterKnowledge()">
+      </div>
+      <div class="fg" style="margin:0;">
+        <label>知识领域</label>
+        <select id="kb-category" onchange="filterKnowledge()">
+          <option value="">全部领域</option>
+          <option value="finance">金融数据</option>
+          <option value="ml">机器学习</option>
+          <option value="stats">统计分析</option>
+          <option value="ts">时序分析</option>
+          <option value="finance-model">金融建模</option>
+          <option value="data">数据处理</option>
+          <option value="nlp">NLP与RAG</option>
+          <option value="viz">可视化</option>
+          <option value="ai">AI提效</option>
+          <option value="system">系统工程</option>
+        </select>
+      </div>
+      <div class="fg" style="margin:0;">
+        <label>所属标签页</label>
+        <select id="kb-tab" onchange="filterKnowledge()">
+          <option value="">全部标签页</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 知识点网格 -->
+  <div class="kb-grid" id="kb-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 16px;">
+  </div>
+
+  <!-- 详情弹窗 -->
+  <div id="kb-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:999; align-items:center; justify-content:center;" onclick="if(event.target===this)closeKbModal()">
+    <div style="background:var(--bg-surface); border:1px solid var(--glass-border); border-radius:var(--radius); padding:24px; max-width:720px; width:92%; max-height:85vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <h3 id="kb-modal-title" style="margin:0; font-size:20px;"></h3>
+          <div id="kb-modal-tags" style="margin-top:8px;"></div>
+        </div>
+        <button onclick="closeKbModal()" style="background:none; border:none; color:var(--ink-subtle); cursor:pointer; font-size:22px;">✕</button>
+      </div>
+      <div id="kb-modal-content" style="font-size:14px; line-height:1.8;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  知识点数据库（由 gen_knowledge.py 生成）
+//  字段：name/category/tab/desc/detail/formula/params(可选)
+//        scenarios(适用场景)/pitfalls(常见踩坑)/cases(实战案例扩展)
+//        tips(可选)/example(可选)/related(可选)
+// ============================================================
+const kbData = [
+  {
+    "name": "akshare",
+    "category": "finance",
+    "tab": "金融数据",
+    "desc": "开源 A 股数据接口，免费免注册，接口最全",
+    "detail": "akshare 是开源免费的金融数据 Python 库，覆盖 A 股/港股/美股/ETF/期货/外汇/债券/宏观经济等数百个接口，数据源来自东方财富、新浪、腾讯等公开渠道。无需注册 token，直接安装即可调用，是 data.tool 仪表盘（大盘指数、资金流向、汇率、市场情绪）的主要数据源。其接口以函数式暴露，返回 pandas DataFrame，适合快速取数与原型验证。注意：接口偶尔会因上游改版而失效，代码里做了多源降级（腾讯→新浪→akshare→baostock）。",
+    "params": [
+      {
+        "k": "stock_zh_index_daily",
+        "v": "大盘指数日线（上证/深证/创业板）"
+      },
+      {
+        "k": "stock_zh_index_spot_em",
+        "v": "东财实时指数行情"
+      },
+      {
+        "k": "currency_boc_safe",
+        "v": "中行外汇牌价（汇率）"
+      },
+      {
+        "k": "bond_zh_us_rate",
+        "v": "中美利债率"
+      },
+      {
+        "k": "macro_china_pmi / macro_china_cpi",
+        "v": "PMI / CPI 宏观数据"
+      },
+      {
+        "k": "stock_zt_pool_em",
+        "v": "涨停板池"
+      }
+    ],
+    "scenarios": [
+      "做 A 股/宏观的快速取数与仪表盘原型，不想申请 token",
+      "需要覆盖多市场（股/债/汇/期/宏观）的一站式数据源",
+      "作为实时源失效时的兜底数据源"
+    ],
+    "pitfalls": [
+      "上游改版会导致接口突然返回空或字段错位，生产环境要加 try/except 与降级",
+      "返回 DataFrame 含 NaN，直接 json.dumps 会报非法值，需先 clean() 转 None",
+      "高频轮询可能被上游限流，必须加缓存（本项目 60~600s）"
+    ],
+    "cases": "在 data.tool 仪表盘中，启动时预加载三大指数日线、北向资金、汇率等，写入带过期时间的缓存；前端每 60s 拉一次缓存接口而非直连 akshare，既快又避免限流。若东财实时接口超时，则回退到 stock_zh_index_daily 的上一交易日收盘值并标注『数据延迟』。",
+    "tips": [
+      "安装：pip install akshare",
+      "接口返回的是 DataFrame，注意 NaN 处理（本项目已加 clean() 转 None 防止 JSON 非法）",
+      "高频调用可能被上游限流，建议做缓存（本项目缓存 60~600 秒）"
+    ],
+    "example": "import akshare as ak\ndf = ak.stock_zh_index_daily(symbol=\"sh000001\")\nprint(df.tail(5))  # date/open/close/high/low/volume",
+    "related": [
+      "tushare",
+      "baostock",
+      "大盘指数"
+    ]
+  },
+  {
+    "name": "tushare",
+    "category": "finance",
+    "tab": "金融数据",
+    "desc": "专业金融数据平台，需 token，数据质量高",
+    "detail": "tushare 是专业级金融数据平台，数据经过清洗校验，覆盖股票行情、财务指标、龙虎榜、资金流向、机构持仓等。需要注册账号获取 token，免费版有积分与调用频率限制，高积分可解锁更多接口与更高频率。它的 pro 接口采用 REST 风格、字段命名稳定，适合对数据质量要求高、需要稳定字段的量化研究与回测场景。相比 akshare，tushare 的字段契约更严格，便于长期维护的数据库落库。",
+    "params": [
+      {
+        "k": "pro.stock_basic()",
+        "v": "股票列表（代码/名称/行业/上市日期）"
+      },
+      {
+        "k": "pro.daily()",
+        "v": "日线行情（开高低收/成交量）"
+      },
+      {
+        "k": "pro.fina_indicator()",
+        "v": "财务指标（ROE/毛利率/负债率）"
+      }
+    ],
+    "scenarios": [
+      "需要稳定字段契约、便于落库的长期量化研究",
+      "做财务因子（ROE、毛利率、负债率）截面分析",
+      "对数据准确性要求高、能接受积分门槛的正式项目"
+    ],
+    "pitfalls": [
+      "免费版每分钟调用次数有限，建议批量取数后本地缓存，别在循环里逐只调取",
+      "积分不足时接口返回空 DataFrame，要先检查积分档位",
+      "交易日历/停牌会导致日期不连续，回测前用 trade_cal 对齐"
+    ],
+    "cases": "用 pro.daily 一次性拉取一篮子股票近 3 年日线存入 parquet；再用 pro.fina_indicator 补财务因子，按 ts_code+end_date 做主键去重。研究中只对交易日切片，避免用自然日造成缺口。",
+    "tips": [
+      "token 配置在项目 .env 文件中",
+      "免费版每分钟调用次数有限，建议批量取数后本地缓存",
+      "积分越高可用接口越多（120积分起基础，2000积分全开放）"
+    ],
+    "example": "import tushare as ts\npro = ts.pro_api(\"你的token\")\ndf = pro.daily(ts_code=\"000001.SZ\", start_date=\"20260101\")\nprint(df.head())",
+    "related": [
+      "akshare",
+      "baostock"
+    ]
+  },
+  {
+    "name": "baostock",
+    "category": "finance",
+    "tab": "金融数据",
+    "desc": "免费无限频，历史K线+财务数据齐全",
+    "detail": "baostock 是免费的证券数据平台，无需注册、无调用频率限制，特别适合需要大量历史数据回测的场景。支持日/周/月/分钟线、前复权/后复权/不复权、财务指标（盈利能力/偿债能力/现金流）、分红送股、行业分类等。其查询接口以游标方式逐行返回（rs.next()），需要先 login 再 logout。data.tool 大盘日线在实时源不可用时用它兜底。",
+    "params": [
+      {
+        "k": "query_history_k_data_plus",
+        "v": "历史K线（可复权）"
+      },
+      {
+        "k": "query_profit_data / query_growth_data",
+        "v": "盈利/成长财务指标"
+      },
+      {
+        "k": "adjustflag",
+        "v": "复权方式：1前复权 / 2后复权 / 3不复权"
+      }
+    ],
+    "scenarios": [
+      "需要不受频率限制地批量拉取多年历史 K 线做回测",
+      "实时源全部失效时的兜底历史数据源",
+      "拉取盈利/成长/偿债等基础财务因子"
+    ],
+    "pitfalls": [
+      "必须 bs.login() / bs.logout() 配对，否则连接泄漏",
+      "数据到 T-1 日（收盘后更新），不能当实时源",
+      "字段以字符串返回，需自行转数值类型（float）"
+    ],
+    "cases": "回测前用 baostock 拉取全市场 2015-2025 日线存本地；复权方式统一选前复权（adjustflag='1'），并把字符串行情批量转为 float，写入 SQLite 供策略读取，避免每次回测重新联网。",
+    "tips": [
+      "使用前需 bs.login()，用完后 bs.logout()",
+      "数据到 T-1 日（收盘后更新）",
+      "字段以字符串返回，需自行转数值类型"
+    ],
+    "example": "import baostock as bs\nlg = bs.login()\nrs = bs.query_history_k_data_plus(\"sh.000001\", \"date,close\", start_date=\"2026-01-01\", end_date=\"2026-08-01\", frequency=\"d\", adjustflag=\"3\")\nwhile rs.next():\n    print(rs.get_row_data())\nbs.logout()",
+    "related": [
+      "akshare",
+      "tushare"
+    ]
+  },
+  {
+    "name": "市盈率(PE)",
+    "category": "finance",
+    "tab": "筛选器",
+    "desc": "股价相对每股收益的倍数，最常用的估值指标",
+    "detail": "市盈率衡量『按当前盈利水平，多少年回本』，PE 越低通常代表估值越便宜。但 PE 需结合行业看：成长型行业（如科技、医药）PE 天然较高，周期行业（如钢铁、券商）盈利波动大、PE 常失真（盈利低谷时 PE 反而很高，所谓『盈利高点 PE 低、低点 PE 高』的反身性）。分静态 PE（上年度 EPS）、动态 PE（预测 EPS）、TTM PE（最近 4 季度）三种口径。PE 是相对估值法，必须横比（同行）纵比（自身历史分位）才有意义。",
+    "formula": "PE = 股价 ÷ 每股收益(EPS)",
+    "params": [
+      {
+        "k": "静态PE",
+        "v": "用上一年度每股收益计算"
+      },
+      {
+        "k": "动态PE",
+        "v": "用预测每股收益计算"
+      },
+      {
+        "k": "TTM PE",
+        "v": "用最近 4 个季度滚动 EPS，最常用"
+      }
+    ],
+    "scenarios": [
+      "横向对比同行业公司的估值贵贱",
+      "判断个股相对自身历史估值的分位高低",
+      "红利/价值策略的初筛指标"
+    ],
+    "pitfalls": [
+      "亏损公司 PE 为负或无意义，改用 PB 或 PS",
+      "周期股在盈利峰值时 PE 最低（最『便宜』）却是卖点，反之是买点",
+      "只比 PE 忽略增长，会错过高成长合理高 PE 的公司"
+    ],
+    "cases": "筛选银行股时，把全体银行按 TTM PE 排序，取后 1/3（低估值）再叠加 ROE>12% 过滤，得到『便宜的好银行』候选池；同时比对自身 5 年 PE 分位，避开『历史低位但基本面恶化』的陷阱。",
+    "tips": [
+      "亏损公司 PE 为负或无意义，改用 PB 或 PS",
+      "PE < 0 无意义；PE 极高需警惕或理解为强成长预期",
+      "比较估值时应与同行业、自身历史 PE 分位对比"
+    ],
+    "related": [
+      "市净率(PB)",
+      "股息率",
+      "净资产收益率(ROE)"
+    ]
+  },
+  {
+    "name": "市净率(PB)",
+    "category": "finance",
+    "tab": "筛选器",
+    "desc": "股价相对每股净资产的倍数，银行/保险常用",
+    "detail": "市净率衡量股价与账面净资产的关系。PB < 1 表示股价低于净资产（破净），可能被低估，也可能反映资产质量差（如坏账、减值风险）。银行、保险、地产等重资产行业常用 PB 估值；轻资产科技公司 PB 参考意义小（核心资产是人才与专利，不体现在账面）。PB 与 ROE 配合才能区分『真便宜』与『价值陷阱』。",
+    "formula": "PB = 股价 ÷ 每股净资产(BVPS)",
+    "scenarios": [
+      "银行/保险/地产等重资产行业的估值对比",
+      "判断破净股是被错杀还是资产质量恶化",
+      "与 ROE 组合筛选『低 PB + 高 ROE』"
+    ],
+    "pitfalls": [
+      "破净股不一定安全，需检查资产真实质量（ROE 是否持续为正）",
+      "净资产为负的公司 PB 无意义",
+      "轻资产公司账面净资产少，PB 会虚高，不适用"
+    ],
+    "cases": "港股银行常破净（PB<0.5）。若某公司 PB=0.4 且连续 5 年 ROE>10%，大概率是市场情绪错杀；若 PB=0.4 但 ROE 已转负，则可能是隐性坏账，应回避。",
+    "tips": [
+      "破净股不一定安全，需检查资产真实质量（ROE 是否持续为正）",
+      "净资产为负的公司 PB 无意义",
+      "搭配 ROE 使用：低 PB + 高 ROE 才是『便宜的好公司』"
+    ],
+    "related": [
+      "市盈率(PE)",
+      "净资产收益率(ROE)",
+      "杜邦分析"
+    ]
+  },
+  {
+    "name": "净资产收益率(ROE)",
+    "category": "finance",
+    "tab": "筛选器",
+    "desc": "股东资金的赚钱效率，巴菲特最看重的指标",
+    "detail": "ROE 衡量公司用股东投入的每一块钱能赚回多少利润，是衡量盈利质量的核心指标。长期 ROE > 15% 通常被认为是优秀公司（巴菲特标准：连续多年 ROE > 15% 且负债不高）。但高 ROE 可能来自高杠杆（负债多），需结合杜邦分析拆解来源——高净利率、高周转、高杠杆贡献不同，风险属性也不同。",
+    "formula": "ROE = 净利润 ÷ 股东权益 × 100%",
+    "scenarios": [
+      "长期选股的核心质量过滤器",
+      "配合杜邦分析判断高 ROE 的来源是否健康",
+      "跨行业比较时先看 ROE 再结合行业属性"
+    ],
+    "pitfalls": [
+      "警惕靠高负债撑起来的 ROE（权益乘数虚高）",
+      "观察 5 年以上 ROE 的稳定性比单年高值更重要",
+      "与同行业对比，不同行业 ROE 差异很大"
+    ],
+    "cases": "用 pro.fina_indicator 拉取白酒龙头 10 年 ROE，发现稳定 >25% 且负债率低，属『高净利率驱动』的健康 ROE；再拉某房企 ROE 也高，但杜邦拆解显示权益乘数 >5，属高杠杆驱动，风险更高。",
+    "tips": [
+      "警惕靠高负债撑起来的 ROE（权益乘数虚高）",
+      "观察 5 年以上 ROE 的稳定性比单年高值更重要",
+      "与同行业对比，不同行业 ROE 差异很大"
+    ],
+    "example": "df = pro.fina_indicator(ts_code=\"600519.SH\")\nprint(df[[\"roe\", \"grossprofit_margin\"]].head(5))",
+    "related": [
+      "杜邦分析",
+      "市净率(PB)",
+      "市盈率(PE)"
+    ]
+  },
+  {
+    "name": "杜邦分析",
+    "category": "finance",
+    "tab": "财务报表",
+    "desc": "把 ROE 拆成三个维度找问题根源",
+    "detail": "杜邦分析将 ROE 分解为盈利能力（净利率）、运营效率（总资产周转率）、财务杠杆（权益乘数）三部分的乘积，帮助定位公司赚钱能力强的原因：是靠产品赚钱（高净利率）、靠周转快（高周转率），还是靠借钱（高杠杆）。不同行业驱动因子不同：医药/白酒高净利率，零售/批发高周转，银行/地产高杠杆。它把单一指标变成可诊断的结构。",
+    "formula": "ROE = 净利率 × 总资产周转率 × 权益乘数",
+    "params": [
+      {
+        "k": "净利率",
+        "v": "净利润 ÷ 营业收入，反映产品赚钱能力"
+      },
+      {
+        "k": "总资产周转率",
+        "v": "营业收入 ÷ 总资产，反映运营效率"
+      },
+      {
+        "k": "权益乘数",
+        "v": "总资产 ÷ 股东权益，反映杠杆水平"
+      }
+    ],
+    "scenarios": [
+      "诊断一家高 ROE 公司盈利质量的来源",
+      "对比两家同 ROE 但结构不同的公司谁更稳健",
+      "财务建模与估值前的结构拆解"
+    ],
+    "pitfalls": [
+      "三因素拆解后可做同行业对比与时间序列对比",
+      "高杠杆推高的 ROE 风险更大（利息负担、偿债压力）",
+      "周转率受行业资产结构影响，跨行业直接比易误读"
+    ],
+    "cases": "对比两家 ROE 均为 20% 的公司：A 净利率 20%、周转 1、杠杆 1；B 净利率 5%、周转 1、杠杆 4。A 靠产品力，B 靠借钱，下行周期 B 的脆弱性远高于 A，应给 A 更高估值溢价。",
+    "tips": [
+      "三因素拆解后可做同行业对比与时间序列对比",
+      "高杠杆推高的 ROE 风险更大（利息负担、偿债压力）"
+    ],
+    "related": [
+      "净资产收益率(ROE)",
+      "市净率(PB)"
+    ]
+  },
+  {
+    "name": "市盈率TTM",
+    "category": "finance",
+    "tab": "筛选器",
+    "desc": "滚动 12 个月市盈率，消除年报滞后与季节性",
+    "detail": "TTM（Trailing Twelve Months）使用最近连续 4 个季度的每股收益计算市盈率，比静态 PE（用上年年报）更及时，也比动态 PE（用预测值）更客观，是机构最常用的口径。对业绩季节性明显的公司（如零售 Q4 旺季、农业周期）尤其重要，能平滑单季波动，避免用过时年报导致的估值误判。",
+    "formula": "PE(TTM) = 股价 ÷ 最近4季度EPS之和",
+    "scenarios": [
+      "业绩有季节性的公司估值",
+      "财报空窗期需要『最新』盈利口径时",
+      "机构级估值对比的默认口径"
+    ],
+    "pitfalls": [
+      "财报发布后 TTM 自动更新，数据比静态 PE 领先",
+      "与历史 TTM PE 分位数对比可判断估值高低",
+      "盈利剧烈下滑时 TTM 仍含已过期的高利润，估值会『假便宜』"
+    ],
+    "cases": "某零售股每年 Q4 利润占全年 60%。用静态 PE（上年年报）在年中会严重低估真实盈利；改用 TTM PE 后估值更贴合当前经营，避免了『年中看起来贵、年末变便宜』的假象。",
+    "tips": [
+      "财报发布后 TTM 自动更新，数据比静态 PE 领先",
+      "与历史 TTM PE 分位数对比可判断估值高低"
+    ],
+    "related": [
+      "市盈率(PE)",
+      "市净率(PB)"
+    ]
+  },
+  {
+    "name": "股息率",
+    "category": "finance",
+    "tab": "筛选器",
+    "desc": "每年分红相对股价的回报率",
+    "detail": "股息率衡量持有股票每年获得的分红回报，是红利策略（高股息低波动）的核心指标。稳定高股息的公司通常现金流充沛、业务成熟（如银行、电力、煤炭、公用事业）。注意：股息率 = 分红/股价，股价下跌会推高股息率，需区分『价值回归』还是『基本面恶化』（后者是高股息陷阱）。",
+    "formula": "股息率 = 每股分红 ÷ 股价 × 100%",
+    "scenarios": [
+      "构建红利/低波组合的核心筛选指标",
+      "熊市中追求稳定现金流的防御型配置",
+      "与债券收益率对比判断股债性价比"
+    ],
+    "pitfalls": [
+      "分红是否可持续看分红率和自由现金流",
+      "除权除息日买入不享受当期分红",
+      "高股息陷阱：公司业绩下滑导致股价跌、股息率被动升高"
+    ],
+    "cases": "筛选『连续 5 年分红率>30% 且股息率>4% 且自由现金流为正』的电力公司，构成防御组合；避开某『股息率 8%』但经营现金流已转负的周期股——其高股息不可持续。",
+    "tips": [
+      "分红是否可持续看分红率和自由现金流",
+      "除权除息日买入不享受当期分红",
+      "高股息陷阱：公司业绩下滑导致股价跌、股息率被动升高"
+    ],
+    "related": [
+      "市盈率(PE)",
+      "市净率(PB)"
+    ]
+  },
+  {
+    "name": "换手率",
+    "category": "finance",
+    "tab": "筛选器",
+    "desc": "当日成交量占总流通股本的比例，衡量活跃度",
+    "detail": "换手率反映股票的交易活跃程度：换手率高说明筹码交换充分、多空分歧大、流动性好；换手率低说明交投清淡。次新股、题材股换手率通常较高（5%~20%+），大盘蓝筹通常 1% 以下。换手率骤增往往是变盘信号——放量突破（启动）或放量滞涨（出货）。",
+    "formula": "换手率 = 当日成交量 ÷ 流通股本 × 100%",
+    "scenarios": [
+      "判断个股流动性与关注度",
+      "识别放量突破或高位出货的变盘信号",
+      "打板/题材策略的活跃度过滤"
+    ],
+    "pitfalls": [
+      "连续高换手+股价滞涨可能是主力出货",
+      "低换手+缩量回调通常抛压小，趋势更健康",
+      "不同市值股票『高换手』阈值不同，小盘股天然更高"
+    ],
+    "cases": "某股长期换手 <1%，某日突增至 15% 且放量长上影——结合股价处于高位，判定为派发而非启动；反之低位放量突破时高换手才是趋势确认信号。",
+    "tips": [
+      "连续高换手+股价滞涨可能是主力出货",
+      "低换手+缩量回调通常抛压小，趋势更健康"
+    ],
+    "related": [
+      "大盘指数",
+      "北向资金"
+    ]
+  },
+  {
+    "name": "北向资金",
+    "category": "finance",
+    "tab": "金融数据",
+    "desc": "外资通过沪深港通买卖 A 股的净流向，常称『聪明钱』",
+    "detail": "北向资金指外资通过沪股通/深股通进入 A 股的资金，其单日/区间净流入被市场视为外资情绪风向标。数据接口返回南北向各通道每日净买入额（NET_DEAL_AMT，单位百万元）。本项目『资金流向』图展示近 15 个交易日北向+南向净流入。注意 2024 年后北向实时数据披露规则调整，更关注趋势而非单日。",
+    "params": [
+      {
+        "k": "001 / 003",
+        "v": "沪股通 / 深股通（北向，外资买A股）"
+      },
+      {
+        "k": "002 / 004",
+        "v": "港股通沪 / 港股通深（南向，内资买港股）"
+      }
+    ],
+    "scenarios": [
+      "判断外资风险偏好与边际流向",
+      "结合指数判断市场情绪拐点",
+      "作为择时辅助（非单一依据）"
+    ],
+    "pitfalls": [
+      "大额净流入常伴随市场上涨，但非绝对因果",
+      "单日数据噪音大，看 5 日/20 日累计趋势更可靠",
+      "2024 后披露规则变化，实时数据颗粒度下降"
+    ],
+    "cases": "data.tool 仪表盘把近 15 日北向+南向净流入画成柱状图，连续 5 日净流出且指数走弱时提示风险；但不据此单独交易，而是与换手率、指数位置共振判断。",
+    "tips": [
+      "大额净流入常伴随市场上涨，但非绝对因果",
+      "单日数据噪音大，看 5 日/20 日累计趋势更可靠"
+    ],
+    "related": [
+      "大盘指数",
+      "换手率"
+    ]
+  },
+  {
+    "name": "大盘指数",
+    "category": "finance",
+    "tab": "金融数据",
+    "desc": "上证/深证/创业板三大指数，市场整体温度计",
+    "detail": "上证指数（000001）覆盖沪市全部股票，权重偏向金融地产；深证成指（399001）反映深市龙头；创业板指（399006）代表成长创新型企业。三大指数常同步涨跌，但风格分化时（如大盘蓝筹 vs 中小创）需分别观察。data.tool 仪表盘实时展示三大指数，遵循 A 股惯例红涨绿跌。指数涨跌≠个股涨跌，结构性行情下指数会失真。",
+    "scenarios": [
+      "快速判断市场整体强弱与风格（价值/成长）",
+      "作为策略的仓位/择时背景",
+      "仪表盘默认展示的市场温度计"
+    ],
+    "pitfalls": [
+      "指数涨跌≠个股涨跌：结构性行情下指数失真",
+      "看指数搭配成交量与北向资金判断市场情绪",
+      "红涨绿跌是 A 股惯例（本项目可视化默认）"
+    ],
+    "cases": "2021 年大盘蓝筹下跌但新能源赛道上涨，上证指数微跌而创业板指大涨——只看上证会误判市场热度，必须同时看三大指数与行业涨跌家数。",
+    "tips": [
+      "指数涨跌≠个股涨跌：结构性行情下指数失真",
+      "看指数搭配成交量与北向资金判断市场情绪",
+      "红涨绿跌是 A 股惯例（本项目可视化默认）"
+    ],
+    "related": [
+      "北向资金",
+      "换手率"
+    ]
+  },
+  {
+    "name": "随机森林",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "集成多棵决策树投票，抗过拟合能力强",
+    "detail": "随机森林基于 Bagging 思想训练多棵决策树（每棵树用随机抽样的样本+随机特征子集），分类取投票、回归取平均。两个『随机』让树之间差异大，集成后大幅降低方差、抗过拟合。天然支持特征重要性排序，几乎不用调参就能有不错表现，是数据探索期首选模型。它对缺失值、异常值比线性模型稳健，但解释性弱于单棵树、训练比单棵树慢。",
+    "params": [
+      {
+        "k": "n_estimators",
+        "v": "树的数量，默认 100，越大越稳但更慢"
+      },
+      {
+        "k": "max_depth",
+        "v": "树最大深度，限制过拟合"
+      },
+      {
+        "k": "max_features",
+        "v": "每棵树随机选的特征数，默认 sqrt(特征数)"
+      },
+      {
+        "k": "min_samples_leaf",
+        "v": "叶节点最少样本数，防止过拟合"
+      }
+    ],
+    "scenarios": [
+      "表格数据基线模型/快速验证特征有效性",
+      "需要特征重要性做筛选时",
+      "中小规模数据、追求稳健而非极致精度"
+    ],
+    "pitfalls": [
+      "特征数量多时 max_features 建议设小",
+      "用 feature_importances_ 做特征筛选（但高相关特征会平分重要性）",
+      "类别极度不平衡时用 class_weight=\"balanced\"",
+      "树多会占用大量内存，部署时注意"
+    ],
+    "cases": "信贷违约预测：用 RandomForestClassifier(n_estimators=300) 跑基线，AUC 0.82；用 feature_importances_ 发现『近 3 月逾期次数』『负债收入比』最重要，据此做特征工程后再上 XGBoost 提升到 0.86。",
+    "tips": [
+      "特征数量多时 max_features 建议设小",
+      "用 feature_importances_ 做特征筛选",
+      "类别极度不平衡时用 class_weight=\"balanced\""
+    ],
+    "example": "from sklearn.ensemble import RandomForestClassifier\nmodel = RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42)\nmodel.fit(X_train, y_train)\nprint(model.feature_importances_)",
+    "related": [
+      "XGBoost",
+      "特征工程",
+      "交叉验证",
+      "混淆矩阵"
+    ]
+  },
+  {
+    "name": "支持向量机(SVM)",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "找最大间隔超平面，小样本高维利器",
+    "detail": "SVM 在特征空间中寻找几何间隔最大的分类超平面，间隔越大泛化越好。对线性不可分数据通过核函数（Kernel Trick）映射到高维空间，无需显式计算映射。在小样本、高维（如文本、基因）场景表现优异，但对大样本训练慢、对参数和特征缩放敏感。高斯核（rbf）最常用，其 gamma 控制决策边界复杂度。",
+    "formula": "目标：max 间隔，约束 y_i(w·x_i + b) ≥ 1",
+    "params": [
+      {
+        "k": "C",
+        "v": "惩罚系数，越大越严格（易过拟合）"
+      },
+      {
+        "k": "kernel",
+        "v": "linear / rbf / poly，rbf 最常用"
+      },
+      {
+        "k": "gamma",
+        "v": "rbf 核宽度，越大决策边界越复杂"
+      }
+    ],
+    "scenarios": [
+      "小样本、高维（文本分类、基因、图像小块）",
+      "线性不可分但核技巧可分离的问题",
+      "需要清晰最大间隔决策边界的可解释场景"
+    ],
+    "pitfalls": [
+      "使用前必须做特征标准化（SVM 对尺度敏感）",
+      "类别不平衡时效果差，先处理样本权重",
+      "大样本（>10万）时考虑 LinearSVC 或换随机森林",
+      "gamma 太大会过拟合到个别样本"
+    ],
+    "cases": "文本情感分类（词袋特征高维稀疏）：StandardScaler 后 SVC(kernel='rbf', C=1.0, gamma='scale')，在小标注集上 F1 0.88，优于逻辑回归；但扩展到 50 万样本时训练过慢，换成 LinearSVC。",
+    "tips": [
+      "使用前必须做特征标准化（SVM 对尺度敏感）",
+      "类别不平衡时效果差，先处理样本权重",
+      "大样本（>10万）时考虑 LinearSVC 或换随机森林"
+    ],
+    "example": "from sklearn.svm import SVC\nfrom sklearn.preprocessing import StandardScaler\nX = StandardScaler().fit_transform(X)\nmodel = SVC(C=1.0, kernel=\"rbf\", gamma=\"scale\")\nmodel.fit(X_train, y_train)",
+    "related": [
+      "KNN",
+      "标准化",
+      "交叉验证"
+    ]
+  },
+  {
+    "name": "KNN",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "K近邻投票分类，简单直观的惰性学习",
+    "detail": "KNN 不训练模型参数（惰性学习），预测时直接计算新样本与所有训练样本的距离，取最近的 K 个邻居投票（分类）或平均（回归）。实现简单、可解释，但对特征缩放敏感（距离度量）、预测时计算量大（需遍历全部样本）、高维数据下距离区分度下降（维度灾难）。K 的选择与距离度量决定效果。",
+    "params": [
+      {
+        "k": "n_neighbors",
+        "v": "K 值，奇数为佳；越大越平滑"
+      },
+      {
+        "k": "weights",
+        "v": "uniform 等权 / distance 距离加权"
+      },
+      {
+        "k": "p",
+        "v": "距离范数：p=2 欧氏距离，p=1 曼哈顿距离"
+      }
+    ],
+    "scenarios": [
+      "小数据集、需要可解释『相似即同类』逻辑的基线",
+      "推荐系统的 item/user 近邻召回",
+      "教学演示与快速原型"
+    ],
+    "pitfalls": [
+      "必须标准化/归一化特征，否则量级大的特征主导距离",
+      "K 太小易过拟合，K 太大易欠拟合",
+      "预测需遍历全样本，大数据集慢；高维下距离失效"
+    ],
+    "cases": "客户分群后用 KNN 做『相似客户推荐』：标准化特征后 KNeighborsClassifier(n_neighbors=5, weights='distance')，给新客户推荐其 5 个最近邻高频购买的商品。",
+    "tips": [
+      "必须标准化/归一化特征，否则量级大的特征主导距离",
+      "K 太小易过拟合，K 太大易欠拟合",
+      "用交叉验证选 K"
+    ],
+    "example": "from sklearn.neighbors import KNeighborsClassifier\nmodel = KNeighborsClassifier(n_neighbors=5, weights=\"distance\")\nmodel.fit(X_train, y_train)",
+    "related": [
+      "SVM",
+      "标准化",
+      "归一化"
+    ]
+  },
+  {
+    "name": "KMeans",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "K均值聚类，最常用的无监督算法",
+    "detail": "KMeans 把样本划分为 K 个簇，迭代优化『簇内距离平方和』（WCSS）直到收敛：先随机初始化 K 个质心，每轮把样本分给最近质心、再更新质心位置。算法简单高效、可并行，但需预先指定 K、对初始质心敏感（多跑几次取最优）、对异常值和球形簇假设敏感。k-means++ 初始化已大幅缓解敏感问题。",
+    "formula": "目标：min Σᵢ Σₓ∈Cᵢ ||x - μᵢ||²",
+    "params": [
+      {
+        "k": "n_clusters",
+        "v": "簇数量 K，用肘部法则/轮廓系数确定"
+      },
+      {
+        "k": "init",
+        "v": "k-means++ 初始化（默认，效果好）"
+      },
+      {
+        "k": "n_init",
+        "v": "随机初始化次数，取 WCSS 最小的一次"
+      }
+    ],
+    "scenarios": [
+      "客户分群、用户画像、样本预分组",
+      "作为其他模型的预处理（先聚类再分别建模）",
+      "异常检测前的正常簇划分"
+    ],
+    "pitfalls": [
+      "先标准化特征再聚类（量纲影响质心）",
+      "肘部法则：WCSS 下降变缓的拐点即最优 K",
+      "轮廓系数 > 0.5 表示聚类效果良好",
+      "对异常值敏感，先去离群点"
+    ],
+    "cases": "电商用户按『消费额/频次/客单价』聚类为 4 类：高价值、活跃低客单、沉睡、薅羊毛；对『高价值』群做专属运营。用轮廓系数确认 K=4 优于 K=3/5。",
+    "tips": [
+      "先标准化特征再聚类",
+      "肘部法则：WCSS 下降变缓的拐点即最优 K",
+      "轮廓系数 > 0.5 表示聚类效果良好"
+    ],
+    "example": "from sklearn.cluster import KMeans\nmodel = KMeans(n_clusters=3, n_init=10, random_state=42)\nlabels = model.fit_predict(X)\nprint(model.inertia_)  # WCSS",
+    "related": [
+      "DBSCAN",
+      "标准化",
+      "特征工程"
+    ]
+  },
+  {
+    "name": "DBSCAN",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "密度聚类，自动发现簇数并识别噪声",
+    "detail": "DBSCAN 基于『密度可达』概念聚类：在半径 eps 内样本数达到 min_samples 的点为核心点，核心点密度相连形成簇，其余为噪声点。无需指定簇数量、可发现任意形状簇、天然识别离群点，非常适合形状不规则或带噪声的数据；但 eps 和 min_samples 敏感，且密度不均时效果差。",
+    "params": [
+      {
+        "k": "eps",
+        "v": "邻域半径，核心参数（用 K-距离图选取）"
+      },
+      {
+        "k": "min_samples",
+        "v": "核心点最少邻居数，一般 ≥ 维度数"
+      }
+    ],
+    "scenarios": [
+      "形状不规则的簇（非球形）",
+      "带离群点的数据，需自动识别噪声",
+      "簇数量未知的无监督场景"
+    ],
+    "pitfalls": [
+      "eps 过大全成一类，过小全是噪声",
+      "用 K-距离图中『拐点』位置估 eps",
+      "维度高时先降维（PCA）再聚类",
+      "密度差异大的数据（多密度）效果差"
+    ],
+    "cases": "地理坐标聚类（商圈识别）：DBSCAN(eps=0.01, min_samples=10) 自动把密集店铺聚成商圈，零散店标记为噪声(-1)，无需预设商圈数量。",
+    "tips": [
+      "eps 过大全成一类，过小全是噪声",
+      "用 K-距离图中『拐点』位置估 eps",
+      "维度高时先降维（PCA）再聚类"
+    ],
+    "example": "from sklearn.cluster import DBSCAN\nmodel = DBSCAN(eps=0.5, min_samples=5)\nlabels = model.fit_predict(X)  # -1 表示噪声",
+    "related": [
+      "KMeans",
+      "特征工程"
+    ]
+  },
+  {
+    "name": "XGBoost",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "梯度提升树，结构化数据的王者",
+    "detail": "XGBoost 是梯度提升决策树（GBDT）的高效实现，通过逐棵拟合前一轮残差并加正则化项控制复杂度。支持并行/缓存优化、缺失值自动处理、内置交叉验证与早停，在 Kaggle 表格类比赛中长期霸榜。缺点：参数多需调优、模型可解释性弱于单棵树、数据量大时训练耗时。它对缺失值、非线性、特征交叉都有很强刻画力。",
+    "params": [
+      {
+        "k": "n_estimators / num_round",
+        "v": "树的数量，配合 early_stopping"
+      },
+      {
+        "k": "max_depth",
+        "v": "默认 6，越大越易过拟合"
+      },
+      {
+        "k": "learning_rate (eta)",
+        "v": "学习率，越小越稳但要更多树"
+      },
+      {
+        "k": "subsample / colsample_bytree",
+        "v": "行/列采样比例，防过拟合"
+      }
+    ],
+    "scenarios": [
+      "结构化/表格数据的主流选择（分类+回归）",
+      "数据科学竞赛、风控建模、销量预测",
+      "需要高精度且可接受一定不可解释性"
+    ],
+    "pitfalls": [
+      "用早停（early_stopping_rounds）防过拟合并省时间",
+      "先用默认参数跑通，再调 max_depth 和 learning_rate",
+      "特征工程对树模型依然重要（能构造高阶组合特征）",
+      "类别特征需编码（target encoding/序数），不要直接喂字符串"
+    ],
+    "cases": "房价回归：XGBRegressor(max_depth=5, learning_rate=0.05, subsample=0.8) + early_stopping_rounds=20，验证集 MAE 比随机森林低 12%；构造『距地铁距离×房龄』交互特征后进一步下降。",
+    "tips": [
+      "用早停（early_stopping_rounds）防过拟合并省时间",
+      "先用默认参数跑通，再调 max_depth 和 learning_rate",
+      "特征工程对树模型依然重要（能构造高阶组合特征）"
+    ],
+    "example": "import xgboost as xgb\nmodel = xgb.XGBClassifier(n_estimators=500, max_depth=5, learning_rate=0.05, early_stopping_rounds=20)\nmodel.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)",
+    "related": [
+      "随机森林",
+      "特征工程",
+      "过拟合"
+    ]
+  },
+  {
+    "name": "线性回归",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "拟合线性关系，可解释性最强的模型",
+    "detail": "线性回归假设目标与特征呈线性关系 y = w·x + b，通过最小化残差平方和（OLS）求解系数。系数直接解释『特征每变化一单位，目标平均变化多少』，可解释性极强，是金融、经济分析（如因子暴露、事件研究）的基础工具。缺点：只能捕捉线性关系、对异常值敏感、多特征时需防多重共线性。系数显著性检验依赖正态/大样本假设。",
+    "formula": "y = β₀ + β₁x₁ + β₂x₂ + ... + ε",
+    "params": [
+      {
+        "k": "fit_intercept",
+        "v": "是否拟合截距项（默认 True）"
+      },
+      {
+        "k": "normalize",
+        "v": "是否标准化（新版建议预处理）"
+      }
+    ],
+    "scenarios": [
+      "需要『每个特征贡献多少』的可解释建模",
+      "因子暴露/事件研究的因果解释",
+      "作为复杂模型的基线对照"
+    ],
+    "pitfalls": [
+      "检查 R²（解释力）与残差图（是否随机）",
+      "特征间高度相关时系数不稳定，用 VIF 检测",
+      "异常值对 OLS 影响大，先处理离群点",
+      "线性假设不成立时改换模型或加交互项"
+    ],
+    "cases": "DID 消费研究中，用 OLS 估计 treat×post 系数即为政策效应；同时看各控制变量系数符号是否符合经济直觉（如收入系数应为正）。",
+    "tips": [
+      "检查 R²（解释力）与残差图（是否随机）",
+      "特征间高度相关时系数不稳定，用 VIF 检测",
+      "异常值对 OLS 影响大，先处理离群点"
+    ],
+    "example": "from sklearn.linear_model import LinearRegression\nmodel = LinearRegression()\nmodel.fit(X_train, y_train)\nprint(model.coef_, model.intercept_)",
+    "related": [
+      "Ridge/Lasso",
+      "多重共线性",
+      "t检验"
+    ]
+  },
+  {
+    "name": "Ridge/Lasso",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "正则化线性回归，解决过拟合与特征选择",
+    "detail": "Ridge 加 L2 惩罚项（系数平方和），把系数往 0 压缩但不等于 0，适合特征都相关的情况；Lasso 加 L1 惩罚项（系数绝对值），会把不重要的系数直接压成 0，实现自动特征选择。两者都通过 α（alpha）控制正则强度，α 越大系数越接近 0。ElasticNet 是两者的结合（L1+L2），在高相关特征下比纯 Lasso 更稳定。",
+    "formula": "Ridge: min ||y-Xw||² + α||w||²   Lasso: min ||y-Xw||² + α|w|",
+    "scenarios": [
+      "特征多、存在共线性的回归问题",
+      "需要自动特征选择（Lasso）",
+      "防止 OLS 在高维下过拟合"
+    ],
+    "pitfalls": [
+      "α 用交叉验证选（LassoCV/RidgeCV）",
+      "Lasso 在特征高度相关时随机选其一，可加 ElasticNet",
+      "先标准化特征再正则化，否则惩罚尺度不均"
+    ],
+    "cases": "基因表达数据（上万特征、样本少）：LassoCV 把 99% 系数压成 0，仅保留 30 个基因，既降维又给出稀疏可解释模型。",
+    "tips": [
+      "α 用交叉验证选（LassoCV/RidgeCV）",
+      "Lasso 在特征高度相关时随机选其一，可加 ElasticNet",
+      "先标准化特征再正则化，否则惩罚尺度不均"
+    ],
+    "example": "from sklearn.linear_model import Lasso, Ridge\nridge = Ridge(alpha=1.0).fit(X, y)\nlasso = Lasso(alpha=0.01).fit(X, y)\nprint(lasso.coef_)  # 含 0 表示被剔除的特征",
+    "related": [
+      "线性回归",
+      "多重共线性",
+      "特征工程"
+    ]
+  },
+  {
+    "name": "逻辑回归",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "Sigmoid 映射到概率，二分类基线模型",
+    "detail": "逻辑回归对线性输出套 Sigmoid 函数得到 (0,1) 概率，配合阈值（默认 0.5）做二分类。输出即概率、系数可解释（对数几率比）、计算快、对线性可分数据效果好，常作为分类任务的基线。可扩展：多分类（softmax）、L1/L2 正则、样本权重处理不平衡。系数 exp(β) 即优势比（odds ratio），业务可读性强。",
+    "formula": "P(y=1) = 1 / (1 + e^-(w·x+b))",
+    "params": [
+      {
+        "k": "penalty",
+        "v": "正则类型 l1/l2/elasticnet"
+      },
+      {
+        "k": "C",
+        "v": "正则强度倒数，越小正则越强"
+      },
+      {
+        "k": "class_weight",
+        "v": "balanced 处理类别不平衡"
+      }
+    ],
+    "scenarios": [
+      "二分类基线（信用评分、流失预测、营销响应）",
+      "需要概率输出且可解释系数的场景",
+      "大规模、需快速迭代的在线模型"
+    ],
+    "pitfalls": [
+      "特征需标准化（尤其用正则时）",
+      "看系数 exp(β) 即优势比，可解释性强",
+      "用 ROC-AUC 而非仅准确率评估",
+      "非线性关系需做特征变换或换树模型"
+    ],
+    "cases": "流失预测：LogisticRegression(C=1.0, class_weight='balanced')，输出流失概率；读系数发现『近 30 天登录次数』的 exp(β)=0.6，即该指标每升一档流失 odds 降到 60%，业务可直接行动。",
+    "tips": [
+      "特征需标准化（尤其用正则时）",
+      "看系数 exp(β) 即优势比，可解释性强",
+      "用 ROC-AUC 而非仅准确率评估"
+    ],
+    "example": "from sklearn.linear_model import LogisticRegression\nmodel = LogisticRegression(C=1.0, class_weight=\"balanced\")\nmodel.fit(X_train, y_train)\nproba = model.predict_proba(X_test)[:, 1]",
+    "related": [
+      "ROC曲线",
+      "混淆矩阵",
+      "精确率/召回率/F1"
+    ]
+  },
+  {
+    "name": "特征工程",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "构造好特征比换模型更重要",
+    "detail": "特征工程决定模型性能上限。三大方向：特征构造（滞后项、滚动统计、时间分解、交叉特征、多项式）、特征选择（方差过滤、相关性去重、互信息、Lasso、树模型重要性）、特征缩放（标准化/归一化/幂变换）。金融场景常用：收益率、波动率、动量因子、均线偏离度、量价关系等衍生特征。『Garbage in, garbage out』——特征质量 > 模型复杂度。",
+    "scenarios": [
+      "几乎任何表格/时序建模前的必做步骤",
+      "金融因子构造（动量、波动率、估值差）",
+      "提升模型上限的最后手段（换模型之前先做特征）"
+    ],
+    "pitfalls": [
+      "'Garbage in, garbage out'：特征质量 > 模型复杂度",
+      "先做特征选择减少维度再训练，防止维度灾难",
+      "时间序列必须防数据泄露：只用过去信息构造特征",
+      "构造太多交叉特征易过拟合，需交叉验证筛选"
+    ],
+    "cases": "股价预测：在原序列上构造 ret_1d、ma20、vol_20d、dist_ma20 后，XGBoost 的验证 R² 从 0.31 提升到 0.52，而模型结构未变——证明特征工程的收益超过换模型。",
+    "tips": [
+      "'Garbage in, garbage out'：特征质量 > 模型复杂度",
+      "先做特征选择减少维度再训练，防止维度灾难",
+      "时间序列必须防数据泄露：只用过去信息构造特征"
+    ],
+    "example": "df[\"ret_1d\"] = df[\"close\"].pct_change()\ndf[\"ma20\"] = df[\"close\"].rolling(20).mean()\ndf[\"vol_20d\"] = df[\"ret_1d\"].rolling(20).std()\ndf[\"dist_ma20\"] = df[\"close\"] / df[\"ma20\"] - 1",
+    "related": [
+      "数据泄露",
+      "标准化",
+      "归一化",
+      "多重共线性"
+    ]
+  },
+  {
+    "name": "混淆矩阵",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "分类结果四象限，评估的基石",
+    "detail": "混淆矩阵把预测结果按『预测 vs 实际』分成四格：TP（真阳）、FP（假阳，误报）、FN（假阴，漏报）、TN（真阴）。从它可以导出准确率、精确率、召回率、F1、特异度等全部核心指标。特别注意：类别不平衡时准确率会骗人（99% 正常 vs 1% 异常的欺诈检测，全猜正常也有 99% 准确率）。可视化用 heatmap + 标注数字最直观。",
+    "formula": "精确率 = TP/(TP+FP)  召回率 = TP/(TP+FN)  F1 = 2·P·R/(P+R)",
+    "scenarios": [
+      "任何分类模型必做的评估起点",
+      "不平衡分类下诊断漏报/误报分布",
+      "决定阈值前看 FP/FN 代价"
+    ],
+    "pitfalls": [
+      "不平衡分类看精确率/召回率/F1 而非准确率",
+      "风控场景重召回（漏一个坏人代价大），营销场景重精确",
+      "可视化用 heatmap + 标注数字更直观"
+    ],
+    "cases": "反欺诈模型：全猜正常准确率 99.2%，但混淆矩阵显示 FN=800（漏掉 800 起欺诈），召回仅 0.05——准确率完全误导，必须看召回率与 F1。",
+    "tips": [
+      "不平衡分类看精确率/召回率/F1 而非准确率",
+      "风控场景重召回（漏一个坏人代价大），营销场景重精确",
+      "可视化用 heatmap + 标注数字更直观"
+    ],
+    "related": [
+      "ROC曲线",
+      "精确率/召回率/F1",
+      "逻辑回归"
+    ]
+  },
+  {
+    "name": "ROC曲线",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "不同阈值下 TPR vs FPR，AUC 综合评价",
+    "detail": "ROC 曲线横轴为假正率 FPR（误报比例）、纵轴为真正率 TPR（召回率），遍历所有分类阈值绘制。曲线越靠近左上角越好；AUC = 曲线下面积，0.5 等于瞎猜，0.7~0.8 尚可，0.9+ 优秀。AUC 的优点：与阈值无关、对类别不平衡不敏感，适合比较不同模型的综合判别能力。但 AUC 高不代表找到最佳业务阈值。",
+    "scenarios": [
+      "比较多个分类模型的综合判别力",
+      "类别不平衡时评估模型（比准确率稳健）",
+      "选阈值前的整体质量判断"
+    ],
+    "pitfalls": [
+      "AUC 高不代表找到好阈值，还需结合业务定阈值",
+      "PR 曲线在不平衡场景比 ROC 更敏感（关注少数类时）",
+      "多分类用 macro/micro 平均"
+    ],
+    "cases": "两个反欺诈模型 AUC 分别为 0.93 与 0.95，差异看似小；但在 FPR=0.01 处前者 TPR=0.4、后者 TPR=0.6，业务上后者每年多拦 200 起欺诈且误杀相同——需用局部 ROC 而非只看 AUC。",
+    "tips": [
+      "AUC 高不代表找到好阈值，还需结合业务定阈值",
+      "PR 曲线在不平衡场景比 ROC 更敏感（关注少数类时）",
+      "多分类用 macro/micro 平均"
+    ],
+    "example": "from sklearn.metrics import roc_auc_score, roc_curve\nimport matplotlib.pyplot as plt\nfpr, tpr, _ = roc_curve(y_test, proba)\nplt.plot(fpr, tpr); print(\"AUC:\", roc_auc_score(y_test, proba))",
+    "related": [
+      "混淆矩阵",
+      "精确率/召回率/F1",
+      "逻辑回归"
+    ]
+  },
+  {
+    "name": "精确率/召回率/F1",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "分类三大核心指标，理解各自含义",
+    "detail": "精确率（Precision）= 预测为正里有多少真为正，衡量『报的准不准』；召回率（Recall）= 真实为正里有多少被找出来，衡量『找的全不全』。两者此消彼长（阈值高则精确高召回低）。F1 是两者的调和平均，兼顾二者。业务上：癌症筛查重召回（不能漏诊），垃圾邮件重精确（不能误杀）。",
+    "formula": "P = TP/(TP+FP)  R = TP/(TP+FN)  F1 = 2PR/(P+R)",
+    "scenarios": [
+      "分类模型的核心报告指标",
+      "根据业务代价选择优化精确率还是召回率",
+      "不平衡数据下替代准确率"
+    ],
+    "pitfalls": [
+      "用 PR 曲线看精确率-召回率权衡曲线",
+      "F1 对不平衡数据比准确率可靠",
+      "多分类用 weighted/macro 平均"
+    ],
+    "cases": "简历筛选模型：若误杀（FP）代价高（好简历被漏），提高阈值保精确率；若漏筛（FN）代价高（差简历进入人工），降低阈值保召回率。两者无法兼得，按 HR 成本取舍。",
+    "tips": [
+      "用 PR 曲线看精确率-召回率权衡曲线",
+      "F1 对不平衡数据比准确率可靠",
+      "多分类用 weighted/macro 平均"
+    ],
+    "related": [
+      "混淆矩阵",
+      "ROC曲线",
+      "逻辑回归"
+    ]
+  },
+  {
+    "name": "过拟合",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "模型记住训练集噪声，泛化能力差",
+    "detail": "过拟合 = 训练集表现极好、测试集/新数据表现差。原因：模型太复杂、特征太多、样本太少、训练太久。表现：训练误差远低于验证误差、系数过大。解决：正则化（L1/L2）、增加数据、简化模型（减树深/层数）、早停、Dropout、交叉验证。本质是模型拟合了噪声而非信号。",
+    "scenarios": [
+      "训练/验证误差差距大时诊断",
+      "模型在线上/新数据表现骤降时排查",
+      "调参过程中持续监控"
+    ],
+    "pitfalls": [
+      "训练/验证误差差距大 = 过拟合信号",
+      "减少 max_depth/n_estimators 或加大正则",
+      "用交叉验证分数代替单次 train/test 判断",
+      "数据少时别上过于复杂的模型"
+    ],
+    "cases": "深度网络训练 200 epoch 后训练 loss 趋 0 但验证 loss 反弹——典型过拟合，加入 Dropout(0.5)+早停（验证 loss 连续 10 轮不降则停）后泛化明显改善。",
+    "tips": [
+      "训练/验证误差差距大 = 过拟合信号",
+      "减少 max_depth/n_estimators 或加大正则",
+      "用交叉验证分数代替单次 train/test 判断"
+    ],
+    "related": [
+      "欠拟合",
+      "交叉验证",
+      "Ridge/Lasso"
+    ]
+  },
+  {
+    "name": "欠拟合",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "模型太简单，训练集都没学好",
+    "detail": "欠拟合 = 模型在训练集上误差就很大。原因：模型容量不足（线性模型拟合非线性）、特征太少、正则过强。表现：训练误差和验证误差都高且接近。解决：换更复杂模型、加特征（尤其交互/多项式特征）、减小正则强度、增加训练轮数。先确保训练集拟合良好，再谈泛化。",
+    "scenarios": [
+      "训练误差本身就高时诊断",
+      "模型容量明显不足（线性模型拟合强非线性）",
+      "正则过强导致学不动"
+    ],
+    "pitfalls": [
+      "欠拟合看训练误差即可判断（两个误差都高）",
+      "先确保训练集拟合良好，再谈泛化",
+      "一味加数据不能解决欠拟合，要加模型容量/特征"
+    ],
+    "cases": "用线性回归拟合明显的二次函数关系，训练 R² 仅 0.4——欠拟合；改为加 x² 项（多项式特征）或换树模型后 R² 升到 0.95。",
+    "tips": [
+      "欠拟合看训练误差即可判断（两个误差都高）",
+      "先确保训练集拟合良好，再谈泛化"
+    ],
+    "related": [
+      "过拟合",
+      "特征工程"
+    ]
+  },
+  {
+    "name": "交叉验证",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "把数据切多份轮流做验证，评估更稳健",
+    "detail": "K 折交叉验证把训练集分成 K 份，每次用 K-1 份训练、1 份验证，轮换 K 次取平均分数，充分利用数据、减少评估方差。常用 K=5/10；数据少时可用留一法（LOO）。分类任务建议分层采样（StratifiedKFold，保证每折类别比例一致）；时序数据必须用 TimeSeriesSplit（不能打乱顺序，否则数据泄露）。",
+    "scenarios": [
+      "数据量有限时稳健评估模型",
+      "调参时替代单次切分",
+      "时序预测必须用滚动切分"
+    ],
+    "pitfalls": [
+      "调参时用交叉验证分数而非单次切分",
+      "时序预测禁止 shuffle，用滚动窗口切分",
+      "与网格搜索 GridSearchCV 搭配自动调参",
+      "分层采样才能保证每折类别比例"
+    ],
+    "cases": "小样本（n=300）信用数据：单次 80/20 切分结果波动大（AUC 0.78~0.85）；改用 10 折分层交叉验证后报均值 0.82±0.03，评估更可信，也用于模型选型。",
+    "tips": [
+      "调参时用交叉验证分数而非单次切分",
+      "时序预测禁止 shuffle，用滚动窗口切分",
+      "与网格搜索 GridSearchCV 搭配自动调参"
+    ],
+    "example": "from sklearn.model_selection import cross_val_score, KFold\nscores = cross_val_score(model, X, y, cv=KFold(5, shuffle=True, random_state=42))\nprint(scores.mean(), scores.std())",
+    "related": [
+      "过拟合",
+      "数据泄露",
+      "超参数调优"
+    ]
+  },
+  {
+    "name": "梯度下降",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "沿梯度反方向迭代更新参数，训练神经网络的基础",
+    "detail": "梯度下降通过计算损失函数对参数的梯度，沿负梯度方向迭代更新（θ = θ - η·∇L），直到收敛到局部最优。变体：批量梯度下降（全量样本，稳但慢）、随机梯度下降 SGD（单个样本，快但抖）、小批量 Mini-batch（折中，最常用）。学习率 η 是核心超参数：太大震荡不收敛，太小收敛极慢。配合动量/Adam 等优化器可加速。",
+    "formula": "θ ← θ − η·∇L(θ)",
+    "params": [
+      {
+        "k": "learning_rate (η)",
+        "v": "步长，常用 0.001~0.1"
+      },
+      {
+        "k": "batch_size",
+        "v": "小批量大小，常用 32/64"
+      },
+      {
+        "k": "momentum",
+        "v": "动量，加速收敛并减少震荡"
+      }
+    ],
+    "scenarios": [
+      "神经网络/深度模型训练",
+      "大规模数据下的参数优化",
+      "任何可微损失函数的优化"
+    ],
+    "pitfalls": [
+      "学习率从 0.01 起试，观察 loss 曲线调整",
+      "loss 震荡不降 → 学习率太大；缓慢下降 → 太小",
+      "配合学习率调度（cosine/step decay）效果更好",
+      "特征未标准化时梯度下降收敛极慢"
+    ],
+    "cases": "训练 MLP 时 loss 剧烈震荡不降，把 lr 从 0.1 降到 0.001 并加 Adam + cosine 调度后平滑收敛；另一项目因特征量纲差 1000 倍，先 StandardScaler 再训练，收敛步数从 5000 降到 800。",
+    "tips": [
+      "学习率从 0.01 起试，观察 loss 曲线调整",
+      "loss 震荡不降 → 学习率太大；缓慢下降 → 太小",
+      "配合学习率调度（cosine/step decay）效果更好"
+    ],
+    "related": [
+      "LSTM",
+      "过拟合",
+      "超参数调优"
+    ]
+  },
+  {
+    "name": "超参数调优",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "模型外部参数的搜索方法",
+    "detail": "超参数是训练前设定的参数（树深、学习率、K 值），不能从数据学习。调优方法：网格搜索（穷举所有组合，GridSearchCV）、随机搜索（随机采样，RandomizedSearchCV，高维更高效）、贝叶斯优化（Optuna，用历史结果引导搜索）。原则：先粗后细、优先调影响最大的参数。调优必须与交叉验证绑定，防止过拟合到验证集。",
+    "scenarios": [
+      "模型定稿前的参数优化",
+      "高维超参空间用贝叶斯/随机搜索",
+      "选型对比时统一调参协议"
+    ],
+    "pitfalls": [
+      "随机搜索在高维时显著优于网格搜索",
+      "用 Optuna 做贝叶斯调参省时间",
+      "调参要和交叉验证绑定，防止过拟合到验证集",
+      "调参预算有限时先调最重要 1~2 个参数"
+    ],
+    "cases": "XGBoost 调参：先用随机搜索粗扫 max_depth∈[3,5,7,9]、lr∈[0.01,0.05,0.1]、subsample∈[0.6,0.8,1.0] 共 27 组 5 折 CV，取最优后再用 Optuna 微调，AUC 提升 0.03。",
+    "tips": [
+      "随机搜索在高维时显著优于网格搜索",
+      "用 Optuna 做贝叶斯调参省时间",
+      "调参要和交叉验证绑定，防止过拟合到验证集"
+    ],
+    "example": "from sklearn.model_selection import GridSearchCV\nparam_grid = {\"max_depth\": [3, 5, 7], \"n_estimators\": [50, 100]}\ngs = GridSearchCV(RandomForestClassifier(), param_grid, cv=5)\ngs.fit(X, y); print(gs.best_params_)",
+    "related": [
+      "交叉验证",
+      "XGBoost",
+      "过拟合"
+    ]
+  },
+  {
+    "name": "数据泄露",
+    "category": "ml",
+    "tab": "机器学习",
+    "desc": "训练时『偷看』了未来/测试信息，评估虚高",
+    "detail": "数据泄露指训练过程中使用了本不该看到的信息，导致模型评估虚高、上线即翻车。典型：①时序里用未来数据构造特征（如用当天收盘算当天因子）；②在切分前对整个数据集做标准化/填充（应只对训练集 fit）；③把含标签的列当特征；④去重/抽样导致训练测试重叠。是金融建模最容易犯且后果最严重的错误。",
+    "scenarios": [
+      "任何建模前必须排查的风险",
+      "时序/面板数据尤为高发",
+      "评估虚高（离线好、线上差）的首要怀疑对象"
+    ],
+    "pitfalls": [
+      "时序特征只能用 t 时刻及之前的信息",
+      "预处理 pipeline 必须 fit 在训练集上，transform 测试集",
+      "用『训练误差 vs 线上效果差距』排查泄露",
+      "目标相关的列（含滞后目标）绝不能进特征"
+    ],
+    "cases": "某因子用『未来 5 日收益』做标签，却把『当日收盘价』当特征——当日收盘已隐含部分未来信息，离线 AUC 0.95，上线后归零。改为仅用 t-1 及之前特征后 AUC 降到 0.61（真实水平）。",
+    "tips": [
+      "时序特征只能用 t 时刻及之前的信息",
+      "预处理 pipeline 必须 fit 在训练集上，transform 测试集",
+      "用『训练误差 vs 线上效果差距』排查泄露"
+    ],
+    "related": [
+      "特征工程",
+      "交叉验证",
+      "时序分解"
+    ]
+  },
+  {
+    "name": "数据分析",
+    "category": "stats",
+    "tab": "统计分析",
+    "desc": "从数据中提取信息、发现规律、支持决策的过程，本平台的三大核心能力之一",
+    "detail": "数据分析指用统计与计算手段从原始数据中提取有价值信息的过程，一般流程：①明确问题（要回答什么）；②数据采集与清洗（去重、缺失值、异常值）；③探索性分析 EDA（描述统计、分布、相关性）；④建模与推断（回归、分类、聚类、假设检验）；⑤结论与可视化（用图表支撑决策）。按深度分三层：描述性分析（发生了什么）、诊断性分析（为什么发生）、预测/规范性分析（接下来会怎样、该怎么做）。本平台支持对 CSV/XLSX 文件做描述统计、相关性、分组对比、假设检验、机器学习建模与可视化，打开 AI 助手说『帮我分析当前文件』即可开始。",
+    "scenarios": [
+      "对上传的数据文件做整体了解",
+      "探索变量分布与相互关系",
+      "支撑业务决策与报告输出"
+    ],
+    "pitfalls": [
+      "先看数据质量（缺失/异常）再建模，别跳过清洗",
+      "相关性≠因果，结合业务判断",
+      "小样本结论谨慎外推"
+    ],
+    "related": [
+      "描述性统计",
+      "t检验",
+      "线性回归",
+      "特征工程"
+    ]
+  },
+  {
+    "name": "t检验",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "比较均值差异是否显著，最基础的参数检验",
+    "detail": "t 检验在总体方差未知时用 t 分布检验均值差异，三种常用形式：独立样本 t 检验（两组独立数据，如试点省 vs 对照省）、配对 t 检验（同一批对象前后两次，如干预前后消费）、单样本 t 检验（与已知基准比较）。前提：数据近似正态、方差齐性（可用 Welch 修正放宽）。p < 0.05 说明差异在统计上显著。注意显著≠效应大。",
+    "formula": "t = (x̄₁ − x̄₂) / √(s₁²/n₁ + s₂²/n₂)",
+    "scenarios": [
+      "两组均值差异的显著性判断",
+      "A/B 实验（配对或独立）效果检验",
+      "DID 中处理/对照组前后差异的组分检验"
+    ],
+    "pitfalls": [
+      "大样本下中心极限定理使 t 检验对轻微非正态稳健",
+      "显著 ≠ 重要：看效应量（Cohen d）判断实际大小",
+      "多重比较需校正（Bonferroni 等）防假阳性",
+      "方差不齐用 Welch 检验（equal_var=False）"
+    ],
+    "cases": "某省试点长护险后，居民护理消费前后配对 t 检验 t=3.21, p=0.002——差异显著；但 Cohen d=0.18 偏小，说明『显著但幅度有限』，需结合业务判断政策力度。",
+    "tips": [
+      "大样本下中心极限定理使 t 检验对轻微非正态稳健",
+      "显著 ≠ 重要：看效应量（Cohen d）判断实际大小",
+      "多重比较需校正（Bonferroni 等）防假阳性"
+    ],
+    "example": "from scipy import stats\n# 独立双样本（Welch 默认不假设方差齐）\nt_stat, p = stats.ttest_ind(group_a, group_b, equal_var=False)\nprint(f\"t={t_stat:.3f}, p={p:.4f}\")",
+    "related": [
+      "Mann-Whitney U",
+      "ANOVA",
+      "p值",
+      "Levene检验"
+    ]
+  },
+  {
+    "name": "ANOVA",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "一次比较三组及以上均值是否相等",
+    "detail": "方差分析（ANOVA）把总变异拆成『组间变异』和『组内变异』，用 F 检验判断组间差异是否显著大于随机波动。原假设：所有组均值相等。p < 0.05 说明至少两组有差异，但不知道是哪两组，需事后检验（Tukey HSD）定位。前提：各组正态、方差齐性、观测独立。两组时 ANOVA 等价于 t 检验（F = t²）。",
+    "formula": "F = 组间均方 / 组内均方",
+    "scenarios": [
+      "多组（≥3）均值比较",
+      "不同策略/地区/渠道的效果差异总检",
+      "DID 多时点或多政策组的整体差异"
+    ],
+    "pitfalls": [
+      "ANOVA 显著后必须做事后多重比较",
+      "两组时 ANOVA 等价于 t 检验（F = t²）",
+      "方差齐性用 Levene 检验，不满足用 Welch ANOVA",
+      "观测不独立（如重复测量）要用重复测量 ANOVA"
+    ],
+    "cases": "比较东/中/西部三地人均消费：ANOVA F=5.3, p=0.005 表明地区间存在整体差异；Tukey HSD 进一步显示『东部 vs 西部』显著（p=0.004），『中部 vs 西部』不显著。",
+    "tips": [
+      "ANOVA 显著后必须做事后多重比较",
+      "两组时 ANOVA 等价于 t 检验（F = t²）",
+      "方差齐性用 Levene 检验，不满足用 Welch ANOVA"
+    ],
+    "example": "from scipy import stats\nf_stat, p = stats.f_oneway(group1, group2, group3)\nprint(f\"F={f_stat:.3f}, p={p:.4f}\")",
+    "related": [
+      "t检验",
+      "Levene检验",
+      "p值"
+    ]
+  },
+  {
+    "name": "卡方检验",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "两个分类变量是否独立",
+    "detail": "卡方检验比较『观测频数』与『独立假设下的期望频数』的偏离程度，常用于列联表（如性别×是否购买、省份×政策试点）。当期望频数 < 5 的格子占比高时改用 Fisher 精确检验。输出卡方统计量 + p 值，p < 0.05 认为变量间存在关联。它只说明『有关联』，方向与强度需看残差或 Cramér V。",
+    "formula": "χ² = Σ (O − E)² / E",
+    "scenarios": [
+      "两个分类变量的独立性检验",
+      "列联表（性别×购买、地区×试点）分析",
+      "A/B 中转化率的差异显著性"
+    ],
+    "pitfalls": [
+      "只适用于计数/频数数据，不用于连续变量",
+      "2×2 表且样本小时用 Fisher 精确检验",
+      "卡方显著只说明『有关联』，方向用残差/Cramér V 判断",
+      "单元格期望频数 <5 占比高时结果不可靠"
+    ],
+    "cases": "检验『是否参加长护险』与『家庭是否减少非正式照护』是否相关：2×2 列联表卡方=9.1, p=0.003，说明两者关联显著；看标准化残差定位到『参保组更可能减少非正式照护』。",
+    "tips": [
+      "只适用于计数/频数数据，不用于连续变量",
+      "2×2 表且样本小时用 Fisher 精确检验",
+      "卡方显著只说明『有关联』，方向用残差/Cramér V 判断"
+    ],
+    "example": "from scipy.stats import chi2_contingency\nchi2, p, dof, expected = chi2_contingency(pd.crosstab(df[\"gender\"], df[\"buy\"]))\nprint(f\"chi2={chi2:.3f}, p={p:.4f}\")",
+    "related": [
+      "Fisher精确检验",
+      "p值"
+    ]
+  },
+  {
+    "name": "Shapiro-Wilk",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "正态性检验，参数检验的前提",
+    "detail": "Shapiro-Wilk 检验原假设为『数据服从正态分布』，p > 0.05 表示不能拒绝正态（可继续用参数检验），p < 0.05 表示数据显著偏离正态（改用非参数检验或做变换）。注意：大样本下小偏离也会显著（检验对样本量敏感），建议结合 QQ 图/直方图综合判断。n<5000 时该检验最可靠。",
+    "scenarios": [
+      "参数检验（t/ANOVA/回归）前的正态性把关",
+      "决定用参数还是非参数方法",
+      "数据变换（log/Box-Cox）前的诊断"
+    ],
+    "pitfalls": [
+      "n < 5000 时 Shapiro-Wilk 最可靠；更大用 D'Agostino 检验",
+      "结合 QQ 图看偏离形态（偏态/厚尾）",
+      "非正态可尝试 log/Box-Cox 变换后再检验",
+      "大样本下极易显著，别据此轻易否定正态"
+    ],
+    "cases": "居民人均可支配收入右偏明显：Shapiro p=0.000 拒绝正态；取 log 后 p=0.21 不拒绝，于是后续 t 检验在 log 收入上进行，结论更稳健。",
+    "tips": [
+      "n < 5000 时 Shapiro-Wilk 最可靠；更大用 D'Agostino 检验",
+      "结合 QQ 图看偏离形态（偏态/厚尾）",
+      "非正态可尝试 log/Box-Cox 变换后再检验"
+    ],
+    "example": "from scipy.stats import shapiro\nw_stat, p = shapiro(df[\"income\"])\nprint(f\"W={w_stat:.4f}, p={p:.4f}  {'正态' if p > 0.05 else '非正态'}\")",
+    "related": [
+      "正态分布",
+      "t检验",
+      "Mann-Whitney U"
+    ]
+  },
+  {
+    "name": "Pearson相关",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "线性相关系数，[-1,1]，衡量直线关系",
+    "detail": "Pearson 相关系数衡量两个连续变量的线性相关强度：+1 完全正相关、-1 完全负相关、0 无线性关系。要求两变量近似正态且关系线性，对异常值极其敏感（一个离群点可能扭转符号）。金融中常用于资产收益率相关性、因子与收益的线性暴露。相关≠因果。",
+    "formula": "r = Σ(x−x̄)(y−ȳ) / √[Σ(x−x̄)²·Σ(y−ȳ)²]",
+    "scenarios": [
+      "两连续变量的线性相关强度",
+      "因子与收益的线性暴露初探",
+      "特征间多重共线性初检"
+    ],
+    "pitfalls": [
+      "相关 ≠ 因果，且对非线性关系（如 U 型）会误报为 0",
+      "先画散点图确认线性形态",
+      "异常值先剔除或用 Spearman 稳健版"
+    ],
+    "cases": "检验『教育年限』与『收入』的线性相关 r=0.42, p<0.001，线性正相关显著；但散点图呈曲线，改用 Spearman 得 ρ=0.51，说明单调关系比线性相关更强。",
+    "tips": [
+      "相关 ≠ 因果，且对非线性关系（如 U 型）会误报为 0",
+      "先画散点图确认线性形态",
+      "异常值先剔除或用 Spearman 稳健版"
+    ],
+    "example": "from scipy.stats import pearsonr\nr, p = pearsonr(df[\"factor_a\"], df[\"return\"])\nprint(f\"r={r:.3f}, p={p:.4f}\")",
+    "related": [
+      "Spearman秩相关",
+      "正态分布",
+      "异常值剔除"
+    ]
+  },
+  {
+    "name": "Spearman秩相关",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "单调相关系数，非参数、抗异常值",
+    "detail": "Spearman 把两变量排序后计算排序间的 Pearson 相关，衡量的是单调关系（不限于线性），不要求正态分布、对异常值稳健。金融中常用于：截面选股因子的 IC（信息系数，因子值与下期收益的秩相关）、非线性依赖检测。绝对值越接近 1 单调关系越强。比 Pearson 更适合有离群点或非线性单调的数据。",
+    "formula": "ρ = 1 − 6Σdᵢ² / (n(n²−1))",
+    "scenarios": [
+      "因子有效性检验（IC 信息系数）",
+      "含离群点或非线性的单调关系",
+      "有序分类变量间的相关性"
+    ],
+    "pitfalls": [
+      "衡量『排序一致性』，适合因子有效性检验",
+      "样本小时比 Pearson 更稳健",
+      "与 Kendall's tau 类似但计算更常见",
+      "只捕捉单调，对非单调（如 U 型）仍会低估"
+    ],
+    "cases": "月度选股：计算因子值与本月收益的 Spearman ρ（即 IC），连续 24 个月 IC 均值 0.06、ICIR 0.35，说明该因子有稳定正向选股能力，可纳入多因子模型。",
+    "tips": [
+      "衡量『排序一致性』，适合因子有效性检验",
+      "样本小时比 Pearson 更稳健",
+      "与 Kendall's tau 类似但计算更常见"
+    ],
+    "example": "from scipy.stats import spearmanr\nrho, p = spearmanr(df[\"factor\"], df[\"fwd_return\"])\nprint(f\"rho={rho:.3f}, p={p:.4f}\")",
+    "related": [
+      "Pearson相关",
+      "异常值剔除"
+    ]
+  },
+  {
+    "name": "Mann-Whitney U",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "独立 t 检验的非参数替代，不要求正态",
+    "detail": "Mann-Whitney U 检验通过比较两组的秩（排序位置）判断两组分布是否相同，是独立样本 t 检验的非参数版本，不要求正态分布、对异常值稳健。数据明显非正态或为有序类别时用它。与之对应，配对数据的非参数检验是 Wilcoxon 符号秩检验。注意它检验的是『分布是否相同』，不只是均值。",
+    "scenarios": [
+      "两组独立、非正态或有序数据",
+      "t 检验前提（正态/方差齐）不满足时",
+      "含极端离群点的两组比较"
+    ],
+    "pitfalls": [
+      "检验的是『分布是否相同』，不只是均值",
+      "两组分布形状不同时结果解释要小心",
+      "正态数据用 t 检验效率更高（power 更大）",
+      "大样本时可用正态近似"
+    ],
+    "cases": "收入（右偏）在参保组与未参保组的差异：t 检验前提不满足，改用 Mann-Whitney U，U=..., p=0.013，说明两组收入分布确有差异（参保组中位数更高）。",
+    "tips": [
+      "检验的是『分布是否相同』，不只是均值",
+      "两组分布形状不同时结果解释要小心",
+      "正态数据用 t 检验效率更高（power 更大）"
+    ],
+    "example": "from scipy.stats import mannwhitneyu\nu_stat, p = mannwhitneyu(group_a, group_b, alternative=\"two-sided\")\nprint(f\"U={u_stat:.1f}, p={p:.4f}\")",
+    "related": [
+      "t检验",
+      "Shapiro-Wilk",
+      "Wilcoxon符号秩"
+    ]
+  },
+  {
+    "name": "Levene检验",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "方差齐性检验，ANOVA/t检验的前提",
+    "detail": "Levene 检验原假设为『各组方差相等』。p > 0.05 说明方差齐性（可用标准 t 检验/ANOVA），p < 0.05 说明方差不齐（改用 Welch t 检验 / Welch ANOVA）。比经典 Bartlett 检验对非正态更稳健，是大多数软件的默认选择。它决定你该用标准还是 Welch 版本。",
+    "scenarios": [
+      "t 检验/ANOVA 前的方差齐性把关",
+      "决定用标准还是 Welch 版本",
+      "多组方差一致性检查"
+    ],
+    "pitfalls": [
+      "方差不齐时首选 Welch 修正，不必急着变换数据",
+      "与 Box 图结合看方差是否明显不同",
+      "小样本时检验功效低，结合可视化判断"
+    ],
+    "cases": "两组消费方差差异：Levene W=4.2, p=0.04 提示方差不齐，于是 t 检验改用 equal_var=False（Welch），避免标准 t 检验放大型 I 错误。",
+    "tips": [
+      "方差不齐时首选 Welch 修正，不必急着变换数据",
+      "与 Box 图结合看方差是否明显不同"
+    ],
+    "example": "from scipy.stats import levene\nw_stat, p = levene(group1, group2, group3)\nprint(f\"W={w_stat:.3f}, p={p:.4f}\")",
+    "related": [
+      "t检验",
+      "ANOVA"
+    ]
+  },
+  {
+    "name": "DID双重差分",
+    "category": "stats",
+    "tab": "DID计量",
+    "desc": "政策评估因果推断核心方法",
+    "detail": "DID（Difference-in-Differences）估计政策因果效应：先算处理组政策前后差异、对照组前后差异，两者相减消除共同时间趋势。本项目的长期护理保险试点研究正是用它评估试点对家庭消费结构的影响。核心前提是平行趋势：若无政策，两组走势相同。模型形式为 Y = β₀ + β₁·Treat + β₂·Post + β₃·Treat×Post + ε，β₃ 即政策效应。它用『双重差分』剥离了时间趋势与组间固有差异。",
+    "formula": "DID效应 = (处理组后−处理组前) − (对照组后−对照组前)",
+    "scenarios": [
+      "政策/外生冲击的因果效应评估",
+      "有处理组与对照组+政策前后两期（或多期）面板",
+      "本项目的长护险试点消费结构研究"
+    ],
+    "pitfalls": [
+      "务必做平行趋势检验（事件研究图）",
+      "加控制变量和固定效应提高可信度",
+      "结果要做安慰剂检验和稳健性检验（换窗口/换样本）",
+      "处理组/对照组选择需外生于结果"
+    ],
+    "cases": "长护险试点：处理组=试点城市、对照组=非试点城市，Post=政策实施后。回归 treat×post 系数 β₃=0.12（p=0.01），表明试点使家庭护理消费占比提升 12 个百分点；事件研究图显示政策前各期交互项不显著（平行趋势成立）。",
+    "tips": [
+      "务必做平行趋势检验（事件研究图）",
+      "加控制变量和固定效应提高可信度",
+      "结果要做安慰剂检验和稳健性检验（换窗口/换样本）"
+    ],
+    "example": "import statsmodels.api as sm\n# 交互项 treat_post = treat * post\nX = df[[\"treat\", \"post\", \"treat_post\", \"controls\"]]\nmodel = sm.OLS(df[\"consumption\"], sm.add_constant(X)).fit()\nprint(model.params[\"treat_post\"], model.pvalues[\"treat_post\"])",
+    "related": [
+      "平行趋势检验",
+      "安慰剂检验",
+      "异质性分析"
+    ]
+  },
+  {
+    "name": "平行趋势检验",
+    "category": "stats",
+    "tab": "DID计量",
+    "desc": "DID 有效性最关键的前提假设",
+    "detail": "平行趋势假设：若不存在政策干预，处理组与对照组结果变量应沿相同趋势变化。检验方法：①事件研究法（Event Study）——把政策时点前后各期的处理×时期交互项系数画出来，政策前系数应不显著且接近 0（趋势平行），政策后系数显著（效应出现）；②直接画两组均值趋势图目测平行。不满足时可用匹配、合成控制等方法补救。这是 DID 可信度的生命线。",
+    "scenarios": [
+      "DID 前的必备前提验证",
+      "事件研究图绘制",
+      "政策前趋势是否平行的目测与统计检验"
+    ],
+    "pitfalls": [
+      "政策前各期交互项系数显著性检验是核心证据",
+      "样本期尽量长，政策前至少留 2~3 期",
+      "不平行可尝试 PSM-DID 或合成控制法",
+      "要放稳健标准误（聚类到个体/地区）"
+    ],
+    "cases": "事件研究：政策前第 -3/-2/-1 期的 treat×period 系数均不显著（p>0.1）且置信区间含 0；政策后第 +1/+2 期显著为正——平行趋势成立，效应在政策后逐步显现。",
+    "tips": [
+      "政策前各期交互项系数显著性检验是核心证据",
+      "样本期尽量长，政策前至少留 2~3 期",
+      "不平行可尝试 PSM-DID 或合成控制法"
+    ],
+    "example": "# 事件研究：k 为距政策时点的期数\n# y_it = Σₖ βₖ·(treat_i × 1[k=期距]) + ...\n# 画 βₖ 折线，政策前 βₖ≈0 且不显著",
+    "related": [
+      "DID双重差分",
+      "安慰剂检验",
+      "异质性分析"
+    ]
+  },
+  {
+    "name": "安慰剂检验",
+    "category": "stats",
+    "tab": "DID计量",
+    "desc": "排除虚假因果的稳健性检验",
+    "detail": "安慰剂检验通过『伪造』实验验证结果不是碰巧：①虚构政策时点（把政策时间提前 1~2 年，若无效应则原结果可信）；②随机分配处理组（随机打乱处理身份，多次模拟估计效应分布，真实效应应远离 0 的模拟分布）；③假处理组（用未受政策影响的地区做处理组）。若虚构场景也『显著』，说明原结果可疑。它是因果结论的『压力测试』。",
+    "scenarios": [
+      "DID 结果稳健性的压力测试",
+      "排除遗漏变量/偶然相关的干扰",
+      "论文与报告的必备稳健性证据"
+    ],
+    "pitfalls": [
+      "随机化安慰剂常做 500~1000 次模拟看效应分布",
+      "虚构政策时点应选真实政策前的日期",
+      "与平行趋势检验互为补充，都通过更可信",
+      "要报告安慰剂效应的 p 值或分布位置"
+    ],
+    "cases": "把试点城市随机重抽 500 次跑 DID，得到 500 个『伪效应』，均值为 0、分布集中；真实 β₃=0.12 远在分布右尾（p<0.01），说明真实效应不太可能是随机抽样偶然产生。",
+    "tips": [
+      "随机化安慰剂常做 500~1000 次模拟看效应分布",
+      "虚构政策时点应选真实政策前的日期",
+      "与平行趋势检验互为补充，都通过更可信"
+    ],
+    "related": [
+      "DID双重差分",
+      "平行趋势检验"
+    ]
+  },
+  {
+    "name": "中介效应",
+    "category": "stats",
+    "tab": "DID计量",
+    "desc": "机制分析：X 通过什么路径影响 Y",
+    "detail": "中介效应检验 X → M → Y 的间接路径是否存在，回答『政策为什么起作用』。经典三步法：X 对 Y 显著 → X 对 M 显著 → 控制 M 后 X 对 Y 减弱（部分中介）或消失（完全中介）。现代做法多用 Bootstrap（如 5000 次）检验间接效应 ab 的置信区间是否含 0，比 Sobel 检验更稳健。注意中介分析本质仍是相关，因果解读需谨慎。",
+    "formula": "间接效应 = a×b，其中 a: X→M，b: M→Y(控制X)",
+    "scenarios": [
+      "政策机制/路径分析（为什么有效）",
+      "X 对 Y 的影响路径拆解",
+      "配合 DID 做机制解释"
+    ],
+    "pitfalls": [
+      "逐步法要求所有路径显著，Bootstrap 更灵活",
+      "中介分析本质仍是相关，因果解读需谨慎",
+      "报告中介比例 a×b/c 帮助理解效应大小",
+      "M 不能受 Y 反向影响（避免循环）"
+    ],
+    "cases": "长护险→（降低家庭照护负担）→（提升其他消费）。Bootstrap 5000 次得间接效应 ab=0.05, 95%CI[0.02,0.09] 不含 0，证实『减负』是部分中介路径，占总效应约 40%。",
+    "tips": [
+      "逐步法要求所有路径显著，Bootstrap 更灵活",
+      "中介分析本质仍是相关，因果解读需谨慎",
+      "报告中介比例 a×b/c 帮助理解效应大小"
+    ],
+    "example": "from statsmodels.stats.mediation import Mediation\n# X→M 与 M→Y 两个回归，Mediation 类自动 Bootstrap\nmed = Mediation(model_m, model_y, mediator=\"M\", exposure=\"X\")\nres = med.fit(method=\"boot\", n_boot=5000)\nprint(res.summary())",
+    "related": [
+      "DID双重差分",
+      "异质性分析"
+    ]
+  },
+  {
+    "name": "异质性分析",
+    "category": "stats",
+    "tab": "DID计量",
+    "desc": "政策效应在不同群体间的差异",
+    "detail": "异质性分析检验政策效应是否因人/地区/时期而异，帮助理解政策机制的适用边界。做法：①分组回归（东中西部、城乡、收入高低分组做 DID 看系数差异）；②交互项法（在模型中加入 Treat×Post×Group 三重交互，检验组间差异显著性）；③分位数处理效应。若效应集中在特定群体，政策建议更精准。它把『平均效应』变成『谁受益最多』。",
+    "scenarios": [
+      "政策效应的群体差异（城乡/收入/地区）",
+      "精准化政策建议的依据",
+      "与机制（中介）分析配合解释『为什么异质』"
+    ],
+    "pitfalls": [
+      "三重交互项显著才说明组间差异显著（不能只看系数大小）",
+      "分组过多样本变小、检验力下降，慎分组",
+      "结合机制（中介）分析解释为什么异质",
+      "注意分组后各组仍需满足平行趋势"
+    ],
+    "cases": "按城乡分组做 DID：城镇 β₃=0.08（不显著），农村 β₃=0.19（显著）——说明长护险对农村家庭消费拉动更强，因农村非正式照护依赖度更高。三重交互项显著支持该结论。",
+    "tips": [
+      "三重交互项显著才说明组间差异显著（不能只看系数大小）",
+      "分组过多样本变小、检验力下降，慎分组",
+      "结合机制（中介）分析解释为什么异质"
+    ],
+    "example": "# 三重交互\n# y = β1·treat + β2·post + β3·treat×post + β4·treat×post×group + ...\n# β4 显著 → 政策效应在 group 间存在显著差异",
+    "related": [
+      "DID双重差分",
+      "中介效应",
+      "平行趋势检验"
+    ]
+  },
+  {
+    "name": "p值",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "在原假设成立时看到当前结果的概率",
+    "detail": "p 值是『假设原假设为真，观测到当前或更极端结果的概率』。p < 0.05 表示结果在原假设下很罕见（<5%），据此拒绝原假设。注意：p 值不是『效应为真的概率』，也不是效应大小。p=0.04 与 p=0.06 的差异本身不显著（禁止以 p 值硬切分）。应报告效应量 + 置信区间，而不是只报 p 值。p 值与样本量强相关。",
+    "scenarios": [
+      "假设检验中判断结果是否罕见",
+      "论文/报告的显著性报告",
+      "与效应量配合给出完整结论"
+    ],
+    "pitfalls": [
+      "p < 0.05 是约定俗成，不代表『真实』分界线",
+      "多重比较会膨胀假阳性，需校正",
+      "p 值与样本量强相关：样本越大越容易显著（哪怕效应很小）",
+      "别用 p 值大小衡量效应重要性"
+    ],
+    "cases": "大样本（n=10万）下两组均值差 0.01 也 p<0.001——统计显著但业务无意义；必须同时报效应量（Cohen d=0.02）才能正确解读。",
+    "tips": [
+      "p < 0.05 是约定俗成，不代表『真实』分界线",
+      "多重比较会膨胀假阳性，需校正",
+      "p 值与样本量强相关：样本越大越容易显著（哪怕效应很小）"
+    ],
+    "related": [
+      "t检验",
+      "ANOVA",
+      "置信区间"
+    ]
+  },
+  {
+    "name": "置信区间",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "参数估计的可靠范围，比 p 值信息量大",
+    "detail": "置信区间（CI）给出参数估计的波动范围，95% 置信区间含义：重复抽样 100 次，约 95 个区间包含真实参数。区间越窄估计越精确。比 p 值信息量更大：能看出效应大小的合理范围（如 DID 效应 95%CI [0.05, 0.35] 不含 0 → 显著且幅度可观）。大样本下常用均值 ± 1.96·标准误。CI 与假设检验等价：CI 不含 0 ⇔ p < 0.05。",
+    "formula": "CI = 估计值 ± z(α/2) × 标准误",
+    "scenarios": [
+      "报告效应量的不确定范围",
+      "替代/补充 p 值做推断",
+      "判断效应是否『显著且够大』"
+    ],
+    "pitfalls": [
+      "报告『效应量 + CI』比『显著/不显著』更专业",
+      "CI 与假设检验等价：CI 不含 0 ⇔ p < 0.05",
+      "Bootstrap 置信区间适合复杂统计量（如中介效应）",
+      "CI 宽不代表无效应，可能只是样本小"
+    ],
+    "cases": "DID 效应点估计 0.12，95%CI[0.03,0.21]——不含 0 且下限也明显为正，不仅显著且经济意义可观；若 CI[-0.02,0.26] 跨度大则结论偏弱（精度不足）。",
+    "tips": [
+      "报告『效应量 + CI』比『显著/不显著』更专业",
+      "CI 与假设检验等价：CI 不含 0 ⇔ p < 0.05",
+      "Bootstrap 置信区间适合复杂统计量（如中介效应）"
+    ],
+    "related": [
+      "p值",
+      "t检验",
+      "中介效应"
+    ]
+  },
+  {
+    "name": "效应量",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "差异的实际大小，摆脱 p 值迷信",
+    "detail": "效应量（Effect Size）衡量差异/关系的大小，与样本量无关：Cohen d（两组均值差 / 合并标准差，0.2小/0.5中/0.8大）、η²（方差解释比例）、Cramér V（分类关联强度）、r（相关系数）。大样本下微小差异也显著（p 很小），但效应量能告诉你『值不值得关心』。科研报告规范要求同时报告 p 值与效应量。它是『显著』与『重要』之间的桥梁。",
+    "formula": "Cohen d = (x̄₁−x̄₂) / s_pooled",
+    "scenarios": [
+      "判断『显著』是否『重要』",
+      "元分析（meta-analysis）的核心输入",
+      "跨研究比较效应大小"
+    ],
+    "pitfalls": [
+      "审稿/研究报告必备效应量",
+      "Meta 分析以效应量为核心",
+      "结合业务背景判断『统计显著』是否『实际重要』",
+      "不同效应量指标不可直接横向比"
+    ],
+    "cases": "两组消费 t 检验 p=0.001 看似很强，但 Cohen d=0.12（极小）——实际差异微不足道；反之 p=0.04、d=0.8 才是『小样本下的强效应』，后者业务价值更高。",
+    "tips": [
+      "审稿/研究报告必备效应量",
+      "Meta 分析以效应量为核心",
+      "结合业务背景判断『统计显著』是否『实际重要』"
+    ],
+    "related": [
+      "p值",
+      "置信区间",
+      "t检验"
+    ]
+  },
+  {
+    "name": "方差膨胀因子(VIF)",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "检测多重共线性的量化指标",
+    "detail": "VIF 衡量某特征能被其他特征线性解释的程度：VIF = 1/(1−R²)，R² 是该特征对其他特征回归的拟合优度。VIF > 10（严格 5）提示严重共线性——该特征信息已被其他特征覆盖，系数估计不稳定、符号可能反直觉。处理：删除高 VIF 特征、合并相关特征（PCA）、用岭回归。对线性回归/逻辑回归影响大，对树模型影响小。",
+    "formula": "VIFⱼ = 1 / (1 − R²ⱼ)",
+    "scenarios": [
+      "回归建模前的共线性诊断",
+      "解释系数不稳定/符号反常时排查",
+      "特征筛选的依据之一"
+    ],
+    "pitfalls": [
+      "共线性使系数符号反转、t 值失真",
+      "做回归前先跑相关性热力图 + VIF",
+      "树模型不怕共线性，线性回归很怕",
+      "VIF 高但预测精度未必差（仅影响解释）"
+    ],
+    "cases": "回归中同时放入『GDP』与『工业总产值』，两者高度相关，VIF 均 > 20，系数符号反常；删去其一或做 PCA 合并后系数恢复正常，R² 几乎不变。",
+    "tips": [
+      "共线性使系数符号反转、t 值失真",
+      "做回归前先跑相关性热力图 + VIF",
+      "树模型不怕共线性，线性回归很怕"
+    ],
+    "example": "from statsmodels.stats.outliers_influence import variance_inflation_factor\nvifs = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]\nprint(dict(zip(X.columns, vifs)))",
+    "related": [
+      "多重共线性",
+      "线性回归",
+      "Ridge/Lasso"
+    ]
+  },
+  {
+    "name": "多重共线性",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "特征高度相关导致系数不稳定",
+    "detail": "多重共线性指特征之间存在较强线性关系。后果：OLS 系数方差膨胀、符号可能反直觉、单个系数不显著但整体 R² 很高（因为信息重叠）。注意：共线性不影响预测精度（预测时只关心组合），但破坏系数解释（这正是金融因子回归的大忌——分不清谁贡献了收益）。用 VIF 量化，>10 需处理。",
+    "scenarios": [
+      "线性回归/逻辑回归的系数解释前排查",
+      "金融因子回归（谁贡献收益）场景尤其重要",
+      "特征去重/合并的依据"
+    ],
+    "pitfalls": [
+      "用 VIF 量化，>10 需处理",
+      "逻辑/线性回归前先做相关性去重",
+      "因子回归中先正交化因子再回归",
+      "预测任务可容忍共线性，解释任务不能"
+    ],
+    "cases": "多因子模型同时放入『PE』『PB』『PS』高度相关估值因子，单因子系数不稳；改用逐步回归或正交化后，每个因子暴露清晰，便于解读哪类估值驱动了收益。",
+    "tips": [
+      "用 VIF 量化，>10 需处理",
+      "逻辑/线性回归前先做相关性去重",
+      "因子回归中先正交化因子再回归"
+    ],
+    "related": [
+      "方差膨胀因子(VIF)",
+      "线性回归",
+      "Ridge/Lasso"
+    ]
+  },
+  {
+    "name": "正态分布",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "钟形曲线，统计检验的核心分布",
+    "detail": "正态分布（高斯分布）由均值 μ 和标准差 σ 决定，68-95-99.7 法则：约 68% 数据落在 μ±σ，95% 在 μ±2σ，99.7% 在 μ±3σ。中心极限定理保证大样本均值近似正态，是许多参数检验（t、ANOVA、回归推断）的理论基础。金融中收益率近似正态（但实际厚尾），收入等社会经济变量常右偏。许多检验的『正态前提』其实可由大样本 CLT 放宽。",
+    "formula": "f(x) = 1/(σ√2π)·e^(−(x−μ)²/2σ²)",
+    "scenarios": [
+      "参数检验（t/ANOVA/回归）的理论基础",
+      "质量控制（3σ 原则）",
+      "数据变换的目标分布"
+    ],
+    "pitfalls": [
+      "检验正态用 Shapiro-Wilk + QQ 图",
+      "偏态数据取 log 后常变正态",
+      "厚尾（极端值多）是金融数据常态，正态假设需谨慎",
+      "大样本下 CLT 可放宽正态前提"
+    ],
+    "cases": "日收益率近似正态（mu≈0），用 μ±2σ 设交易触发带；但极端日跌幅远超 3σ 频率（厚尾），提醒风险模型需加 t 分布或 GARCH 而非纯正态。",
+    "tips": [
+      "检验正态用 Shapiro-Wilk + QQ 图",
+      "偏态数据取 log 后常变正态",
+      "厚尾（极端值多）是金融数据常态，正态假设需谨慎"
+    ],
+    "related": [
+      "Shapiro-Wilk",
+      "偏度/峰度",
+      "t检验"
+    ]
+  },
+  {
+    "name": "偏度/峰度",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "分布形态的两把尺子：偏斜程度与尖厚程度",
+    "detail": "偏度（Skewness）衡量分布左右不对称：>0 右偏（长尾在右，如收入、房价），<0 左偏，0 对称。峰度（Kurtosis）衡量尾部厚度：>3（超额峰度>0）为厚尾（极端值比正态更常见，金融收益率的典型特征），<3 为薄尾。它们影响统计推断稳健性与风险度量（厚尾意味着尾部风险被低估）。偏度指导变换（右偏取 log），峰度指导风险模型选择。",
+    "formula": "偏度 S = E[(X−μ)³]/σ³  峰度 K = E[(X−μ)⁴]/σ⁴",
+    "scenarios": [
+      "判断数据是否对称、是否需要变换",
+      "金融风控的尾部风险度量",
+      "正态性诊断的辅助指标"
+    ],
+    "pitfalls": [
+      "峰度 > 3 提示用稳健方法或 t 分布替代正态",
+      "右偏变量做 log 变换可降偏度",
+      "金融风控必看峰度（厚尾=尾部风险）",
+      "小样本下偏度/峰度估计噪声大"
+    ],
+    "cases": "股指日收益偏度≈-0.3（左偏，暴跌多于暴涨）、超额峰度≈4（厚尾）。用正态 VaR 会低估尾部损失，改用历史模拟或 t 分布 VaR 后风险敞口估计更真实。",
+    "tips": [
+      "峰度 > 3 提示用稳健方法或 t 分布替代正态",
+      "右偏变量做 log 变换可降偏度",
+      "金融风控必看峰度（厚尾=尾部风险）"
+    ],
+    "related": [
+      "正态分布",
+      "Shapiro-Wilk",
+      "异常值剔除"
+    ]
+  },
+  {
+    "name": "中心极限定理",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "大样本均值近似正态，统计推断的基石",
+    "detail": "中心极限定理（CLT）：无论总体分布是什么，只要样本量足够大（经验 n ≥ 30），样本均值的抽样分布近似正态，且其标准差 = 总体标准差/√n（即标准误）。这使我们在不知道总体分布时也能做均值推断（t 检验、置信区间），也是为什么大样本下对非正态数据的参数检验依然可用。它把『任意分布』与『正态推断』连接起来。",
+    "scenarios": [
+      "大样本下用正态/t 推断的依据",
+      "置信区间与均值检验的理论基础",
+      "抽样与民意调查的方法论"
+    ],
+    "pitfalls": [
+      "n ≥ 30 是经验阈值，厚尾/强偏数据需要更大样本",
+      "标准误随 √n 缩小：样本×4，误差减半",
+      "小样本非正态时仍应改用非参数检验",
+      "CLT 谈的是均值，不是个体分布"
+    ],
+    "cases": "总体是强右偏收入，但抽取 n=100 的省份均值后，均值分布已接近钟形，可用 t 检验比较两省均值——这正是 CLT 让『非正态也能做参数检验』的原因。",
+    "tips": [
+      "n ≥ 30 是经验阈值，厚尾/强偏数据需要更大样本",
+      "标准误随 √n 缩小：样本×4，误差减半",
+      "小样本非正态时仍应改用非参数检验"
+    ],
+    "related": [
+      "正态分布",
+      "置信区间",
+      "p值"
+    ]
+  },
+  {
+    "name": "Fisher精确检验",
+    "category": "stats",
+    "tab": "假设检验",
+    "desc": "小样本 2×2 列联表的精确检验",
+    "detail": "Fisher 精确检验直接计算『在固定边际合计下，观测到当前或更极端表格的概率』（超几何分布），无需大样本近似，适合期望频数 < 5 的 2×2 表（卡方检验此时不可靠）。样本大时计算量大，可用 Monte Carlo 近似。常用于小样本实验、罕见事件研究。它给出精确的 p 值而非近似。",
+    "scenarios": [
+      "小样本 2×2 列联表",
+      "期望频数 < 5 的稀有事件研究",
+      "卡方近似不可靠时的替代"
+    ],
+    "pitfalls": [
+      "2×2 表且任一格期望频数 < 5 时使用",
+      "p 值双侧/单侧要按研究假设选",
+      "与卡方检验结果在大样本时基本一致",
+      "多行多列用卡方或蒙特卡洛近似"
+    ],
+    "cases": "罕见病药物试验：治疗组 8 例有效/2 例无效，对照组 3 例有效/12 例无效，期望频数偏低，用 Fisher 精确检验得 OR=16, p=0.002，精确判断疗效关联。",
+    "tips": [
+      "2×2 表且任一格期望频数 < 5 时使用",
+      "p 值双侧/单侧要按研究假设选",
+      "与卡方检验结果在大样本时基本一致"
+    ],
+    "example": "from scipy.stats import fisher_exact\nodds, p = fisher_exact([[8, 2], [3, 12]], alternative=\"two-sided\")\nprint(f\"OR={odds:.3f}, p={p:.4f}\")",
+    "related": [
+      "卡方检验",
+      "p值"
+    ]
+  },
+  {
+    "name": "ARIMA",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "经典时序预测模型：自回归+差分+滑动平均",
+    "detail": "ARIMA(p,d,q) 三部分：AR(p) 用过去 p 期自身值回归，I(d) 做 d 次差分使序列平稳，MA(q) 用过去 q 期预测误差回归。定阶方法：看 ACF/PACF 图截尾/拖尾，或用 AIC/BIC 网格搜索（本项目工具自动选阶）。适合中短期单变量预测，对线性关系、平稳化后的数据效果好；对非线性、多变量、长周期预测力有限。差分次数 d 通常由 ADF 检验决定。",
+    "params": [
+      {
+        "k": "p",
+        "v": "自回归阶数（PACF 截尾处）"
+      },
+      {
+        "k": "d",
+        "v": "差分次数（到平稳为止）"
+      },
+      {
+        "k": "q",
+        "v": "滑动平均阶数（ACF 截尾处）"
+      }
+    ],
+    "scenarios": [
+      "单变量中短期预测（销量、客流、负荷）",
+      "平稳化后呈现线性自相关的序列",
+      "作为时序基线与对照模型"
+    ],
+    "pitfalls": [
+      "先 ADF 检验平稳性，非平稳先差分",
+      "AIC 越小模型越好（权衡拟合与复杂度）",
+      "预测期别太长，越长误差越大",
+      "外生变量需用 ARIMAX"
+    ],
+    "cases": "月度销售额：ADF 显示非平稳（p=0.3），一阶差分后平稳；AIC 网格选 (1,1,1)，样本内 MAPE 6%，但外推 12 个月后误差升至 18%——印证 ARIMA 中短期更可靠。",
+    "tips": [
+      "先 ADF 检验平稳性，非平稳先差分",
+      "AIC 越小模型越好（权衡拟合与复杂度）",
+      "预测期别太长，越长误差越大"
+    ],
+    "example": "from statsmodels.tsa.arima.model import ARIMA\nmodel = ARIMA(series, order=(1,1,1)).fit()\nforecast = model.forecast(steps=10)\nprint(forecast)",
+    "related": [
+      "SARIMA",
+      "ADF检验",
+      "自相关ACF/PACF",
+      "白噪声"
+    ]
+  },
+  {
+    "name": "SARIMA",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "ARIMA + 季节性分量，处理月度/季度周期",
+    "detail": "SARIMA(p,d,q)(P,D,Q,s) 在 ARIMA 基础上增加季节分量：P/D/Q 是季节性 AR/差分/MA 阶数，s 是季节周期（月度数据 s=12，季度 s=4，周 s=7）。能捕捉稳定季节性模式，适合零售、旅游、用电量等强季节数据。若季节模式随时间变化，可考虑 STL 分解 + 单独建模。季节差分 D=1 通常足够。",
+    "params": [
+      {
+        "k": "s",
+        "v": "季节周期长度（12=月度, 4=季度）"
+      },
+      {
+        "k": "P, D, Q",
+        "v": "季节性自回归/差分/滑动平均阶数"
+      }
+    ],
+    "scenarios": [
+      "强季节性数据（零售、旅游、用电、票务）",
+      "月度/季度/周规律明显的预测",
+      "ARIMA 预测季节性序列时的升级版"
+    ],
+    "pitfalls": [
+      "先画时序图确认季节性周期",
+      "季节差分 D=1 通常足够",
+      "多步预测时误差会累积，滚动预测更可靠",
+      "季节周期选错（如把 12 写成 4）会严重失真"
+    ],
+    "cases": "冷饮周销量（s=52）：SARIMA(1,1,1)(1,1,1,52) 同时捕捉趋势与年度季节，比普通 ARIMA 的夏季预测误差降低 30%。",
+    "tips": [
+      "先画时序图确认季节性周期",
+      "季节差分 D=1 通常足够",
+      "多步预测时误差会累积，滚动预测更可靠"
+    ],
+    "example": "from statsmodels.tsa.statespace.sarimax import SARIMAX\nmodel = SARIMAX(series, order=(1,1,1), seasonal_order=(1,1,1,12)).fit()",
+    "related": [
+      "ARIMA",
+      "时序分解",
+      "ADF检验"
+    ]
+  },
+  {
+    "name": "Prophet",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "Facebook 开源预测，自动处理趋势/季节/节假日",
+    "detail": "Prophet 基于可分解加法模型：y(t) = 趋势(t) + 季节性(t) + 节假日(t) + 噪声。自动拟合分段线性/逻辑斯蒂趋势、年/周/日季节性，可显式加入节假日列表（春节、双11对业务预测很重要）。对缺失值、异常值稳健，训练快，只需两列数据（ds 日期、y 数值），是业务预测（销量、DAU）的实用选择。它把业务知识（节假日、趋势突变点）直接编码进模型。",
+    "params": [
+      {
+        "k": "yearly_seasonality / weekly_seasonality",
+        "v": "季节性开关与阶数"
+      },
+      {
+        "k": "holidays",
+        "v": "节假日 DataFrame（可含中国节假日）"
+      },
+      {
+        "k": "changepoint_prior_scale",
+        "v": "趋势突变敏感度"
+      }
+    ],
+    "scenarios": [
+      "业务销量/DAU/营收预测",
+      "含明显节假日效应（春节、双11）的序列",
+      "需要可解释趋势+季节分解的场景"
+    ],
+    "pitfalls": [
+      "日期列必须命名 ds、数值列 y",
+      "加中国节假日（春节/国庆）显著提升预测",
+      "用 cross_validation + 误差指标评估",
+      "对 abrupt 结构突变依赖 changepoint_prior_scale 调参"
+    ],
+    "cases": "电商 DAU 预测：Prophet 加中国节假日表后，春节/双11 峰值被准确刻画，MAE 比 SARIMA 低 22%；changepoint_prior_scale=0.05 避免把日常波动误当趋势拐点。",
+    "tips": [
+      "日期列必须命名 ds、数值列 y",
+      "加中国节假日（春节/国庆）显著提升预测",
+      "用 cross_validation + 误差指标评估"
+    ],
+    "example": "from prophet import Prophet\nm = Prophet(yearly_seasonality=True)\nm.add_country_holidays(country_name=\"CN\")\nm.fit(df[[\"ds\", \"y\"]])\nfuture = m.make_future_dataframe(periods=30)\nforecast = m.predict(future)",
+    "related": [
+      "时序分解",
+      "ARIMA"
+    ]
+  },
+  {
+    "name": "ADF检验",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "单位根检验：判断序列是否平稳",
+    "detail": "ADF（Augmented Dickey-Fuller）检验原假设为『序列存在单位根（非平稳）』。p < 0.05 拒绝原假设 → 序列平稳；p ≥ 0.05 → 非平稳，需差分（通常 1~2 次）后再检验。平稳是 ARIMA、回归建模的前提（非平稳会导致伪回归：两个无关随机游走回归出显著关系）。它是时序分析的第一道关口。",
+    "scenarios": [
+      "时序建模前的平稳性把关",
+      "决定差分次数 d",
+      "协整/配对交易前的单序列检验"
+    ],
+    "pitfalls": [
+      "非平稳先差分再看 ACF/PACF",
+      "金融价格非平稳、收益率通常平稳",
+      "小心结构突变（政策/危机）导致的『伪非平稳』",
+      "含趋势项/截距项的选择影响结果"
+    ],
+    "cases": "股价收盘价 ADF p=0.42（非平稳），一阶差分（收益率）后 p=0.001（平稳）——故对收益率而非价格做 ARMA 建模，避免伪回归。",
+    "tips": [
+      "非平稳先差分再看 ACF/PACF",
+      "金融价格非平稳、收益率通常平稳",
+      "小心结构突变（政策/危机）导致的『伪非平稳』"
+    ],
+    "example": "from statsmodels.tsa.stattools import adfuller\nresult = adfuller(series)\nprint(f\"ADF={result[0]:.3f}, p={result[1]:.4f}\")",
+    "related": [
+      "ARIMA",
+      "白噪声",
+      "协整"
+    ]
+  },
+  {
+    "name": "时序分解",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "拆成趋势+季节+残差，看清数据结构",
+    "detail": "时序分解把序列拆为三部分：趋势（长期方向）、季节性（固定周期波动）、残差（随机成分）。加性模型 Y = T+S+R（波动幅度恒定）、乘性模型 Y = T×S×R（波动随水平放大）。方法：经典分解、STL（稳健，处理异常值）、statsmodels seasonal_decompose。分解后残差应近似白噪声，否则模型遗漏了结构。它是理解序列构成的第一步。",
+    "scenarios": [
+      "理解序列的趋势/季节/随机构成",
+      "为 ARIMA/Prophet 建模做准备",
+      "异常检测（残差突增=异常）"
+    ],
+    "pitfalls": [
+      "乘性适合波动随规模变化的序列（销售额）",
+      "STL 比经典分解稳健",
+      "残差仍含模式 → 时序模型需升级（加季节性/外生变量）",
+      "周期长度 period 设错会分解出错"
+    ],
+    "cases": "月度用电分解出明显年度季节（夏季高峰）+ 缓慢上升趋势，残差近似白噪声——确认加性分解合适；若残差仍有年度波峰，说明漏了季节项需加乘性分量。",
+    "tips": [
+      "乘性适合波动随规模变化的序列（销售额）",
+      "STL 比经典分解稳健",
+      "残差仍含模式 → 时序模型需升级（加季节性/外生变量）"
+    ],
+    "example": "from statsmodels.tsa.seasonal import seasonal_decompose\nresult = seasonal_decompose(series, model=\"additive\", period=12)\nresult.plot()  # trend / seasonal / resid 三图",
+    "related": [
+      "Prophet",
+      "SARIMA",
+      "白噪声"
+    ]
+  },
+  {
+    "name": "滚动窗口",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "滑动计算统计量，捕捉动态特征",
+    "detail": "滚动窗口在时间轴上滑动固定长度窗口计算统计量：移动均值（平滑噪声）、滚动标准差（波动率）、EWMA（指数加权，近期权重更大）、滚动夏普比率、滚动 Beta 等。金融中常用于：均线系统（MA5/MA20/MA60）、波动率估计（年化 = 日波动×√252）、因子动态暴露。窗口太短噪声大，太长反应迟钝。它是最常用的时序特征构造手段，也是防泄露的关键（只用历史窗口）。",
+    "scenarios": [
+      "均线系统（MA5/MA20/MA60）",
+      "波动率估计（年化 = 日波动×√252）",
+      "构造时序特征（滚动因子暴露）"
+    ],
+    "pitfalls": [
+      "EWMA 的 span 与半衰期等价换算",
+      "年化波动率 = 日 std × √252",
+      "滚动计算避免用未来数据（防泄露）",
+      "窗口长度需匹配业务周期"
+    ],
+    "cases": "用 rolling(20).std() 估计 20 日波动率并 ×√252 年化，发现某股波动率从 15% 升至 40%——及时触发风控减仓；MA20 上穿 MA60（金叉）作为趋势信号。",
+    "tips": [
+      "EWMA 的 span 与半衰期等价换算",
+      "年化波动率 = 日 std × √252",
+      "滚动计算避免用未来数据（防泄露）"
+    ],
+    "example": "df[\"ma20\"] = df[\"close\"].rolling(20).mean()\ndf[\"vol\"] = df[\"ret\"].rolling(20).std() * (252**0.5)\ndf[\"ewma\"] = df[\"close\"].ewm(span=20).mean()",
+    "related": [
+      "特征工程",
+      "数据泄露",
+      "ARIMA"
+    ]
+  },
+  {
+    "name": "白噪声",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "纯随机序列，预测模型的理想残差",
+    "detail": "白噪声序列是均值 0、方差恒定、任意两期不相关的纯随机序列，是『信息已被榨干』的标志。检验：Ljung-Box 检验（原假设为无自相关，p > 0.05 接受 → 残差是白噪声）。若模型残差不是白噪声（仍有自相关），说明模型漏掉了结构，应改进（加阶数、加变量）。它是时序模型合格的最终判据。",
+    "scenarios": [
+      "检验模型残差是否已无信息",
+      "判断序列是否可预测",
+      "模型定阶后的残差诊断"
+    ],
+    "pitfalls": [
+      "残差 Ljung-Box p > 0.05 才说明模型合格",
+      "白噪声不可预测（无信息），别强行拟合",
+      "金融日收益率近似白噪声（弱有效市场）",
+      "滞后阶数 lags 要覆盖可能的周期"
+    ],
+    "cases": "ARIMA(1,1,1) 残差 Ljung-Box p=0.62（白噪声）→ 模型合格；另一模型 p=0.01（仍有自相关）→ 残差含可被预测的模式，需加阶数或外生变量。",
+    "tips": [
+      "残差 Ljung-Box p > 0.05 才说明模型合格",
+      "白噪声不可预测（无信息），别强行拟合",
+      "金融日收益率近似白噪声（弱有效市场）"
+    ],
+    "example": "from statsmodels.stats.diagnostic import acorr_ljungbox\nlb = acorr_ljungbox(resid, lags=10)\nprint(lb)  # p 值 > 0.05 → 残差为白噪声",
+    "related": [
+      "自相关ACF/PACF",
+      "ARIMA",
+      "时序分解"
+    ]
+  },
+  {
+    "name": "自相关ACF/PACF",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "看序列与自身滞后的相关性，ARIMA 定阶神器",
+    "detail": "ACF（自相关函数）衡量序列与滞后 k 期的相关系数，PACF（偏自相关）衡量剔除中间滞后影响后的『纯』滞后相关。定阶规则：AR(p) 的 PACF 在 p 阶后截尾（突降到 0），MA(q) 的 ACF 在 q 阶后截尾；两者都拖尾则需 ARMA 组合。也是白噪声检验的可视化手段（置信带外的点才显著）。它是 ARIMA 定阶的『地图』。",
+    "scenarios": [
+      "ARIMA/SARIMA 定阶",
+      "白噪声检验（看是否超出置信带）",
+      "识别序列的记忆长度"
+    ],
+    "pitfalls": [
+      "拖尾=缓慢衰减，截尾=突然消失",
+      "结合 AIC 网格搜索确认最优阶数",
+      "数据必须平稳后看 ACF/PACF",
+      "小样本下截尾判断不精确，需 AIC 辅助"
+    ],
+    "cases": "平稳收益率的 PACF 在 lag1 后截尾 → 选 AR(1)；ACF 在 lag1 后截尾 → 也可选 MA(1)；AIC 比较后定 (1,0,1)。",
+    "tips": [
+      "拖尾=缓慢衰减，截尾=突然消失",
+      "结合 AIC 网格搜索确认最优阶数",
+      "数据必须平稳后看 ACF/PACF"
+    ],
+    "example": "from statsmodels.graphics.tsaplots import plot_acf, plot_pacf\nplot_acf(series, lags=20)\nplot_pacf(series, lags=20)",
+    "related": [
+      "ARIMA",
+      "白噪声",
+      "ADF检验"
+    ]
+  },
+  {
+    "name": "协整",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "两条非平稳序列的长期均衡关系",
+    "detail": "两条序列各自非平稳（随机游走），但它们的线性组合平稳（残差无单位根），则称协整——存在长期均衡关系，短期偏离会均值回归。金融应用：配对交易（两只股票价差协整 → 价差偏离时开仓回归）、对冲比例估计。检验：Engle-Granger 两步法（回归后对残差做 ADF）、Johansen 检验（多序列）。协整是配对交易的理论基石。",
+    "scenarios": [
+      "配对交易（价差均值回归）",
+      "对冲比例估计",
+      "多序列长期均衡关系检验"
+    ],
+    "pitfalls": [
+      "协整 ≠ 因果，但可用于配对交易/对冲",
+      "单序列 ADF 非平稳 + 残差 ADF 平稳 = 协整",
+      "Engle-Granger 适合两序列，Johansen 适合多序列",
+      "协整关系可能随时间断裂（需监控）"
+    ],
+    "cases": "茅台与五粮液股价均非平稳但协整，价差 z-score 超 ±2 时做多弱势/做空强势，回归均值后平仓，历史胜率 65%——典型的统计套利。",
+    "tips": [
+      "协整 ≠ 因果，但可用于配对交易/对冲",
+      "单序列 ADF 非平稳 + 残差 ADF 平稳 = 协整",
+      "Engle-Granger 适合两序列，Johansen 适合多序列"
+    ],
+    "example": "from statsmodels.tsa.stattools import coint\n# 检验两只股票价格是否协整\nt_stat, p, _ = coint(stock_a, stock_b)\nprint(f\"p={p:.4f} {'协整' if p < 0.05 else '不协整'}\")",
+    "related": [
+      "ADF检验",
+      "CAPM",
+      "策略回测"
+    ]
+  },
+  {
+    "name": "Granger因果",
+    "category": "ts",
+    "tab": "时序分析",
+    "desc": "X 的过去能否帮助预测 Y（统计意义因果）",
+    "detail": "Granger 因果检验『X 的历史值是否显著改善对 Y 的预测』（在已含 Y 历史的基础上）。注意：这是『预测能力』意义上的因果，不等于真实因果（可能遗漏共同驱动因素）。检验做法：含/不含 X 滞后项的 VAR 回归做 F 检验。双向 Granger 因果常见（互为反馈）。它是『预测性因果』而非『机制性因果』。",
+    "scenarios": [
+      "判断变量间领先/滞后预测关系",
+      "宏观/金融传导机制探索",
+      "构建 VAR 模型前的因果筛查"
+    ],
+    "pitfalls": [
+      "两序列都需平稳或协整",
+      "滞后阶数影响结果，用信息准则选",
+      "显著 Granger ≠ 经济因果，谨慎解读",
+      "存在共同因时会出现伪 Granger 因果"
+    ],
+    "cases": "检验『货币供应量』是否 Granger 因果『通胀』：在 VAR 中加入 M2 滞后项后通胀预测显著改善（F 检验 p<0.05），说明 M2 对通胀有预测性引导，但还需结合理论解释机制。",
+    "tips": [
+      "两序列都需平稳或协整",
+      "滞后阶数影响结果，用信息准则选",
+      "显著 Granger ≠ 经济因果，谨慎解读"
+    ],
+    "example": "from statsmodels.tsa.stattools import grangercausalitytests\ngrangercausalitytests(df[[\"y\", \"x\"]], maxlag=4)",
+    "related": [
+      "协整",
+      "ADF检验",
+      "VAR"
+    ]
+  },
+  {
+    "name": "LPR(贷款市场报价利率)",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "房贷利率的定价锚，每月20日公布",
+    "detail": "LPR 是 18 家报价行对最优质客户贷款利率的算术平均，分 1 年期与 5 年期以上两个品种，由全国银行间同业拆借中心每月 20 日公布。房贷利率 = 5年期以上LPR ± 加点（BP），加点一旦确定，合同期内固定不变；LPR 下降则存量房贷的重定价日跟随下调。企业短期贷款多参考 1 年期 LPR。理解 LPR 是理解利率市场化与房贷成本的钥匙。",
+    "params": [
+      {
+        "k": "1年期 LPR",
+        "v": "企业短期贷款定价参考（当前约 3.1%）"
+      },
+      {
+        "k": "5年期以上 LPR",
+        "v": "房贷定价锚（当前约 3.6%）"
+      },
+      {
+        "k": "加点 BP",
+        "v": "银行在 LPR 基础上的上浮/下浮幅度，签约后固定"
+      }
+    ],
+    "scenarios": [
+      "算房贷月供与重定价",
+      "判断存量房贷要不要提前还",
+      "看货币宽松/收紧信号"
+    ],
+    "pitfalls": [
+      "加点固定但 LPR 浮动，别把两者混为一谈",
+      "重定价日通常在每年1月1日或放款日，不是每月都变"
+    ],
+    "cases": "2024-2025 年 5 年期 LPR 多次下调，从 4.2% 降至 3.6%，若贷款 100 万 30 年，月供约减少 350 元。存量房贷在次年重定价后自动享受，无需申请。",
+    "related": [
+      "基点BP",
+      "房贷",
+      "存款准备金率"
+    ]
+  },
+  {
+    "name": "房贷:等额本息vs等额本金",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "两种主流还款方式，总利息差可达数十万",
+    "detail": "等额本息每月还款额固定（前期还息多本金少），等额本金每月递减（本金固定利息逐月减少）。同等条件（金额/利率/期限）下，等额本息总利息更高，但月供更稳定、前期压力小；等额本金总利息更低、前期月供高。选择取决于现金流与提前还款计划：打算提前还且资金宽裕可选等额本金，追求月供稳定可选等额本息。",
+    "formula": "等额本息月供 = P·r·(1+r)^n / [(1+r)^n − 1]；等额本金月供 = P/n + (P−已还本金)·r（P 本金、r 月利率、n 月数）",
+    "scenarios": [
+      "买房选还款方式",
+      "比较提前还款的划算程度",
+      "算不同贷款方案的总成本"
+    ],
+    "pitfalls": [
+      "只看月供不看总利息会选错",
+      "提前还款省的是利息，越早还越省（等额本息前期利息占比高）"
+    ],
+    "cases": "贷款 100 万、利率 3.6%、30 年：等额本息月供约 4546 元、总利息约 63.7 万；等额本金首月约 5778 元、总利息约 54.2 万，两者相差约 9.5 万。",
+    "related": [
+      "LPR(贷款市场报价利率)",
+      "提前还款",
+      "名义利率"
+    ]
+  },
+  {
+    "name": "个人信用贷款",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "无抵押、凭信用放款，利率高于抵押贷",
+    "detail": "信用贷凭借款人征信与收入发放，无需抵押物，放款快（线上秒批到账），但额度低（一般 20-50 万）、期限短（1-5 年）、利率高（年化 3.5%-15% 不等）。常见如消费贷、随借随还的循环贷。银行会查征信、看负债收入比与公积金/社保记录定价。过度多头借贷、频繁申请会拉低征信分并推高利率。",
+    "scenarios": [
+      "短期资金周转",
+      "消费大额支出（装修/教育/医疗）",
+      "利率对比：信用贷 vs 信用卡分期"
+    ],
+    "pitfalls": [
+      "宣传的『日息万分之几』要换算成年化，可能远高于宣传",
+      "『先息后本』到期一次性还本金，需预留资金",
+      "频繁点『查看额度』也会留下硬查询记录"
+    ],
+    "cases": "某行信用贷宣传『日息 0.02%』，换算年化 = 0.02%×365 ≈ 7.3%，若按等额本息实际 IRR 会更高，接近 13%，远高于广告观感。",
+    "related": [
+      "名义利率",
+      "个人征信",
+      "抵押贷款vs信用贷款"
+    ]
+  },
+  {
+    "name": "抵押贷款vs信用贷款",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "有抵押物利率低额度高，无抵押靠信用",
+    "detail": "抵押贷以房产/车辆等做抵押，额度高（可达评估价 6-7 成）、期限长（最长 30 年）、利率低（贴近 LPR）；但审批慢、需抵押登记，违约会处置抵押物。信用贷反之。经营贷是抵押贷常见形态，但须真实经营用途，违规流入楼市/股市属违规甚至违法。选型看：资金量大期限长→抵押；金额小周转快→信用。",
+    "scenarios": [
+      "大额长期融资选抵押",
+      "小额短期周转选信用",
+      "经营贷用途合规性判断"
+    ],
+    "pitfalls": [
+      "经营贷资金违规挪用会被抽贷、罚息甚至追责",
+      "抵押物价值下跌可能触发补抵押或平仓"
+    ],
+    "cases": "同样借 100 万，房产抵押经营贷年化约 3.2%，而纯信用贷年化约 6%-8%，一年利息差 3-5 万。",
+    "related": [
+      "个人信用贷款",
+      "LPR(贷款市场报价利率)",
+      "授信额度"
+    ]
+  },
+  {
+    "name": "信用卡(账单日/还款日/免息期)",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "免息期最长约 50 天，最低还款与分期是利息陷阱",
+    "detail": "账单日银行出账单，还款日（账单日后约 20 天）前全额还款则免息，最长免息期 = 账单日次日消费 → 下个还款日，约 50 天。最低还款（还 10%）剩余部分从消费日起按日息 0.05%（年化约 18.25%）计息且不复利免息；分期手续费折算年化常达 13%-18%。正确用法是全额还款享免息，避免最低还款与随意分期。",
+    "scenarios": [
+      "最大化免息期",
+      "判断分期/最低还款是否划算",
+      "逾期成本测算"
+    ],
+    "pitfalls": [
+      "最低还款不享受免息，全额计息",
+      "分期宣传『月费率 0.6%』实际年化 IRR 约 13%",
+      "逾期上征信、影响房贷审批"
+    ],
+    "cases": "账单日 1 日、还款日 20 日：1 日消费记本账单、20 日须还；2 日消费记下期账单、次月 20 日还，免息期最长。",
+    "related": [
+      "个人征信",
+      "名义利率",
+      "个人信用贷款"
+    ]
+  },
+  {
+    "name": "个人征信报告",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "信贷审批核心依据，逾期记录保留 5 年",
+    "detail": "个人征信由人民银行征信中心记录，含信贷记录（贷款/信用卡/担保）、查询记录、公共记录（欠税/民事判决等）。逾期按严重程度形成连三累六等不良记录，自结清之日起保留 5 年。查询分硬查询（贷款/信用卡审批，过多会降分）与软查询（本人查询，不影响）。花呗、借呗等已接入征信。维护好征信是低息融资的前提。",
+    "scenarios": [
+      "贷款/信用卡被拒排查",
+      "逾期后修复策略",
+      "买房前自查征信"
+    ],
+    "pitfalls": [
+      "硬查询 3 个月内别超 3-4 次",
+      "逾期立即结清并持续良好记录，时间可淡化",
+      "替他人担保会记入征信并承担连带责任"
+    ],
+    "cases": "某人 2 年内逾期 3 次（均结清），房贷利率被上浮 30BP；保持 2 年零逾期后，银行重新按基准审批。",
+    "related": [
+      "信用卡(账单日/还款日/免息期)",
+      "个人信用贷款",
+      "逾期与征信修复"
+    ]
+  },
+  {
+    "name": "存款保险制度",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "单家银行 50 万以内本息全额偿付",
+    "detail": "我国存款保险条例规定，同一存款人在同一家银行的存款，本金+利息合计 50 万元以内由存款保险基金全额偿付，超出部分从银行清算财产中受偿。适用人民币与外币存款（含个人与企业），银行理财、基金、保险不在保障范围。中小银行风险事件时，50 万是普通储户的『安全线』，大额资金宜分散多家银行。",
+    "scenarios": [
+      "判断银行存款安全性",
+      "大额存款分散策略",
+      "区分存款与理财风险"
+    ],
+    "pitfalls": [
+      "理财/基金/结构性存款(部分)不保本不保息",
+      "50 万是『本息合计』上限，含利息"
+    ],
+    "cases": "2022 年河南村镇银行事件后，监管推动问题银行风险处置，储户 50 万以内本息均获兑付，50 万以上按清算受偿。",
+    "related": [
+      "存款利率",
+      "银行理财产品风险等级"
+    ]
+  },
+  {
+    "name": "名义利率vs实际利率vs年化IRR",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "识别『日息/月费率』背后的真实成本",
+    "detail": "名义利率是合同标注利率，实际利率考虑复利与费用后的真实成本，IRR（内部收益率）是现金流折现的真实年化成本。宣传『日息万分之五』名义年化 18.25%，等额本息下 IRR 更高；『月费率 0.6%』分期，IRR 约 13%，远高于 0.6%×12=7.2% 的观感。选贷款必须算 IRR 比较真实成本，监管要求金融机构明示年化利率。",
+    "formula": "IRR：使 Σ Ct/(1+r)^t = 0 的 r；年化 = (1+月费率)^12 − 1（近似）",
+    "scenarios": [
+      "对比不同贷款真实成本",
+      "识别分期/最低还款陷阱",
+      "评估投资收益是否覆盖融资成本"
+    ],
+    "pitfalls": [
+      "名义利率≠实际利率，等额本息下实际更高",
+      "手续费前置收取会进一步抬高 IRR"
+    ],
+    "cases": "借 1 万分 12 期、每期还 883 元，名义月费率 0.6% 年化 7.2%，但 IRR 实际约 13.08%，几乎翻倍。",
+    "related": [
+      "个人信用贷款",
+      "信用卡(账单日/还款日/免息期)",
+      "房贷:等额本息vs等额本金"
+    ]
+  },
+  {
+    "name": "年化收益率(七日年化/万份收益)",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "货币基金看七日年化，理财看净值与业绩基准",
+    "detail": "七日年化收益率是货币基金近 7 天收益折算的年化，波动大，仅作参考；万份收益是每 1 万元当天实际收益，更直观。净值型理财无固定利率，看单位净值涨跌与业绩比较基准（非承诺收益）。资管新规后理财全面净值化、打破刚兑，宣传的『预期收益率』已改为业绩基准。选产品看底层资产与风险等级而非只看收益率。",
+    "scenarios": [
+      "货币基金收益判断",
+      "净值型理财收益理解",
+      "识别『业绩基准』≠承诺收益"
+    ],
+    "pitfalls": [
+      "七日年化会被某几天高收益拉高，长期看万份收益",
+      "业绩比较基准不是保证收益，可能亏损"
+    ],
+    "cases": "某货基七日年化 2.8%，但其中一天大额赎回收益虚高；拉长看近 30 日万份收益均值，实际年化约 1.9%。",
+    "related": [
+      "存款利率",
+      "银行理财产品风险等级"
+    ]
+  },
+  {
+    "name": "银行理财产品风险等级(R1-R5)",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "R1 现金类到 R5 权益类，风险递增",
+    "detail": "银行理财按风险从低到高分 R1（谨慎型，现金/存款类）到 R5（激进型，权益/衍生品）。R1-R2 低风险保本类波动小，R3 及以上含权益、债券可能亏损。购买前须做风险测评，产品风险等级不得超过投资者风险承受能力。净值化后 R2 也可能出现短期回撤。挑选原则：风险等级匹配 + 看底层资产 + 看历史最大回撤。",
+    "scenarios": [
+      "选理财产品的风险匹配",
+      "理解净值回撤",
+      "保守/稳健/进取三类资金配置"
+    ],
+    "pitfalls": [
+      "R2 低风险≠不亏，债券波动也会回撤",
+      "风险测评虚报会买到超承受产品"
+    ],
+    "cases": "2022 年债市调整，部分 R2 理财净值回撤 1%-2%，引发『理财破净』讨论，本质是净值化后波动显性化。",
+    "related": [
+      "年化收益率(七日年化/万份收益)",
+      "存款保险制度"
+    ]
+  },
+  {
+    "name": "提前还款",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "省的是利息，但要考虑机会成本与违约金",
+    "detail": "提前还款可缩短期限或减少月供，核心是节省剩余利息。等额本息前期还的利息占比高，越早提前还越省；等额本金总利息本就更低。是否提前还，取决于：有无更高收益的投资渠道、是否影响应急资金、有无违约金（部分银行收取 1-3 个月利息）。利率下行期，若投资收益能覆盖房贷利率，可不必急于提前还。",
+    "scenarios": [
+      "存量高息房贷要不要提前还",
+      "缩短期限 vs 减少月供的选择",
+      "算违约金是否划算"
+    ],
+    "pitfalls": [
+      "别把应急资金全用来提前还",
+      "缩短期限比减少月供更省息（本金降更快）",
+      "先问清违约金与办理流程"
+    ],
+    "cases": "100 万 30 年 3.6% 房贷，第 5 年提前还 20 万并缩短期限，可节省利息约 12 万；若减少月供则约省 7 万。",
+    "related": [
+      "房贷:等额本息vs等额本金",
+      "LPR(贷款市场报价利率)"
+    ]
+  },
+  {
+    "name": "授信额度与循环额度",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "一次授信、随借随还、按日计息",
+    "detail": "授信额度是银行给予的最高可贷上限，循环额度可随借随还、还了恢复额度、按实际占用天数计息，适合资金周转。非循环额度一次性放款，还完即结清。授信审批看收入、负债收入比、征信与资产。授信额度不等于放款，提款时银行仍会复核。合理用授信可降低融资摩擦，但多头授信会增加负债率与征信负担。",
+    "scenarios": [
+      "企业经营短期周转",
+      "应急备用金设计",
+      "多头授信管理"
+    ],
+    "pitfalls": [
+      "授信≠到账，提款仍需审批",
+      "授信额度占用会增加负债率，影响再融资"
+    ],
+    "cases": "小微企业主获批 50 万循环经营贷，旺季借款 30 万用 2 个月、按日计息，资金回笼即还，全年实际利息远低于一次性 50 万全年计息。",
+    "related": [
+      "个人信用贷款",
+      "抵押贷款vs信用贷款"
+    ]
+  },
+  {
+    "name": "基点BP",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "1BP=0.01%，利率的最小常用单位",
+    "detail": "基点（Basis Point，BP）是利率计量单位，1BP=0.01%，100BP=1%。央行/银行说『降息 25BP』即降 0.25%；房贷加点 30BP 即利率在 LPR 基础上上浮 0.30%。理解 BP 才能看懂货币政策、房贷加点与理财费率的准确幅度。",
+    "scenarios": [
+      "解读央行降准降息幅度",
+      "房贷加点计算",
+      "比较理财产品费率差异"
+    ],
+    "pitfalls": [
+      "BP 是绝对幅度，别与百分比百分点混淆",
+      "1BP 看似小，叠加到大额本金上金额可观"
+    ],
+    "cases": "降息 25BP，100 万 30 年房贷月供约省 140 元/月。",
+    "related": [
+      "LPR(贷款市场报价利率)",
+      "存款准备金率"
+    ]
+  },
+  {
+    "name": "Shibor同业拆借利率",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "银行间资金成本晴雨表，货币政策观察窗口",
+    "detail": "Shibor（上海银行间同业拆放利率）由报价行报出的银行间无担保拆借利率，隔夜与 7 天（DR007）最受关注，反映银行间资金松紧。DR007 上行说明资金面紧张、市场利率走高，常被视为货币政策与流动性风向标。债券、货币基金、同业存单收益率与其高度相关。",
+    "scenarios": [
+      "判断流动性松紧",
+      "债市/货基收益率预判",
+      "货币政策跟踪"
+    ],
+    "pitfalls": [
+      "DR007 短期波动大，看中枢而非单日",
+      "资金面紧张不等于央行一定加息"
+    ],
+    "cases": "季末考核时点银行冲存款，DR007 短期冲高至 2.5% 以上，跨季后回落到 1.8% 中枢。",
+    "related": [
+      "存款准备金率",
+      "基点BP"
+    ]
+  },
+  {
+    "name": "存款准备金率",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "降准释放流动性，是重要货币政策工具",
+    "detail": "存款准备金率是商业银行须缴存央行的存款比例，降准（降低准备金率）释放银行可贷资金，扩大货币供应。它通过货币乘数影响全社会信用规模：货币乘数 ≈ 1/法定准备金率。降准是数量型宽松信号，通常利好债市与股市流动性，与降息（价格型）配合使用。",
+    "formula": "货币乘数 m ≈ 1 / 法定存款准备金率",
+    "scenarios": [
+      "解读降准对市场影响",
+      "理解货币政策传导",
+      "流动性预期判断"
+    ],
+    "pitfalls": [
+      "降准≠直接放水到个人，需银行愿意放贷",
+      "货币乘数受现金漏损与超额准备金影响，实际低于理论值"
+    ],
+    "cases": "降准 0.5 个百分点，约释放长期资金 1 万亿元，银行间流动性转松，国债收益率下行。",
+    "related": [
+      "Shibor同业拆借利率",
+      "基点BP"
+    ]
+  },
+  {
+    "name": "逾期与征信修复",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "逾期立即结清，5 年自动覆盖，勿信『洗白』中介",
+    "detail": "贷款/信用卡逾期会记入征信，形成不良记录（如连三累六）。正确应对：第一时间全额结清，之后保持良好还款记录，自结清日起 5 年不良记录自动覆盖。任何声称『花钱洗白征信』的都是诈骗（征信由央行系统记录，无法人为删除）。非本人原因的逾期可向银行或征信中心提出异议申诉更正。",
+    "scenarios": [
+      "逾期后的补救",
+      "异议申诉流程",
+      "识别征信修复骗局"
+    ],
+    "pitfalls": [
+      "逾期不要销卡，继续正常用卡可更快覆盖",
+      "征信修复中介 100% 是骗局"
+    ],
+    "cases": "某人信用卡逾期 90 天被记不良，立即结清后继续正常使用 2 年，虽不良记录保留 5 年，但近 2 年记录良好，贷款审批得以通过。",
+    "related": [
+      "个人征信报告",
+      "信用卡(账单日/还款日/免息期)"
+    ]
+  },
+  {
+    "name": "存款利率(活期/定期/大额存单)",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "存款利率已市场化，大额存单利率更高",
+    "detail": "存款利率已市场化，各银行可在自律上限内自主定价。活期利率极低（约 0.1%），定期随期限递增（1 年期约 1.1%、3 年期约 1.5%，随政策变化），大额存单（20 万起）利率更高且可转让。存款受 50 万存款保险保障。利率下行周期，锁定长期限存款可提前锁定收益，但要考虑流动性。",
+    "scenarios": [
+      "闲钱配置：活期 vs 定期 vs 大额存单",
+      "利率下行期的锁息策略",
+      "存款与货基/理财的收益比较"
+    ],
+    "pitfalls": [
+      "提前支取定期按活期计息，损失大",
+      "中小银行高息揽储要关注其风险（50万保障内）"
+    ],
+    "cases": "50 万存 3 年大额存单利率 2.0%，比普通定期高 40BP，3 年多赚约 6000 元。",
+    "related": [
+      "存款保险制度",
+      "年化收益率(七日年化/万份收益)"
+    ]
+  },
+  {
+    "name": "助学贷款/经营贷/消费贷",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "三类贷款用途不同，利率与风控各异",
+    "detail": "助学贷款（国家助学贷）财政贴息、利率低、在校期间免息，用于学费生活费；经营贷面向个体工商户/小微企业，须真实经营用途、利率较低（贴近 LPR）；消费贷用于个人消费，利率较高、额度小。三者严禁混用：经营贷违规流入房市股市会被抽贷追责。选型看真实用途与合规性。",
+    "scenarios": [
+      "学生家庭融资选助学贷",
+      "小微企业融资选经营贷",
+      "日常消费选消费贷"
+    ],
+    "pitfalls": [
+      "贷款资金不得违规流入楼市股市（监管红线）",
+      "经营贷需营业执照与经营流水证明"
+    ],
+    "cases": "在校生申请国家助学贷 8000 元/年，在校期间免息、毕业后还本付息，利率远低于消费贷。",
+    "related": [
+      "个人信用贷款",
+      "抵押贷款vs信用贷款"
+    ]
+  },
+  {
+    "name": "定期存款提前支取",
+    "category": "bank",
+    "tab": "银行与信贷",
+    "desc": "提前支取按活期计息，可用部分提前支取",
+    "detail": "定期存款提前支取，支取部分按支取日活期利率计息，剩余部分仍按原定期利率。因此定期存款流动性差，急用钱时收益损失大。可对比：持有到期 vs 提前支取 vs 转存。替代方案是大额存单（可转让）、通知存款（1天/7天，利率高于活期）、结构性存款。资金安排应留足活期应急金，再配置定期。",
+    "scenarios": [
+      "定期未到期急用钱",
+      "通知存款/大额存单替代",
+      "存款流动性规划"
+    ],
+    "pitfalls": [
+      "提前支取按活期 0.1% 计息，几乎损失全部定期利息",
+      "别把应急资金全部存长期定期"
+    ],
+    "cases": "10 万存 3 年定期利率 1.5%，第 2 年急用提前支取，按活期 0.1% 计息两年仅得约 200 元，远低于到期约 4500 元利息。",
+    "related": [
+      "存款利率(活期/定期/大额存单)",
+      "年化收益率(七日年化/万份收益)"
+    ]
+  },
+  {
+    "name": "增值税(一般纳税人/小规模纳税人)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "第一大税种，货物13%/服务6%，小规模征收率3%",
+    "detail": "增值税对货物与服务的增值额征税，纳税人分一般纳税人与小规模纳税人。一般纳税人税率分档：销售货物 13%、交通运输/建筑/不动产/基础电信 9%、现代服务/生活服务 6%、出口零税率；按『销项税−进项税』缴税。小规模纳税人采用简易征收率 3%（阶段性减按 1%），不得抵扣进项。年应税销售额超过 500 万的应登记为一般纳税人。",
+    "params": [
+      {
+        "k": "13%",
+        "v": "销售货物、加工修理修配、有形动产租赁"
+      },
+      {
+        "k": "9%",
+        "v": "交通运输、建筑、不动产、邮政、基础电信"
+      },
+      {
+        "k": "6%",
+        "v": "现代服务、生活服务、金融服务、增值电信"
+      },
+      {
+        "k": "3%(减按1%)",
+        "v": "小规模纳税人征收率"
+      }
+    ],
+    "scenarios": [
+      "企业增值税税负测算",
+      "小规模 vs 一般纳税人选择",
+      "进项抵扣规划"
+    ],
+    "pitfalls": [
+      "小规模不能抵扣进项，但采购方若需专票会受限",
+      "价税合计报价要换算成不含税价比较"
+    ],
+    "cases": "小规模纳税人季度销售额≤30 万免征增值税（现行政策，需关注延续性），超过则全额或差额征税。",
+    "related": [
+      "发票(专票/普票)",
+      "增值税留抵退税",
+      "城市维护建设税"
+    ]
+  },
+  {
+    "name": "企业所得税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "标准税率25%，小型微利企业实际5%",
+    "detail": "企业所得税对企业的应纳税所得额（收入−成本费用−调整项）征税，标准税率 25%。小型微利企业（年应纳税所得额≤300 万、从业人数≤300、资产总额≤5000 万）适用优惠：按 25% 计入应纳税所得额、20% 税率，实际税负 5%。高新技术企业 15%、技术先进型服务企业 15%。此外有研发加计扣除、亏损结转（5 年，高新技术/科技型中小企业 10 年）等优惠。",
+    "scenarios": [
+      "企业税负估算",
+      "小微/高新身份规划",
+      "研发加计扣除应用"
+    ],
+    "pitfalls": [
+      "小微标准三项须同时满足",
+      "成本费用要有合规凭证（发票）才能税前扣除"
+    ],
+    "cases": "某公司应纳税所得额 200 万，若符合小微：200万×25%×20%=10 万（5%）；若不符合按 25% 缴 50 万，相差 40 万。",
+    "related": [
+      "研发费用加计扣除",
+      "小型微利企业优惠",
+      "增值税(一般纳税人/小规模纳税人)"
+    ]
+  },
+  {
+    "name": "个人所得税(综合所得)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "工资等四类收入合并，3%-45%超额累进，起征点5000/月",
+    "detail": "个税综合所得将工资薪金、劳务报酬、稿酬、特许权使用费四类合并，按年计算、超额累进税率 3%-45%（七级），每月减除费用 5000 元（年 6 万）及专项扣除（五险一金）、专项附加扣除后计税。计算公式：应纳税额 = 应纳税所得额 × 税率 − 速算扣除数。年度终了 3-6 月办理汇算清缴，多退少补。",
+    "formula": "应纳税所得额 = 综合所得 − 6万 − 五险一金 − 专项附加扣除；税额 = 应纳税所得额×税率−速算扣除数",
+    "params": [
+      {
+        "k": "3%",
+        "v": "应纳税所得额≤3.6万"
+      },
+      {
+        "k": "10%",
+        "v": "3.6万~14.4万"
+      },
+      {
+        "k": "20%",
+        "v": "14.4万~30万"
+      },
+      {
+        "k": "25%/30%/35%/45%",
+        "v": "更高档（45%封顶，>96万）"
+      }
+    ],
+    "scenarios": [
+      "工资个税计算",
+      "年终奖计税选择",
+      "年度汇算清缴"
+    ],
+    "pitfalls": [
+      "专项附加扣除要如实申报，虚报会被追缴并影响征信",
+      "换工作可能多缴，靠年度汇算退税"
+    ],
+    "cases": "月薪 1.5 万、五险一金 1500、专项附加扣除 2000，月应纳税所得额 15000−5000−1500−2000=6500，适用 10%，月个税约 290 元。",
+    "related": [
+      "个税专项附加扣除",
+      "年终奖个税",
+      "五险一金"
+    ]
+  },
+  {
+    "name": "个税专项附加扣除(7项)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "子女教育/房贷利息/赡养老人等 7 项可税前扣除",
+    "detail": "专项附加扣除共 7 项：子女教育（每孩 2000/月）、3 岁以下婴幼儿照护（每孩 2000/月）、继续教育（学历 400/月或职业资格定额）、大病医疗（医保自付超 1.5 万部分限额 8 万据实扣）、住房贷款利息（首套 1000/月）、住房租金（按城市 1500/1100/800/月）、赡养老人（独生子女 3000/月，非独生分摊）。在个税 APP 填报，月度预扣或年度汇算均可享受。",
+    "scenarios": [
+      "个税 APP 填报扣除项",
+      "首套房贷 vs 租金二选一",
+      "夫妻/兄弟姐妹扣除分摊"
+    ],
+    "pitfalls": [
+      "房贷利息与住房租金不可同时享受",
+      "赡养老人扣除总额固定，非独生须分摊",
+      "扣除信息变更要及时更新"
+    ],
+    "cases": "独生子女赡养 2 位老人扣 3000/月 + 首套房贷 1000/月 + 子女教育 2000/月，每月多扣 6000，年节税数千元。",
+    "related": [
+      "个人所得税(综合所得)",
+      "年终奖个税"
+    ]
+  },
+  {
+    "name": "年终奖个税(单独计税)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "全年一次性奖金可单独计税，找最优方案",
+    "detail": "全年一次性奖金可选择单独计税：奖金÷12 确定适用税率与速算扣除数，再按全额×税率−速算扣除数；也可并入综合所得计税。二者税负不同，存在临界点（如 36000、144000 元档），稍超临界点可能『多发一元多缴千元』。汇算清缴时可在 APP 测算对比两种方式选最优。",
+    "formula": "单独计税：应纳税额 = 年终奖 × 税率 − 速算扣除数（税率按 年终奖÷12 查月度税率表）",
+    "scenarios": [
+      "年终奖计税方式选择",
+      "临界点避坑",
+      "年终奖 vs 工资发放比例规划"
+    ],
+    "pitfalls": [
+      "36000/144000 等临界点附近多发反而到手更少",
+      "并入综合所得对低工资者可能更省税"
+    ],
+    "cases": "年终奖 36000 单独计税税 1080 元（3%）；36001 元则税率跳 10%，税 3390 元，多 1 元多缴 2310 元。",
+    "related": [
+      "个人所得税(综合所得)",
+      "个税专项附加扣除(7项)"
+    ]
+  },
+  {
+    "name": "五险一金(社保公积金)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "养老/医疗/失业/工伤/生育+公积金，缴费基数有上下限",
+    "detail": "五险一金=养老保险、医疗保险、失业保险、工伤保险、生育保险 + 住房公积金。由企业与个人共同缴纳，缴费基数按本人上年度月平均工资，在社平工资 60%-300% 区间内核定。个人缴费比例约：养老 8%、医疗 2%、失业 0.5%、公积金 5%-12%（各地不同），可从个税前扣除。五险一金是强制福利，也是个税专项扣除的一部分。",
+    "scenarios": [
+      "到手工资测算",
+      "换城市社保转移",
+      "公积金贷款额度判断"
+    ],
+    "pitfalls": [
+      "按最低基数缴会拉低养老金与公积金",
+      "多地重复参保不能重复享受待遇"
+    ],
+    "cases": "月薪 1 万、按 12% 缴公积金，个人+单位月缴 2400 元进公积金账户，可税前扣除且用于房贷。",
+    "related": [
+      "个人所得税(综合所得)",
+      "个税专项附加扣除(7项)"
+    ]
+  },
+  {
+    "name": "印花税(证券交易印花税)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "股票卖出单边征收0.05%，是重要交易成本",
+    "detail": "印花税对书立合同、产权转移等凭证征税，最常见是证券交易印花税：对股票卖出方单边征收，2023 年 8 月起减半为成交金额的 0.05%（买入不征）。此外购销合同、借款合同、产权转移书据等也征印花税（税率万分之几到千分之几）。证券印花税是 A 股重要交易成本，也是市场调节工具。",
+    "scenarios": [
+      "股票交易成本测算",
+      "频繁交易成本控制",
+      "合同印花税判断"
+    ],
+    "pitfalls": [
+      "印花税按卖出成交额计，频繁换手成本累积可观",
+      "不同税目税率不同，勿混用"
+    ],
+    "cases": "卖出 10 万股票，印花税 10万×0.05%=50 元；若年换手 50 次，累计数千元。",
+    "related": [
+      "契税",
+      "股票转让所得"
+    ]
+  },
+  {
+    "name": "契税(房产交易)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "买房按成交价1%-3%缴纳，首套≤90平仅1%",
+    "detail": "契税对承受土地、房屋权属的单位与个人征收，由买方缴纳。税率 3%-5%，但个人购买住房有优惠：家庭首套 ≤90 平按 1%、>90 平按 1.5%；二套 ≤90 平 1%、>90 平 2%；三套及以上按 3%（各地有差异，以当地政策为准）。契税在办理不动产权证时缴纳，计税依据为不含增值税的成交价。",
+    "scenarios": [
+      "买房税费测算",
+      "首套/二套判定",
+      "契税优惠申报"
+    ],
+    "pitfalls": [
+      "首套/二套按家庭为单位认定",
+      "契税要在规定期限内缴纳，逾期有滞纳金"
+    ],
+    "cases": "买 80 平首套房 200 万，契税 200万×1%=2 万；同价 120 平首套则 1.5%=3 万。",
+    "related": [
+      "印花税(证券交易印花税)",
+      "房产税"
+    ]
+  },
+  {
+    "name": "房产税(试点)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "上海/重庆试点征收，向持有环节征税",
+    "detail": "房产税对房屋持有环节征税，我国目前仅上海、重庆试点（针对部分新购住房），全国性房产税立法仍在推进。上海试点对本市居民新购第二套及以上、非本市居民新购住房，按应税面积与评估价×税率（0.4%-0.6%）征收。房产税若全面推开将改变持有成本，是房产配置需关注的政策变量。",
+    "scenarios": [
+      "多套房产持有成本评估",
+      "关注房产税立法进程",
+      "投资房产税负测算"
+    ],
+    "pitfalls": [
+      "试点范围有限，别把试点规则当全国规则",
+      "政策仍在调整，以官方最新文件为准"
+    ],
+    "cases": "上海试点：居民家庭新购二套住房，人均免征 60 平，超出部分按市场交易价 70% 计征 0.6%。",
+    "related": [
+      "契税(房产交易)",
+      "土地增值税"
+    ]
+  },
+  {
+    "name": "车辆购置税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "购车一次性缴纳10%，新能源车有减免",
+    "detail": "车辆购置税在购买应税车辆时一次性缴纳，税率 10%，计税依据为不含增值税的购车价。新能源汽车（纯电动、插混、燃料电池）有免征或减征政策（阶段性）。车购税在办理车辆登记前缴纳，是购车落地价的重要组成。",
+    "scenarios": [
+      "购车落地价测算",
+      "新能源 vs 燃油车税费对比"
+    ],
+    "pitfalls": [
+      "车购税按不含税价计，别按含税总价误算",
+      "免税政策有时效，购车前确认"
+    ],
+    "cases": "买 15 万（不含税）燃油车，车购税 1.5 万；同价新能源车若免征则省 1.5 万。",
+    "related": [
+      "消费税",
+      "增值税(一般纳税人/小规模纳税人)"
+    ]
+  },
+  {
+    "name": "消费税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "对烟酒/成品油/高档化妆品/小汽车等特定商品征收",
+    "detail": "消费税是对特定消费品在流转环节征收的税，应税品目包括烟、酒、成品油、小汽车、摩托车、高档化妆品、贵重首饰、鞭炮焰火、木制一次性筷子、实木地板等，税率因品目而异（如卷烟复合计税、白酒 20% 从价+0.5 元/斤从量）。目的是调节消费结构、增加税收。普通消费者通过商品价格间接承担。",
+    "scenarios": [
+      "高档消费品税费理解",
+      "烟酒成品油价格构成",
+      "消费税后移改革关注"
+    ],
+    "pitfalls": [
+      "消费税是价内税，已含在零售价中",
+      "不同品目税率差异大，别一刀切"
+    ],
+    "cases": "一箱 50 度白酒，消费税从价 20% 加从量 0.5 元/斤，税负占出厂价比例显著。",
+    "related": [
+      "增值税(一般纳税人/小规模纳税人)",
+      "关税"
+    ]
+  },
+  {
+    "name": "关税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "进出口环节对货物征收，税率因国别与商品而异",
+    "detail": "关税对进出关境的货物、物品征收，分进口关税与出口关税（我国出口多免征）。税率分最惠国税率、协定税率、特惠税率、普通税率等，依原产地与商品 HS 编码确定。进口商品成本 = 货价+运费保险+关税+进口环节增值税/消费税。海淘个人物品适用行邮税（有免税额）。关税是国际贸易与海淘成本的核心变量。",
+    "scenarios": [
+      "海淘/代购成本测算",
+      "进口商品完税价格理解",
+      "跨境电商税收判断"
+    ],
+    "pitfalls": [
+      "完税价格含运费保险，别只按货价估",
+      "个人物品超免税额要缴行邮税"
+    ],
+    "cases": "海淘价值 1000 元商品，若超 50 元免税额，按行邮税率（如 20%）缴约 200 元税。",
+    "related": [
+      "消费税",
+      "增值税(一般纳税人/小规模纳税人)"
+    ]
+  },
+  {
+    "name": "城市维护建设税及教育费附加",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "随增值税/消费税附征，城建税7%/5%/1%",
+    "detail": "城市维护建设税与教育费附加、地方教育附加随实际缴纳的增值税、消费税附征，属附加税费。城建税按纳税人所在地分 7%（市区）、5%（县城镇）、1%（其他）；教育费附加 3% + 地方教育附加 2%（合计附加约 12% 的流转税额）。附加税费虽占比小，但在税负测算与利润核算中不可忽略。",
+    "scenarios": [
+      "企业综合税负测算",
+      "开票后附加税费计提",
+      "地区税收差异比较"
+    ],
+    "pitfalls": [
+      "附加税以实际缴纳的增值税/消费税为计税依据，不是销售额",
+      "出口退税/留抵时附加税有优惠，注意申报"
+    ],
+    "cases": "某企业当月缴增值税 10 万，市区附加 = 10万×(7%+3%+2%)=1.2 万。",
+    "related": [
+      "增值税(一般纳税人/小规模纳税人)",
+      "增值税留抵退税"
+    ]
+  },
+  {
+    "name": "土地增值税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "转让房地产增值部分征收，30%-60%超率累进",
+    "detail": "土地增值税对转让房地产取得的增值额征收，采用 30%-60% 四级超率累进税率，增值额=转让收入−扣除项目（地价、开发成本费用、税费等）。房地产开发企业转让商品房、个人转让非住宅等须缴。个人转让普通住宅暂免。土地增值税是房地产项目利润核算的核心税种。",
+    "scenarios": [
+      "房产项目转让税负测算",
+      "二手房交易税费判断",
+      "房地产开发利润分析"
+    ],
+    "pitfalls": [
+      "扣除项目计算复杂，需专业测算",
+      "个人住房转让一般免征，但商业房产不免"
+    ],
+    "cases": "企业转让一宗房产增值额 100 万，适用 40% 档，土地增值税约 100万×40%−速算扣除，税负数万至数十万。",
+    "related": [
+      "契税(房产交易)",
+      "房产税(试点)"
+    ]
+  },
+  {
+    "name": "资源税/环境保护税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "资源开采与污染排放征税，推动绿色发展",
+    "detail": "资源税对开采矿产品、盐等资源征税，从价或从量计征（如原油、天然气按销售额比例）。环境保护税对直接向环境排放应税污染物（大气、水、固体废物、噪声）征收，『多排多缴、少排少缴』。两税推动资源节约与污染防治，是绿色发展导向的税种。",
+    "scenarios": [
+      "矿业企业税负测算",
+      "排污企业环保税计算",
+      "绿色发展政策理解"
+    ],
+    "pitfalls": [
+      "环保税按污染物当量计征，需监测数据支撑",
+      "资源税计税依据含不含税销售额要确认"
+    ],
+    "cases": "某企业排放二氧化硫，环保税按污染当量数×适用税额计算，排放越多税负越重。",
+    "related": [
+      "消费税",
+      "企业所得税"
+    ]
+  },
+  {
+    "name": "研发费用加计扣除",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "研发费用可按100%加计扣除，降低税负",
+    "detail": "企业开展研发活动实际发生的研发费用，未形成无形资产的按实际发生额的 100% 在税前加计扣除（即每投入 100 元研发，可多抵 100 元应纳税所得额），形成无形资产的按 200% 摊销。适用于符合条件的研发活动，须留存研发项目辅助账与证明材料。是鼓励创新的重要税收优惠。",
+    "scenarios": [
+      "科技企业研发投入节税",
+      "研发费用归集规范",
+      "加计扣除申报"
+    ],
+    "pitfalls": [
+      "非研发活动（常规升级）不能享受",
+      "研发费用需单独核算并留存辅助账",
+      "委托研发按 80% 计入加计扣除基数"
+    ],
+    "cases": "某企业研发投入 500 万，加计扣除后应纳税所得额多抵 500 万，按 25% 税率省税 125 万。",
+    "related": [
+      "企业所得税",
+      "小型微利企业优惠"
+    ]
+  },
+  {
+    "name": "小型微利企业税收优惠",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "应纳税所得额≤300万等条件，实际税负5%",
+    "detail": "小型微利企业须同时满足：年应纳税所得额≤300 万、从业人数≤300 人、资产总额≤5000 万。优惠：按 25% 计入应纳税所得额、按 20% 税率缴，实际税负 5%。此外小规模纳税人还可享增值税免征/减征、六税两费减半等叠加优惠。是中小企业的普惠性减税。",
+    "scenarios": [
+      "小微企业税负测算",
+      "临界点利润规划",
+      "叠加优惠政策应用"
+    ],
+    "pitfalls": [
+      "三项条件须同时满足，任一超标即失格",
+      "300 万临界点附近要提前规划"
+    ],
+    "cases": "应纳税所得额 300 万：300万×25%×20%=15 万（5%）；301 万则全额按 25% 缴约 75 万，多 1 万利润多缴 60 万税。",
+    "related": [
+      "企业所得税",
+      "增值税(一般纳税人/小规模纳税人)"
+    ]
+  },
+  {
+    "name": "增值税留抵退税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "进项大于销项的留抵税额可申请退还",
+    "detail": "留抵退税指企业进项税额大于销项税额形成的留抵税额，可按规定申请退还，缓解资金占用。制造业、科技等行业可按月全额退还增量留抵并一次性退存量留抵，其他行业按 60% 比例退。申请须满足纳税信用等级（A/B 级）、无骗税虚开等条件。是缓解企业现金流的政策工具。",
+    "scenarios": [
+      "制造业现金流改善",
+      "留抵退税申请条件判断",
+      "退税与抵扣的取舍"
+    ],
+    "pitfalls": [
+      "纳税信用 C/D 级不能申请",
+      "已退留抵部分后续不再抵扣，注意核算"
+    ],
+    "cases": "某制造企业购置设备形成 200 万留抵，申请退税后资金回笼，缓解扩产资金压力。",
+    "related": [
+      "增值税(一般纳税人/小规模纳税人)",
+      "发票(专票/普票)"
+    ]
+  },
+  {
+    "name": "股息红利个人所得税",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "持股市值按持有期差别化：>1年免税",
+    "detail": "个人从上市公司取得股息红利，按持股期限差别化征税：持股 >1 年暂免个税；持股 1 个月~1 年按 10% 计征；持股 ≤1 个月按 20% 全额计征。上市公司派息时代扣代缴。鼓励长期持股。企业从居民企业取得股息红利免税（居民企业间）。",
+    "scenarios": [
+      "分红税负测算",
+      "持股期与分红时机",
+      "长期投资 vs 短期套利"
+    ],
+    "pitfalls": [
+      "分红前后买卖要考虑差别化税率",
+      "持股期限以股权登记日为界计算"
+    ],
+    "cases": "持有某股 11 个月后分红 1 万，按 10% 缴 1000 元；若持有满 1 年再分红则免税。",
+    "related": [
+      "股票转让所得",
+      "个人所得税(综合所得)",
+      "分红",
+      "股息"
+    ]
+  },
+  {
+    "name": "股票转让所得(个人暂免)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "个人买卖A股差价暂免个税，但印花税仍征",
+    "detail": "个人转让境内上市公司股票取得的差价所得，目前暂免征收个人所得税（政策延续多年）。但卖出时仍缴纳证券交易印花税（0.05% 单边）。企业转让股票所得需并入企业所得税。注意：暂免不等于永久，政策若有调整需关注；限售股解禁转让、新三板等情形另有规定。",
+    "scenarios": [
+      "炒股收益税务判断",
+      "个人 vs 企业账户税负对比",
+      "限售股转让税务"
+    ],
+    "pitfalls": [
+      "个人 A 股差价暂免，但分红要缴股息红利个税",
+      "企业账户炒股收益须缴企业所得税"
+    ],
+    "cases": "个人炒股年盈利 10 万暂免个税，仅付卖出印花税与佣金；若用企业账户则并入利润缴 25% 企业所得税。",
+    "related": [
+      "股息红利个人所得税",
+      "印花税(证券交易印花税)"
+    ]
+  },
+  {
+    "name": "发票(专票/普票)",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "增值税专票可抵扣进项，普票不可",
+    "detail": "发票分增值税专用发票与普通发票。专票可作为购买方抵扣进项税额的凭证（一般纳税人专用），普票不能抵扣。企业采购要取得合规发票才能在税前扣除成本。专票开具、认证、抵扣有严格时限与合规要求，虚开发票（无真实交易开票）是严重违法行为，会被追责甚至刑责。",
+    "scenarios": [
+      "采购要专票还是普票",
+      "进项抵扣规划",
+      "发票合规管理"
+    ],
+    "pitfalls": [
+      "虚开/代开发票违法，勿碰",
+      "普票不能抵扣进项，成本也要合规发票",
+      "专票丢失/作废流程复杂，妥善保管"
+    ],
+    "cases": "企业采购设备 100 万（含税 13%），取得专票可抵扣进项约 11.5 万；只拿普票则无法抵扣，白白多缴税。",
+    "related": [
+      "增值税(一般纳税人/小规模纳税人)",
+      "增值税留抵退税"
+    ]
+  },
+  {
+    "name": "偷税/避税/税务筹划的区别",
+    "category": "tax",
+    "tab": "税收政策",
+    "desc": "偷税违法，避税处于灰色，筹划是合法合规",
+    "detail": "偷税是伪造账目、隐匿收入等违法手段少缴税，属违法，会被追缴+罚款（0.5-5倍）+滞纳金，情节严重涉刑。避税利用税法漏洞、违背立法本意，如滥用税收洼地、恶意拆分收入，属灰色地带，税务可反避税调整。税务筹划是在合法框架内选择更优交易结构与适用优惠（如小微、研发加计扣除、专项附加扣除），合法合规。务必划清三者界限。",
+    "scenarios": [
+      "企业税务合规",
+      "识别筹划 vs 避税风险",
+      "个人申报合规"
+    ],
+    "pitfalls": [
+      "『核定征收/税收洼地』筹划多为避税，风险高",
+      "个独/个体户开票避税易被认定为虚开",
+      "金税四期下收入透明，偷税极易暴露"
+    ],
+    "cases": "通过注册空壳个体户拆分高收入、享受核定征收，被税务机关认定为避税/虚开，补税+罚款+滞纳金，得不偿失。",
+    "related": [
+      "发票(专票/普票)",
+      "个人所得税(综合所得)",
+      "企业所得税"
+    ]
+  },
+  {
+    "name": "固定收益总收益分解",
+    "category": "fixed_income",
+    "tab": "固定收益",
+    "desc": "债券总收益 = 票息 + 价格变动 + 票息再投资",
+    "detail": "固定收益证券总收益 = 票息收益 + 价格变动收益 + 票息再投资收益。票息为发行时约定的利息（固定/浮动/零息）；资本利得源于买入卖出价差，利率下行时债券价格上涨，价格与利率反向；再投资收益受利率环境影响，利率下行时再投资收益率走低。骑乘收益（Roll-down）指债券沿收益率曲线持有，随期限缩短曲线下滑带来的收益增厚；Carry 指持有利差收入。理解收益分解是评价债券策略（持有到期 vs 主动交易 vs 杠杆套息）的前提。",
+    "formula": "总收益 = 票息收益 + 价格变动收益 + 票息再投资收益",
+    "scenarios": [
+      "评价债券策略与持有期收益",
+      "理解利率变动对债券的影响",
+      "计算组合预期收益"
+    ],
+    "pitfalls": [
+      "只算票息忽略价格变动会严重误判",
+      "再投资收益在低利率环境下被高估",
+      "零息债无票息，全部收益来自价格"
+    ],
+    "cases": "持有 10 年期国债票息 3%，若利率下行 100bp，价格上升约 8%（久期约 8 年），资本利得远大于票息，成为主要收益来源。",
+    "related": [
+      "久期与凸性",
+      "收益率曲线形态",
+      "信用利差"
+    ]
+  },
+  {
+    "name": "久期与凸性",
+    "category": "fixed_income",
+    "tab": "固定收益",
+    "desc": "久期衡量利率敏感性，凸性是二阶修正",
+    "detail": "久期（Duration）衡量债券价格对利率变动的敏感度，近似规则：利率变动 1%，价格变动约等于久期百分比（修正久期）。零息债久期=期限，附息债久期<期限。凸性（Convexity）是久期随利率变化的一阶修正项，利率大幅波动时修正久期近似误差；正凸性意味着利率上行时价格跌幅小于久期预测、利率下行时涨幅大于久期预测（涨多跌少）。预期利率下行应拉长久期吃资本利得，上行则缩短久期并提高票息保护；免疫策略让资产久期=负债久期以锁定收益，规避利率风险。",
+    "formula": "ΔP/P ≈ −D_mod × Δy + 0.5 × C × (Δy)²",
+    "scenarios": [
+      "利率走势判断后的久期配置",
+      "资产负债久期匹配（免疫）",
+      "组合利率风险度量"
+    ],
+    "pitfalls": [
+      "久期只在线性近似下成立，大幅波动需加凸性修正",
+      "含权债（可赎回）有效久期显著小于名义久期",
+      "久期会随利率变化（负凸性风险）"
+    ],
+    "cases": "组合久期 5 年，若利率上行 50bp，预期价格下跌约 2.5%（未计凸性），加凸性修正后实际跌幅更小。",
+    "related": [
+      "收益率曲线形态",
+      "固定收益总收益分解",
+      "信用利差"
+    ]
+  },
+  {
+    "name": "收益率曲线形态",
+    "category": "fixed_income",
+    "tab": "固定收益",
+    "desc": "正常/平坦/倒挂三种形态与衰退预警",
+    "detail": "收益率曲线描述同信用等级不同期限债券的收益率关系。正常/陡峭形态对应经济扩张，长期限承担更多利率风险故收益率更高；平坦化对应政策转向或经济降温；倒挂（长期收益率低于短期）是强衰退预警信号，历史上美债 10Y-2Y 或 10Y-3M 利差倒挂常领先衰退 12-18 个月。常用分析指标：10Y-2Y 利差、10Y-3M 利差，利差转负即倒挂。曲线形态还影响策略：陡峭时做骑乘与拉久期，平坦/倒挂时缩短久期、增配短端或信用债。",
+    "scenarios": [
+      "判断经济周期位置与衰退风险",
+      "债券久期与骑乘策略选择",
+      "宏观利率环境研判"
+    ],
+    "pitfalls": [
+      "单一期限利差信号有噪音，需多指标交叉验证",
+      "中国与美债曲线传导机制不同，不可简单类比",
+      "央行干预（如长端买卖）会扭曲曲线信号"
+    ],
+    "cases": "美债 10Y-2Y 于 2022 年倒挂后约 18 个月，2023-2024 年经济放缓与降息预期发酵，印证倒挂的领先性。",
+    "related": [
+      "久期与凸性",
+      "信用利差",
+      "宏观利率环境"
+    ]
+  },
+  {
+    "name": "信用利差与 OAS",
+    "category": "fixed_income",
+    "tab": "固定收益",
+    "desc": "信用利差补偿风险，OAS 剔除含权条款",
+    "detail": "信用利差 = 公司债到期收益率 − 同期限国债收益率，用于补偿信用风险、流动性风险与条款风险。利差走阔反映风险偏好下降或违约担忧上升，是危机前兆；收窄反映风险偏好回升。OAS（期权调整利差）通过期权定价模型剔除含权条款（可赎回/可回售/含权）的影响，得到可比的真实利差，是含权债估值的标准工具。信用分析核心：财务指标（EBITDA/利息覆盖倍数、净债务/EBITDA 杠杆率、现金流稳定性）、外部评级（标普/穆迪/惠誉）、期望损失 = 违约概率 PD × 违约损失率 LGD。",
+    "formula": "信用利差 = 信用债 YTM − 同期限国债 YTM；期望损失 = PD × LGD",
+    "scenarios": [
+      "公司债/城投债估值与比较",
+      "判断信用周期（走阔=避险）",
+      "含权债 OAS 定价"
+    ],
+    "pitfalls": [
+      "评级滞后于市场，利差变动常先于评级调整",
+      "OAS 依赖波动率假设，输入不同结果差异大",
+      "流动性差的信用债利差含大量流动性溢价，不可全归因信用"
+    ],
+    "cases": "2022 年地产债利差大幅走阔后评级集中下调，验证利差领先评级；OAS 在可转债与可赎回债定价中普遍使用。",
+    "related": [
+      "收益率曲线形态",
+      "久期与凸性",
+      "债券品种与风险"
+    ]
+  },
+  {
+    "name": "债券品种与风险特征",
+    "category": "fixed_income",
+    "tab": "固定收益",
+    "desc": "国债/信用债/可转债/永续债风险画像",
+    "detail": "国债/政金债信用风险≈0、流动性好，主要风险是利率风险；地方政府债为准主权信用，流动性一般；信用债（公司/城投）票息高但面临违约、降级、城投化债风险，需信用研究；可转债具股债双性，下有债底上有转股弹性，但波动大、条款复杂（转股价、赎回/回售条款）；永续债/次级债票息高但存在不赎回与减记风险，需计入资本条款分析。配置依据风险偏好：以利率风险为主选国债，追求票息承担信用风险选信用债，攻守兼备选可转债，高收益高风险选永续/次级。",
+    "scenarios": [
+      "债券组合构建与品种选择",
+      "识别各品种核心风险",
+      "固收+策略（转债增强）"
+    ],
+    "pitfalls": [
+      "可转债面值以下有债底保护但仍有违约可能",
+      "城投债需区分政府债与信用债属性（化债政策影响）",
+      "永续债『永续』不代表无期限，存在到期不赎回风险"
+    ],
+    "cases": "2021-2023 年地产债违约潮后，机构转向利率债+高等级信用债+转债的哑铃配置，平衡收益与风险。",
+    "related": [
+      "信用利差",
+      "久期与凸性",
+      "固定收益总收益分解"
+    ]
+  },
+  {
+    "name": "债券估值与定价",
+    "category": "fixed_income",
+    "tab": "固定收益",
+    "desc": "现金流贴现 DCF 与含权债定价、压力测试",
+    "detail": "债券理论价格 = 未来各期票息与本金按市场收益率贴现的现值之和（净价），加应计利息得全价。定价核心变量是贴现率（即期/到期收益率），收益率上行价格下跌、下行上涨，方向与久期一致。含权债（可赎回/可回售/可转债）需以利率二叉树或蒙特卡洛模拟路径，对期权条款做价值拆解，得到债券价值 = 纯债价值 ± 期权价值。情景与压力测试以收益率平行/非平行移动（±25/50/100bp）重估组合价值，用久期近似（ΔP% ≈ −D_mod×Δy）加凸性二阶修正（0.5×C×Δy²）评估利率风险，是固收组合风控与资本充足测算的标准工具。",
+    "formula": "P = Σ CF_t / (1+y)^t；ΔP% ≈ −D_mod×Δy + 0.5×C×Δy²",
+    "scenarios": [
+      "个券理论定价与相对价值判断",
+      "含权债期权价值拆解",
+      "组合利率风险压力测试"
+    ],
+    "pitfalls": [
+      "用到期收益率给含权债定价会忽略期权，高估可赎回债价值",
+      "凸性修正仅在大幅波动时显著，小幅用久期即可",
+      "压力测试假设平行移动，曲线扭曲(蝶式)会改变结论"
+    ],
+    "cases": "10 年期、票息 3%、YTM 3.5% 的债券，净价约 95.7；若收益率上行 50bp 至 4.0%，久期约 8.4 年，价格跌幅约 4.2%（未计凸性）。",
+    "related": [
+      "久期与凸性",
+      "收益率曲线形态",
+      "信用利差与 OAS"
+    ]
+  },
+  {
+    "name": "平台总览（这个平台能干什么）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "九大类分析功能的工具箱：研究股票、债券、贷款、政策效果",
+    "detail": "data.tool 是一个面向 A 股的量化研究 Web 平台。打个比方：它像给分析师配的一整套检查设备——验血机、X 光机、CT 各回答一类问题。平台一共九大类功能：①多因子模型（股票收益被什么推动）②策略回测（按某规则买卖历史上赚不赚钱）③Brinson 归因（基金跑赢大盘的钱是怎么赚来的）④财务估值（公司健不健康、值多少钱）⑤DID 政策评估（政策到底有没有用）⑥固收分析（利率一变债券亏多少）⑦信用评分卡（这个人借钱会不会还）⑧机器学习（从数据里自动找预测规律）⑨AI 研究助理（用大白话提问，它自己调工具出报告）。前后端全链路独立完成，260+ 接口、240+ 项自动化测试。",
+    "scenarios": [
+      "想快速了解平台能力边界时，先看这一条",
+      "面试介绍项目时的开场白素材"
+    ],
+    "pitfalls": [
+      "不要把「工具数量多」当成卖点，重点是每类工具解决什么业务问题",
+      "各功能之间存在依赖链：先有数据（上传/接入）→ 清洗 → 分析 → 建模 → 报告"
+    ],
+    "tips": [
+      "记忆口诀：前四类解决「买不买」，中三类解决「风险与政策」，后两类解决「自动化与门槛」",
+      "AI 助理不是聊天机器人，是能真正调用上面这些工具的调度器"
+    ],
+    "related": [
+      "多因子模型",
+      "信用评分卡",
+      "DID双重差分",
+      "AI研究助理"
+    ]
+  },
+  {
+    "name": "多因子模型（五因子）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把股票收益拆成五个共同原因各自的贡献，判断赚的是运气还是风格",
+    "detail": "假设你开了一家店，今年赚了 100 万。你想知道这 100 万里，多少是因为整个行业都好（市场），多少是因为你的店规模小反而弹性大（规模），多少是因为你成本控制得好（价值）。多因子模型干的就是这件事，对象换成股票：把一只股票的涨跌，拆成几个「共同原因」各自贡献了多少。学界公认的五个因素是 MKT 市场、SMB 规模（小公司长期跑赢）、HML 价值（便宜的好）、RMW 盈利（赚钱能力强的跑赢）、CMA 投资（不乱扩张的跑赢）。平台能从股票池自动构造这五个因子的收益率序列，并看它们之间的相关性。",
+    "formula": "R_i − R_f = α + β₁·MKT + β₂·SMB + β₃·HML + β₄·RMW + β₅·CMA + ε",
+    "params": [
+      {
+        "k": "股票池",
+        "v": "默认 40 只，剔除 ST、上市满 365 天"
+      },
+      {
+        "k": "分组口径",
+        "v": "市值按 50% 分位切两组；账面市值比 BM 与 ROE 按 30/70 分位切三组；投资因子用总资产同比增速"
+      },
+      {
+        "k": "调仓频率",
+        "v": "季度调仓，组内日频等权"
+      }
+    ],
+    "scenarios": [
+      "判断某一阶段的收益来自市场整体 β，还是来自小盘/价值/盈利等风格暴露",
+      "做基金或策略的风格归因，解释「为什么这段时间跑输」"
+    ],
+    "pitfalls": [
+      "代码依据是 factor_model.py 的五因子实现，不是三因子（三因子缺 RMW/CMA 两个维度）",
+      "未做行业与市值中性化，因子之间存在共线性，解释系数时要注意",
+      "自建简化版与 Wind/Barra 的商业因子库口径不同，数值不可直接对比"
+    ],
+    "tips": [
+      "一句话讲法：多因子就是给收益做「归因拆解」，回答「这钱是怎么赚的」",
+      "被问为什么用 50%、30/70% 分位：这是 Fama-French 论文的通行做法，能让高低两组差异更显著"
+    ],
+    "related": [
+      "CAPM与风险收益指标",
+      "策略回测",
+      "Brinson归因"
+    ]
+  },
+  {
+    "name": "策略回测（双均线 / MACD）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把交易规则放到历史数据上模拟一遍，看过去赚不赚钱、最惨亏多少",
+    "detail": "你想试一套炒股规则：「5 日均线上穿 20 日均线就买入，跌破就卖出」。但怎么知道这规则有用？回测就是把规则放到过去几年的真实数据上，让电脑模拟一遍买卖。就像你想知道每天跑步能不能减肥，找过去一年的天气和体重记录模拟算一遍。平台实现了双均线交叉和 MACD 两种择时策略，输出年化收益、波动率、夏普比率、最大回撤、胜率，并把策略曲线和基准指数画在同一张图上对比。",
+    "params": [
+      {
+        "k": "双均线参数",
+        "v": "默认 fast=5, slow=20（日）"
+      },
+      {
+        "k": "MACD 参数",
+        "v": "默认 12 / 26 / 9"
+      },
+      {
+        "k": "基准",
+        "v": "沪深300 000300 / 中证500 000905 / 上证50 000016 / 创业板指 399006 / 科创50 000688"
+      }
+    ],
+    "scenarios": [
+      "快速验证一个择时想法的历史表现，筛掉明显不靠谱的规则",
+      "对比不同参数下策略的稳定性（参数敏感性）"
+    ],
+    "pitfalls": [
+      "本平台回测未建模手续费与滑点，只算毛收益。双均线换手不低，实盘加成本后会被明显磨损——这是已知不足，面试被问要主动承认",
+      "未考虑停牌与涨跌停导致「信号发出但无法成交」的情况",
+      "历史表现好不等于未来好，尤其参数是特意挑出来的时候（过拟合）"
+    ],
+    "tips": [
+      "认真回答「怎么避免过拟合」：跑一组参数网格，如果只有某个尖峰参数好、旁边稍动就崩，说明是拟合噪声",
+      "改进方向：加入双边万三的费率与滑点参数，并对换手率做敏感性分析"
+    ],
+    "related": [
+      "CAPM与风险收益指标",
+      "Brinson归因",
+      "基准指数"
+    ]
+  },
+  {
+    "name": "CAPM与风险收益指标",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "β 衡量跟着大盘波动的敏感度，α 衡量剔除大盘后真正多赚的部分",
+    "detail": "CAPM 是最基础的资产定价模型：一只股票的预期收益 = 无风险利率 + β × 市场风险溢价。β 等于 1 表示跟大盘同步，大于 1 表示比大盘更刺激（涨得多也跌得多），小于 1 表示更稳。α 是回归的截距项，表示「剔除大盘影响之后，这只股票（或这个基金）额外多赚或少赚的部分」——它被用来近似衡量选股能力。平台还能算一套风险收益指标：夏普比率（每承担 1 单位波动换来多少超额收益）、Sortino（只把下跌的波动算作风险，比夏普更符合直觉）、Calmar（年化收益 ÷ 最大回撤）、最大回撤（从最高点跌到最低点的最大幅度）、胜率（赚钱的交易占比）。",
+    "formula": "E(R_i) = R_f + β·(E(R_m) − R_f) + α",
+    "params": [
+      {
+        "k": "rf_rate",
+        "v": "无风险利率，默认 0.02（2%）"
+      },
+      {
+        "k": "夏普比率",
+        "v": "(年化收益 − 无风险利率) ÷ 年化波动率"
+      },
+      {
+        "k": "最大回撤",
+        "v": "从历史高点到后续最低点的最大跌幅"
+      }
+    ],
+    "scenarios": [
+      "评估一只股票或基金的收益质量：是高波动换来的，还是真本事",
+      "投研汇报中的绩效归因与风险披露"
+    ],
+    "pitfalls": [
+      "α 为正不等于有选股能力，可能是承担了模型没有覆盖的隐性风险（如小盘、行业集中）",
+      "β 不稳定：牛熊市里同一只股票的 β 会变化，用全样本估计会失真"
+    ],
+    "tips": [
+      "一句话区分：β 是「跟着大盘的敏感度」，α 是「剔除大盘后多赚的部分」",
+      "夏普适合收益分布接近正态时；偏度大或回撤敏感的场景看 Sortino 和 Calmar 更合适"
+    ],
+    "related": [
+      "多因子模型",
+      "策略回测",
+      "Brinson归因"
+    ]
+  },
+  {
+    "name": "Brinson归因",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把跑赢基准的超额收益拆成：押对行业 + 选对个股 + 两者叠加",
+    "detail": "基金经理今年跑赢沪深300 五个点，老板问「这五个点是怎么赚的」。Brinson 把它拆成三块：①配置效应——你重仓了今年大涨的行业（押对赛道）；②选择效应——行业权重跟基准一样，但你在每个行业里挑的股票更好（选股能力）；③交互效应——两者叠加的部分。这个拆解决定了业绩能不能持续：靠押赛道的收益不可持续（明年赛道可能就变了），靠选股的收益才真正体现能力。",
+    "formula": "配置 = (w_p − w_b)×R_b ；选股 = w_b×(R_p − R_b) ；交互 = (w_p − w_b)×(R_p − R_b)；三者之和 = 总超额收益",
+    "scenarios": [
+      "评估主动管理基金的业绩可持续性",
+      "内部复盘：某个季度超配某行业到底贡献了多少收益"
+    ],
+    "pitfalls": [
+      "本平台实现的是单期拆解。多个季度直接相加对不上累计超额收益，需要 Carino 或 GRAP 多期链接算法",
+      "板块划分口径会影响结果，必须与基准的板块定义保持一致"
+    ],
+    "tips": [
+      "一句话讲法：配置效应=押对行业，选择效应=行业内选对股",
+      "面试加分：主动说出「多期需用 Carino 平滑链接」这个局限"
+    ],
+    "related": [
+      "CAPM与风险收益指标",
+      "多因子模型"
+    ]
+  },
+  {
+    "name": "DCF估值（现金流折现）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把公司未来能赚的钱折算成今天的价值，回答「它值多少钱」",
+    "detail": "你想买下一家奶茶店，怎么判断贵不贵？合理答案是：看它未来每年能赚多少钱，然后折算成今天的价值——因为明年的 100 块没有今天的 100 块值钱（今天的钱存银行能生利息）。DCF 的核心就是这个：预测公司未来每年的自由现金流，按折现率（WACC，加权平均资本成本）逐年折回今天，再加总。平台除 DCF 外还提供可比公司相对估值（PE/PB/PS/EV-EBITDA 分位数），两种口径互相印证。",
+    "formula": "企业价值 = Σ FCF_t/(1+WACC)^t + 终值/(1+WACC)^n",
+    "params": [
+      {
+        "k": "WACC",
+        "v": "股权成本用 CAPM 估，债务成本用利率×(1−税率)，按目标资本结构加权"
+      },
+      {
+        "k": "永续增长率 g",
+        "v": "一般不超过长期 GDP 增速（2%~3%）"
+      },
+      {
+        "k": "敏感性分析",
+        "v": "对 WACC × g 做参数矩阵，给区间而非单点"
+      }
+    ],
+    "scenarios": [
+      "对现金流稳定的成熟公司做内在价值判断",
+      "投研报告中的估值区间测算"
+    ],
+    "pitfalls": [
+      "结果对 WACC 和永续增长率极度敏感，稍微动一点估值能差好几倍——必须做敏感性分析，不能只给一个数",
+      "现金流为负或波动大的成长型公司不适用 DCF，应改用相对估值或期权定价思路",
+      "DCF 反映内在价值，相对估值反映市场情绪，两者结果不一致是正常的"
+    ],
+    "tips": [
+      "被问「参数怎么定」：WACC 用 CAPM 推股权成本，g 不超过长期 GDP 增速，并且一定给敏感性矩阵",
+      "一句话：DCF 是绝对估值，可比公司是相对估值"
+    ],
+    "related": [
+      "杜邦分析",
+      "CAPM与风险收益指标"
+    ]
+  },
+  {
+    "name": "杜邦分析（ROE拆解）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把 ROE 拆成净利率×周转率×杠杆，看高回报是本事还是借债堆的",
+    "detail": "A 公司和 B 公司的 ROE（净资产收益率）都是 20%，但 A 是靠产品毛利高，B 是靠疯狂借钱加杠杆。两个 20% 的质量天差地别——一旦行业下行，高杠杆的 B 会先出问题。杜邦分析就是把 ROE 拆成三个乘数：净利率（赚钱能力/产品竞争力）、资产周转率（运营效率/周转快不快）、权益乘数（杠杆倍数）。这样一眼就能看出高回报的来源是否可持续。",
+    "formula": "ROE = 净利率 × 资产周转率 × 权益乘数 = (净利润/营收) × (营收/总资产) × (总资产/净资产)",
+    "scenarios": [
+      "对比同行业两家公司的盈利质量",
+      "跟踪一家公司 ROE 的变化：是效率改善了，还是只是加了杠杆"
+    ],
+    "pitfalls": [
+      "金融行业的权益乘数天然很高，不能与制造业直接横向比较",
+      "周转率指标受会计政策（如收入确认方式）影响，跨公司比较要谨慎"
+    ],
+    "tips": [
+      "一句话：同样 20% 的 ROE，靠高毛利、靠周转快、还是靠加杠杆，质量完全不同",
+      "面试常被问：杜邦拆解出问题通常是哪一环——先看是不是杠杆推高的"
+    ],
+    "related": [
+      "DCF估值（现金流折现）",
+      "财务比率"
+    ]
+  },
+  {
+    "name": "DID双重差分",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "评估政策效果的标准方法：处理组变化 减去 对照组变化",
+    "detail": "政府在某省试点了长期护理保险，想知道这政策到底有没有让老百姓敢消费。你不能只看「试点省政策后消费涨了」——因为可能全国消费都在涨。正确做法是：找一批受政策影响的地区（处理组）和一批没受影响的（对照组），分别看两组在政策前后的变化，再用「处理组的变化」减去「对照组的变化」，这个「差值的差值」就是政策的净效果。打个比方：想知道补习班有没有用，不能只看参加补习的同学成绩提高了（可能全班都提高了），要看参加的同学多提高的部分，减去没参加的同学提高的部分。平台用双向固定效应（个体 + 时间）估计，核心系数是 treat×post 交互项。",
+    "formula": "Y_it = α + β·(Treat_i × Post_t) + γ·X_it + μ_i + λ_t + ε_it，β 即政策效应",
+    "params": [
+      {
+        "k": "dep_var",
+        "v": "被解释变量（如家庭消费）"
+      },
+      {
+        "k": "treat_col / time_col / unit_col",
+        "v": "处理组标记（0/1）、时间列、个体列（如省份）"
+      },
+      {
+        "k": "post 期判定",
+        "v": "显式 post 列 > 数据自带 post > policy_year 参数 > 时间中位数自动二分"
+      },
+      {
+        "k": "control_vars",
+        "v": "控制变量；cluster=True 用聚类标准误"
+      }
+    ],
+    "scenarios": [
+      "政策评估（试点政策、补贴政策、监管变化的效果）",
+      "学术实证论文的因果识别部分"
+    ],
+    "pitfalls": [
+      "核心假设是平行趋势：没有政策时两组的走势应基本一致，必须检验",
+      "标准误必须聚类到个体层面，否则低估标准误、显著性虚高",
+      "时间列是字符串日期时，早期版本会报错；现已支持自动解析（数值年份或 YYYY-MM-DD 均可）",
+      "treat 列必须是 0/1 数值；若是分组字符串（A/B）需先编码为 0/1"
+    ],
+    "tips": [
+      "一句话讲法：差值的差值——第一重差是政策前后，第二重差是两组之间",
+      "被问「为什么用双向固定效应」：个体固定效应吸收天生差异，时间固定效应吸收共同冲击，剩下的才是净效应"
+    ],
+    "related": [
+      "平行趋势检验",
+      "安慰剂检验",
+      "倾向得分匹配"
+    ]
+  },
+  {
+    "name": "平行趋势检验",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "DID 的前提检验：政策之前两组的走势得差不多",
+    "detail": "DID 能成立的前提是：假如没有这个政策，处理组和对照组的变化趋势应该基本一致（平行趋势假设）。检验方法是事件研究法（Event Study）：以政策实施期为基准（系数设为 0），把政策前后每一期都做成一个虚拟变量放进回归，看政策之前的各期系数是否显著异于 0。如果不显著，说明政策前两组走势没有系统性差异，平行趋势成立；如果政策前就有明显趋势差，说明两组本来就不可比，DID 的结论不可信。",
+    "params": [
+      {
+        "k": "pre_periods",
+        "v": "政策前期数（默认 5）"
+      },
+      {
+        "k": "post_periods",
+        "v": "政策后期数（默认 5）"
+      },
+      {
+        "k": "基准期",
+        "v": "政策前一期（t=−1）系数固定为 0"
+      }
+    ],
+    "scenarios": [
+      "DID 回归前的必做检验（写论文/做汇报的第一步防守）",
+      "政策评估结论被质疑时的关键证据"
+    ],
+    "pitfalls": [
+      "如果数据时间跨度不足（期数少于 pre_periods + post_periods），事件虚拟变量会被整体吸收，系数全为 NaN——平台会给出「请减小事件窗口」的提示",
+      "通过了平行趋势不代表结论一定对，还要做安慰剂检验和稳健性检验"
+    ],
+    "tips": [
+      "一句话：平行趋势是 DID 的命门，不过这一步后面全白做",
+      "常用画法：横轴是相对政策期的期数，纵轴是系数与置信区间，看政策前是否都包住 0"
+    ],
+    "related": [
+      "DID双重差分",
+      "安慰剂检验"
+    ]
+  },
+  {
+    "name": "安慰剂检验",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "故意把政策时间提前或换假处理组，如果还能算出效果，说明原结论是假的",
+    "detail": "安慰剂检验是 DID 的「照妖镜」。做法有两种：①时间安慰剂：把政策实施时间人为提前 1~2 年再做一次 DID，如果还能算出一个显著的「政策效果」，说明原来的结果大概率是时间趋势造成的假象；②随机化安慰剂：从样本里随机抽取个体当「假处理组」，重复几百上千次，看真实估计值是否落在随机分布的尾部。真实效果应该明显偏离随机分布，否则说明结论不可靠。",
+    "scenarios": [
+      "DID 结论的稳健性防守，回应「你怎么知道不是别的原因」的质疑",
+      "论文审稿最常要求的补充检验之一"
+    ],
+    "pitfalls": [
+      "随机化安慰剂需要重复足够多次（通常 500~1000 次）才有统计意义，次数太少分布不可靠",
+      "时间安慰剂选的时间点不能离真实政策太近，否则政策效应会污染安慰剂结果"
+    ],
+    "tips": [
+      "一句话：用假时间/假样本再跑一遍，跑不出效果才说明你的效果是真的",
+      "常与平行趋势检验配套报告，是 DID 标准三件套（平行趋势 + 安慰剂 + 稳健性）之一"
+    ],
+    "related": [
+      "DID双重差分",
+      "平行趋势检验"
+    ]
+  },
+  {
+    "name": "信用评分卡",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把客户信息换算成分数的标准打分表，判断「借钱给这个人会不会亏」",
+    "detail": "银行每天面对成千上万笔贷款申请，怎么快速判断风险？评分卡就是一张标准化的打分表：把每个人的各种信息换算成分数，分数越高越安全，低于某个分数线就拒掉。就像相亲打分表——年龄、收入、学历各项给分，总分够高才考虑。平台实现了完整链路：变量分箱 → 计算 WOE/IV 筛选变量 → 逻辑回归建模 → 映射到可解释的评分刻度（基准分 + PDO）→ KS/AUC 评估 → PSI 跨期监控 → 拒绝推断做偏差校正 → 导出 PDF 模型报告。",
+    "params": [
+      {
+        "k": "分箱方法",
+        "v": "默认 chimerge，支持单调分箱（保证 WOE 单调）"
+      },
+      {
+        "k": "评分刻度",
+        "v": "基准分 + PDO（Points to Double Odds）：分数每高 PDO 分，好坏比翻倍"
+      },
+      {
+        "k": "评估",
+        "v": "KS / AUC 必须用违约概率计算（用分数算方向相反会得负值）"
+      }
+    ],
+    "scenarios": [
+      "信贷审批：贷前准入、额度定价、贷中调额",
+      "任何需要「可解释打分」的风险分级场景"
+    ],
+    "pitfalls": [
+      "算 KS 一定要用违约概率，不能用分数——分数越高越安全、概率越高越危险，方向是反的（这是实际踩过的坑）",
+      "分箱结果必须带可复现的 assign 规则，训练与打分的分箱口径要完全一致，否则线上线下分数对不上",
+      "IV 超过 0.5 要警惕信息泄漏（比如用了贷后才知道的变量）"
+    ],
+    "tips": [
+      "为什么用逻辑回归不用 XGBoost：信贷是强监管场景，必须可解释、能对监管逐条讲清楚；通常两者都跑，XGBoost 当效果上限参考，上线仍用逻辑回归",
+      "完整的七步流程背下来，面试非常加分"
+    ],
+    "related": [
+      "WOE与IV",
+      "KS与AUC",
+      "PSI模型监控",
+      "拒绝推断"
+    ]
+  },
+  {
+    "name": "WOE与IV",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "WOE 把变量分箱转成标准分，IV 衡量这个变量预测违约的能力强不强",
+    "detail": "WOE（Weight of Evidence，证据权重）是把每个分箱的「坏客户占比 ÷ 好客户占比」取对数，本质是把这个变量转成对逻辑回归友好的标准分值。IV（Information Value，信息量）是各箱 WOE 的加权和，用来衡量整个变量的预测能力，用来筛选变量——太弱的直接扔掉，免得模型变复杂还没用。经验标准：IV < 0.02 基本无预测力；0.02~0.1 弱；0.1~0.3 中等；0.3~0.5 强；超过 0.5 反而要怀疑是不是泄漏了未来信息。",
+    "formula": "WOE = ln(坏客户占比 / 好客户占比)；IV = Σ (坏占比 − 好占比) × WOE",
+    "scenarios": [
+      "评分卡建模前的变量筛选与变量变换",
+      "任何二分类风控模型的变量体检"
+    ],
+    "pitfalls": [
+      "IV 太高（>0.5）通常是信息泄漏的信号，比如误用了贷后变量或与标签同源的字段",
+      "分箱后 WOE 应尽量单调（如收入越高违约率越低），忽高忽低说明分箱不合理"
+    ],
+    "tips": [
+      "一句话：IV 决定「这个变量要不要留」，WOE 决定「怎么把这个变量喂给模型」",
+      "经验阈值：0.02 / 0.1 / 0.3 / 0.5 四档"
+    ],
+    "related": [
+      "信用评分卡",
+      "KS与AUC"
+    ]
+  },
+  {
+    "name": "KS与AUC",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "衡量模型能不能把坏客户和好客户分开，值越高区分能力越强",
+    "detail": "AUC 是 ROC 曲线下的面积，含义是「随机抽一个好客户和一个坏客户，模型给好客户更高分的概率」，取值 0.5（等于瞎猜）到 1。KS 是「好客户累计分布与坏客户累计分布之间的最大差值」，衡量模型最大的区分能力，风控里通常认为 KS > 0.3 是可用的模型。两者的共同点是：值越高，模型越能把坏人和好人分开。",
+    "formula": "AUC = P(score_good > score_bad)；KS = max|累计好客户占比 − 累计坏客户占比|",
+    "scenarios": [
+      "评分卡/风控模型上线前的效果评估",
+      "对比多个模型版本的优劣"
+    ],
+    "pitfalls": [
+      "必须用违约概率算 KS/AUC，不能用分数——分数越高越安全而概率越高越危险，方向相反会算出负值（实际踩过的坑）",
+      "类别极度不平衡时（如坏人只占 1%），AUC 会虚高，应配合 PR 曲线与召回率一起看"
+    ],
+    "tips": [
+      "口语记忆：KS 看「最大区分度有多大」，AUC 看「整体排序能力有多好」",
+      "风控经验：KS 0.3 以上可用，0.4 以上不错，但也要看跨期稳定性（PSI）"
+    ],
+    "related": [
+      "信用评分卡",
+      "PSI模型监控",
+      "混淆矩阵"
+    ]
+  },
+  {
+    "name": "PSI模型监控",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "比较现在的客群和建模时的客群分布差多少，差太多说明模型过期了",
+    "detail": "PSI（Population Stability Index，群体稳定性指标）监控的是「模型上线后，输入数据的分布有没有漂移」。做法是把新样本按建模时的分箱规则落到各个箱里，比较各箱占比与建模时的差异并加权求和。如果 PSI 很小，说明客群结构稳定，模型依然适用；如果 PSI 很大，说明客群变了（比如渠道变了、政策变了），模型的分数分布不再适用，需要重新训练。经验阈值：PSI < 0.1 稳定；0.1~0.25 需要关注；> 0.25 建议重训。",
+    "formula": "PSI = Σ (实际占比 − 预期占比) × ln(实际占比 / 预期占比)",
+    "scenarios": [
+      "评分卡上线后的持续监控（按月/按季度跑一次）",
+      "任何生产环境机器学习模型的分布漂移告警"
+    ],
+    "pitfalls": [
+      "PSI 只反映「分布变了」，不区分是特征漂移还是标签漂移，要配合变量级 PSI 定位具体原因",
+      "新样本量太小时 PSI 波动很大，容易误报"
+    ],
+    "tips": [
+      "一句话：PSI 是模型的「体检报告」，不是效果指标——它不告诉你模型准不准，只告诉你数据变没变",
+      "阈值记住 0.1 / 0.25 这两个数就够了"
+    ],
+    "related": [
+      "信用评分卡",
+      "KS与AUC"
+    ]
+  },
+  {
+    "name": "债券久期与凸性",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "久期告诉你利率动 1% 价格动多少，凸性是对久期的二阶修正",
+    "detail": "债券和股票最大的不同：债券价格主要受利率影响，利率一涨债券就跌。那到底跌多少？这把「敏感度尺子」就是久期。麦考利久期是现金流的加权平均回收时间（单位：年），修正久期才是直接用在价格敏感度上的那个：修正久期 = 麦考利久期 ÷ (1 + 到期收益率/付息频率)。凸性是对久期的二阶修正——价格与收益率的关系是条曲线，久期只是这条曲线的切线（直线近似），利率变动小时够用，变动大时必须补上凸性项。打比方：久期告诉你坡有多陡（球第一秒滚多快），凸性告诉你坡是直的还是弯的。",
+    "formula": "ΔP/P ≈ −D_mod × Δy + ½ × C × (Δy)²",
+    "params": [
+      {
+        "k": "face / coupon / ytm / maturity",
+        "v": "面值、票息率、到期收益率、剩余期限"
+      },
+      {
+        "k": "freq",
+        "v": "付息频率（默认 2，即半年付息一次）"
+      },
+      {
+        "k": "accrual_frac",
+        "v": "应计利息比例，用于算全价/净价"
+      }
+    ],
+    "scenarios": [
+      "债券组合的利率风险计量与久期匹配（资产负债管理）",
+      "利率变动情景下的持仓价值重估"
+    ],
+    "pitfalls": [
+      "麦考利久期不能直接用于价格敏感度计算，要先转成修正久期",
+      "利率变动幅度大时只用久期会明显低估/高估价格变化，必须加凸性",
+      "含权债（可赎回、可回售）的久期会随利率变化，普通久期公式失效，要用有效久期"
+    ],
+    "tips": [
+      "口语记忆：久期=坡的陡度，凸性=坡是直的还是弯的",
+      "凸性对持有人是好事：无论利率涨跌，都比久期预测的结果更好一点"
+    ],
+    "related": [
+      "DV01",
+      "收益率曲线",
+      "信用利差"
+    ]
+  },
+  {
+    "name": "DV01",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "利率变动 1 个基点（0.01%），这张债券的价格变动多少钱",
+    "detail": "DV01（Dollar Value of a basis point，基点价值）是久期的「金额版」：久期说「利率动 1% 价格动百分之几」，DV01 说得更精细——「利率动 1 个基点（0.01%），这张券的价格变动多少钱」。因为实务中利率变动常以基点计，DV01 让交易员能直接算出「我手上 1 亿的仓位，收益率上 5 个基点会亏多少」，是做对冲和风险限额的基本工具。",
+    "formula": "DV01 = 修正久期 × 全价 × 0.0001",
+    "scenarios": [
+      "债券交易台的风险限额与对冲头寸计算",
+      "组合层面加总 DV01 看整体利率敞口"
+    ],
+    "pitfalls": [
+      "DV01 基于久期（线性近似），利率大幅变动时误差会放大",
+      "组合 DV01 不等于各券 DV01 简单相加——要考虑期限结构（关键期限久期不同），实际需按关键期限桶汇总"
+    ],
+    "tips": [
+      "一句话：DV01 是「一个基点值多少钱」，比久期更贴近交易实务",
+      "对冲逻辑：想让组合不随利率波动，就让 DV01 加总为 0"
+    ],
+    "related": [
+      "债券久期与凸性",
+      "收益率曲线"
+    ]
+  },
+  {
+    "name": "收益率曲线",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把不同期限的利率连成一条线，形状反映市场对经济和利率的预期",
+    "detail": "把 1 年、2 年、5 年、10 年、30 年的国债收益率连起来，就是收益率曲线。正常情况下是向上倾斜的（期限越长利率越高，因为锁定时间久要补偿）；如果变平甚至倒挂（短端高于长端），通常反映市场预期未来经济走弱、央行会降息——历史上曲线倒挂常被当作衰退的领先信号。平台能做曲线构建、关键期限利差计算、形态判断（陡峭化/平坦化/倒挂）以及压力测试。",
+    "params": [
+      {
+        "k": "points",
+        "v": "[{\"tenor\": 1, \"yield\": 2.5}, {\"tenor\": 10, \"yield\": 3.4}] 至少 2 个有效点"
+      },
+      {
+        "k": "关键期限利差",
+        "v": "如 10Y−2Y（常被用于衰退预警）"
+      },
+      {
+        "k": "压力测试",
+        "v": "shocks_bp 按基点冲击曲线，可做平行移动或陡峭/平坦化"
+      }
+    ],
+    "scenarios": [
+      "宏观利率研判与久期策略制定（该拉长久期还是缩短久期）",
+      "组合的利率情景压力测试"
+    ],
+    "pitfalls": [
+      "非平行移动很常见：曲线整体上移 100bp 与「短端不动、长端上 100bp」对组合的影响完全不同",
+      "不同来源的曲线（国债 vs 国开 vs 中债估值）不能混用，口径要统一"
+    ],
+    "tips": [
+      "一句话：曲线形状 = 市场对经济与利率路径的集体预期",
+      "记住 10Y−2Y 这个利差，是衰退预警最常被引用的指标"
+    ],
+    "related": [
+      "债券久期与凸性",
+      "信用利差",
+      "DV01"
+    ]
+  },
+  {
+    "name": "信用利差与OAS",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "企业债比同期限国债多付的那部分利息，反映市场认为的违约风险",
+    "detail": "信用利差 = 同期限企业债收益率 − 国债收益率。国债被视为无风险，企业债多出来的这部分收益，就是市场对「这家公司可能违约」索要的补偿。利差走阔说明市场担心风险上升，利差收窄说明风险偏好改善。看历史分位数能判断当前是贵还是便宜（利差分位很低说明信用债太贵了）。OAS（期权调整利差）是更精细的口径，用于含权债——把期权价值剥离后剩下的纯信用利差。",
+    "formula": "信用利差 = 企业债到期收益率 − 同期限国债收益率",
+    "scenarios": [
+      "信用债的性价比判断（利差处于历史什么分位）",
+      "行业或个券的信用风险定价对比"
+    ],
+    "pitfalls": [
+      "企业债与国债的期限必须匹配，用 5 年企业债减 1 年国债是错的",
+      "利差走阔既可能是风险上升，也可能只是流动性变差，要区分信用风险与流动性风险"
+    ],
+    "tips": [
+      "一句话：利差 = 市场给违约风险标的价",
+      "实用判据：看利差的历史分位（如近 5 年 10% 分位说明很贵）"
+    ],
+    "related": [
+      "收益率曲线",
+      "信用评分卡"
+    ]
+  },
+  {
+    "name": "机器学习建模",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "给电脑一堆例子让它自己找规律，然后用来预测新数据",
+    "detail": "前面那些方法都是「人先想好规则、电脑照着算」。机器学习反过来：你给电脑一堆例子（比如 1 万个人的资料 + 是否违约的结果），它自己找出规律，下次来个新人就能预测。平台覆盖三类任务：分类（判断属于哪一类，如会不会违约）、回归（预测一个数值，如预测销量）、聚类（自动分组，如客户分群）。用到的算法包括逻辑回归、岭回归/Lasso、随机森林、GBDT、XGBoost、SVM，聚类有 KMeans/DBSCAN/层次聚类/GMM，降维有 PCA。随机森林与 XGBoost 的区别：前者是很多棵树各自投票取平均，后者是后面的树专门纠正前面树的错误，通常更准。",
+    "params": [
+      {
+        "k": "task_type",
+        "v": "regression / classification / clustering"
+      },
+      {
+        "k": "model_name",
+        "v": "如 linear_regression、random_forest_clf、xgboost_reg"
+      },
+      {
+        "k": "feature_cols / target_col",
+        "v": "特征列与目标列"
+      },
+      {
+        "k": "tune_hyperparams",
+        "v": "是否启用交叉验证 + GridSearchCV 自动调参"
+      }
+    ],
+    "scenarios": [
+      "收益率预测、违约预测、客户分群等标准建模任务",
+      "快速对比多个算法的效果上限"
+    ],
+    "pitfalls": [
+      "类别不平衡时（如坏人只占 1%）不能只看准确率——全预测「好人」也能有 99% 准确率，要看 PR 曲线与召回率",
+      "特征重要性和因果是两件事：重要性只说明相关，不代表改动这个变量能影响结果",
+      "XGBoost 在本项目中是可选依赖，未安装时自动降级（这是有意的可用性设计）"
+    ],
+    "tips": [
+      "防过拟合三板斧：交叉验证调参、看学习曲线、控制树深与叶节点最小样本数",
+      "和面试官聊「相关不等于因果」时，正好引出本平台的 DID 模块——这是跨模块的加分回答"
+    ],
+    "related": [
+      "特征工程",
+      "模型版本管理",
+      "信用评分卡"
+    ]
+  },
+  {
+    "name": "特征工程",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "从原始数据自动造出更有信息量的衍生变量",
+    "detail": "原始数据往往不能直接喂给模型。比如你想预测明天的销量，光有「今天的销量」这一个字段效果一般，但如果造出「最近 7 天平均销量」「比上周增长了多少」这些衍生变量，模型就能捕捉趋势。特征工程就是干这个的。平台支持自动生成：滞后特征（昨天的值）、滚动统计（近 N 天均值/标准差）、增长率、差分、日期特征（星期几、是否月末）、类别交叉、数值交叉，并提供一键式自动流水线。",
+    "params": [
+      {
+        "k": "lag",
+        "v": "滞后特征：把过去 N 期的值作为特征"
+      },
+      {
+        "k": "rolling",
+        "v": "滚动窗口统计（均值/方差/最大最小）"
+      },
+      {
+        "k": "growth / diff",
+        "v": "增长率与差分（平稳化常用）"
+      },
+      {
+        "k": "date",
+        "v": "从日期列提取星期、月份、季度等"
+      },
+      {
+        "k": "cross",
+        "v": "类别交叉与数值交叉"
+      }
+    ],
+    "scenarios": [
+      "时序预测建模前的特征构造",
+      "把业务经验（如「月初月末消费高」）编码成模型可用的特征"
+    ],
+    "pitfalls": [
+      "时序数据必须按时间切分训练/测试集，用随机切分会导致未来信息泄漏（前视偏差）",
+      "滞后特征的构建必须严格用「当时可得」的信息，否则回测很漂亮但实盘失效"
+    ],
+    "tips": [
+      "一句话：特征工程决定模型效果的上限，算法只是逼近这个上限",
+      "最常被问的坑：前视偏差（look-ahead bias）——一定要能说清楚怎么防"
+    ],
+    "related": [
+      "机器学习建模",
+      "时序分析"
+    ]
+  },
+  {
+    "name": "AI研究助理（智能体）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "用大白话提问，它自己决定调哪些工具、按顺序跑完并出报告",
+    "detail": "普通 AI 聊天只能「说」，这个助理能「干」。你问「帮我看看这家公司值不值得投」，它自己想：要先拉财务数据 → 再算财务比率 → 再做估值 → 最后生成报告，然后自己把这些工具按顺序跑完，出一份完整报告。技术上基于 LangGraph 把流程做成一张「状态图」而不是一条直线：可以判断、可以循环、可以在某一步停下来等你确认，每一步状态都存下来（Checkpoint），断掉能接着跑。它手上能调 19 个领域工具，包括财务比率/杜邦拆解、DCF 估值、DID 回归、假设检验、ADF/ARIMA、建模训练、NL2SQL 取数、联网检索等。",
+    "scenarios": [
+      "不懂代码的分析需求：一句话拿到完整分析报告",
+      "把多个分析步骤串成自动化流程（取数 → 分析 → 建模 → 出图 → 报告）"
+    ],
+    "pitfalls": [
+      "AI 会编数据，金融场景尤其致命——因此配套了检索增强与溯源审计两层防护",
+      "工具调用依赖数据文件可用，提问时要说明针对哪个数据集",
+      "复杂任务耗时长，长任务建议用异步方式并跟踪调用轨迹"
+    ],
+    "tips": [
+      "为什么用 LangGraph 不用 ReAct 循环：需要分支、并行、人工介入的场景，链式循环表达不了",
+      "口语讲法：不是聊天机器人，是能真调工具的调度器"
+    ],
+    "related": [
+      "RAG混合检索",
+      "数字溯源审计",
+      "NL2SQL"
+    ]
+  },
+  {
+    "name": "RAG混合检索",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "关键词匹配 + 语义匹配三路并行，结果融合后再精排，比单一方法准很多",
+    "detail": "RAG（检索增强生成）的思路是：AI 回答前先去知识库查资料，而不是凭记忆瞎编。查的方法有三种一起上——BM25 和 TF-IDF 是关键词匹配（擅长精确匹配术语，比如搜「久期」），向量检索是语义匹配（意思相近就行，搜「利率敏感度」也能找到「久期」）。三路结果按排名融合（RRF 算法），再用更精细的 Cross-Encoder 模型重新排序。打个比方：找资料时，你既让懂关键词的同事找，又让懂语义的同事找，两份名单融合去重，最后请专家排序。",
+    "params": [
+      {
+        "k": "BM25 / TF-IDF",
+        "v": "稀疏检索：关键词精确匹配"
+      },
+      {
+        "k": "向量检索",
+        "v": "sentence-transformers 中文向量，语义相近即命中"
+      },
+      {
+        "k": "RRF",
+        "v": "Reciprocal Rank Fusion，按排名倒数融合（k=60），不依赖分数归一化"
+      },
+      {
+        "k": "Cross-Encoder",
+        "v": "精排：把问题和候选拼在一起过模型，更准但更慢，只对 Top-K 使用"
+      }
+    ],
+    "scenarios": [
+      "金融知识问答：术语、公式、口径的解释",
+      "企业内部文档检索问答"
+    ],
+    "pitfalls": [
+      "向量模型或 Cross-Encoder 未安装时会自动降级为关键词检索（有意设计），但效果会下降",
+      "检索分数低于置信度门槛时不应强行注入上下文，宁可说「知识库没有」也不要误导模型"
+    ],
+    "tips": [
+      "为什么两段式（粗排+精排）：Cross-Encoder 计算量随候选数线性增长，全库跑不现实",
+      "RRF 的好处：不需要把不同方法的分数归一化到同一量纲"
+    ],
+    "related": [
+      "AI研究助理（智能体）",
+      "数字溯源审计"
+    ]
+  },
+  {
+    "name": "数字溯源审计",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "报告里每个数字都要能追到原文出处，追不到的自动标「待核对」",
+    "detail": "大模型最危险的问题是「幻觉」——一本正经地编造不存在的数据。金融场景里编数据是致命的（可能直接导致投资决策错误）。平台的做法是「数字—来源」溯源审计：从 AI 生成的报告里提取所有数字 token，回到本轮检索命中的原文片段里逐一比对，能找到出处的放行，找不到的自动追加「待核对」提示，让用户人工复核。这不能 100% 消灭幻觉，但能把「看不见的错误」变成「可见的待办」。",
+    "scenarios": [
+      "AI 生成的投研报告发布前的质量把关",
+      "任何「AI 输出会被用于决策」的场景"
+    ],
+    "pitfalls": [
+      "溯源只能验证数字是否在检索内容中出现，不能保证数字被正确理解（语境错配仍可能发生）",
+      "检索没覆盖到的真实数据也会被标「待核对」，需要人工判断而不是一律当成错误"
+    ],
+    "tips": [
+      "口语讲法：把「看不见的错误」变成「看得见的待办」",
+      "这是金融场景 AI 落地的关键差异点，值得在面试中展开"
+    ],
+    "related": [
+      "RAG混合检索",
+      "AI研究助理（智能体）"
+    ]
+  },
+  {
+    "name": "NL2SQL（自然语言查数据库）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把「帮我查一下各地区营收总和」翻译成数据库能执行的 SQL",
+    "detail": "NL2SQL 让不会写 SQL 的人也能查数据库：你说一句白话，系统识别意图、匹配表结构（schema linking）、生成 SQL 语句并执行返回结果。平台还带反馈闭环与 A/B 测试：不同版本的 Prompt 模板按流量分配，记录成功率，还能收集 Bad Case（错误 SQL）用于迭代优化。生成的 SQL 会经过只读校验，只允许 SELECT，防止误删误改。",
+    "params": [
+      {
+        "k": "query",
+        "v": "自然语言查询语句"
+      },
+      {
+        "k": "session_id",
+        "v": "会话标识（用于 A/B 版本一致性与反馈归集）"
+      }
+    ],
+    "scenarios": [
+      "业务人员自助取数，不依赖数据分析师写 SQL",
+      "对话式数据探索"
+    ],
+    "pitfalls": [
+      "必须先连接数据库并指定可用的表结构，否则会生成指向示例表的 SQL 而报「表不存在」",
+      "生成的 SQL 必须做只读校验（只允许 SELECT）并加超时与 LIMIT，防止慢查询拖垮库",
+      "置信度低时要主动向用户澄清，而不是硬猜一个 SQL"
+    ],
+    "tips": [
+      "一句话：NL2SQL 是「对话式取数」的入口，安全约束（只读 + 超时 + LIMIT）比准确率更优先",
+      "A/B 测试 + Bad Case 归集是 Prompt 持续优化的通用套路"
+    ],
+    "related": [
+      "AI研究助理（智能体）",
+      "SQL只读守卫"
+    ]
+  },
+  {
+    "name": "时序分析（ADF/ARIMA/Prophet）",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "判断序列稳不稳、找出趋势与季节规律、预测未来若干期",
+    "detail": "时间序列分析回答三个问题：①这条序列「稳不稳」（ADF 单位根检验，不稳就要差分）②它由什么组成（STL 分解：趋势 + 季节 + 残差）③未来会怎样（ARIMA / SARIMA / Prophet 预测）。ADF 检验的原假设是「存在单位根（不平稳）」，p 值小于 0.05 才能拒绝原假设、认为序列平稳。ARIMA 通过差分把序列变平稳后再建模，适合有自相关的数据；Prophet 把趋势、季节、节假日分别建模，对缺失值和异常值更宽容。",
+    "params": [
+      {
+        "k": "ADF",
+        "v": "auto_diff 自动差分；diff_order 手动指定差分阶数"
+      },
+      {
+        "k": "ARIMA 阶数",
+        "v": "(p, d, q) 与季节性 (P, D, Q, s)"
+      },
+      {
+        "k": "Prophet",
+        "v": "periods 预测期数；需要已安装 cmdstan 后端"
+      }
+    ],
+    "scenarios": [
+      "销量/流量预测、宏观指标走势外推",
+      "建模前的序列平稳性判断（否则回归会出现伪回归）"
+    ],
+    "pitfalls": [
+      "Prophet 依赖 Stan 计算后端（cmdstan），未安装时无法拟合——平台会给出明确提示并建议改用 ARIMA（本机当前 cmdstan 因网络限制未装成功）",
+      "ARIMA 要求序列平稳，不差分直接建模常见于伪回归",
+      "预测期越长置信区间越宽，不要拿远期预测当确定性结论"
+    ],
+    "tips": [
+      "ADF 原假设是「不平稳」，所以 p 小才说明平稳（方向和直觉相反，容易记错）",
+      "Prophet 与 ARIMA 的取舍：数据有强季节性和缺失值选 Prophet，纯自回归结构选 ARIMA"
+    ],
+    "related": [
+      "特征工程",
+      "机器学习建模"
+    ]
+  },
+  {
+    "name": "假设检验",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "用数据判断两组差异是真实存在，还是随机波动造成的",
+    "detail": "假设检验回答的是「这个差异是不是真的」。比如 A/B 两组用户的消费金额不同，这个差异是策略有效，还是碰巧？做法是先设一个原假设（两组没有差异），然后算 p 值——p 值表示「如果原假设成立，观察到当前这种差异的概率」。p 小于 0.05 通常认为差异显著。平台支持 T 检验（比较两组均值）、方差分析 ANOVA（比较多组）、正态性检验、分布拟合等，并配可视化（箱线图）辅助判断。",
+    "params": [
+      {
+        "k": "test_type",
+        "v": "ttest_ind（独立样本）/ ttest_rel（配对）/ anova 等"
+      },
+      {
+        "k": "value_col / group_col",
+        "v": "数值列与分组列"
+      },
+      {
+        "k": "group_a / group_b",
+        "v": "要比较的两个组名"
+      }
+    ],
+    "scenarios": [
+      "A/B 实验效果显著性判断",
+      "业务假设验证（如「新流程是否真的缩短了处理时长」）"
+    ],
+    "pitfalls": [
+      "p 值不显著不代表「没有差异」，可能只是样本量不够（功效不足）",
+      "多重比较不做校正会显著提高假阳性率（跑 20 次检验平均会有 1 次假显著）",
+      "T 检验假设数据近似正态或样本量足够大，偏态严重时应改用非参数检验"
+    ],
+    "tips": [
+      "一句话讲 p 值：假设没有差异，出现当前结果的概率有多小",
+      "别把「显著」等同于「重要」——统计显著可能只是效应很小的差异被大样本放大了"
+    ],
+    "related": [
+      "DID双重差分",
+      "正态性检验"
+    ]
+  },
+  {
+    "name": "数据清洗",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "缺失值、重复值、异常值、格式错误——分析前必须先把数据收拾干净",
+    "detail": "脏数据会让再高级的模型都失效（垃圾进垃圾出）。平台提供完整的清洗工作台：缺失值检测与填补（均值/中位数/前后填充/删除）、缺失值热力图可视化、重复值去除、异常值识别、格式转换（日期解析、类型转换、编码转换）、文本清洗、条件筛选，并且每一步操作可撤销、有操作日志、可保存成新的数据文件。",
+    "scenarios": [
+      "拿到原始数据（如证券交易所导出的 csv）后的第一步处理",
+      "建模前的数据质量体检"
+    ],
+    "pitfalls": [
+      "缺失值填补会引入偏差，均值填补会压缩方差——缺失比例高时应考虑删除该列或改用模型填补",
+      "清洗必须保留原始文件，所有变换生成新文件（平台支持撤销与日志）",
+      "异常值不一定要删：可能是真实极端事件，也可能正是你要研究的对象（如风险事件）"
+    ],
+    "tips": [
+      "顺序：先看缺失（热力图）→ 去重 → 处理异常 → 转换格式 → 保存新文件",
+      "口述要点：每一步都可撤销 + 有操作日志，这是工程严谨性的体现"
+    ],
+    "related": [
+      "数据血缘追踪",
+      "特征工程"
+    ]
+  },
+  {
+    "name": "报告导出",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "把分析结果一键导出成 Word / Excel / PDF 研究报告",
+    "detail": "分析做完要能交付。平台内置报告生成器，把数据结论、图表、文字说明组织成结构化文档，支持 Word（python-docx）、Excel（openpyxl）、PDF 三种格式，并提供多种报告模板（A股月度量化分析、电商销售周报、数据探索性分析、财务分析报告）。AI 助手生成的结论也能一键保存进报告。",
+    "params": [
+      {
+        "k": "template",
+        "v": "monthly_quant / weekly_sales / data_exploration / financial_statement"
+      },
+      {
+        "k": "file",
+        "v": "作为报告数据源的文件"
+      }
+    ],
+    "scenarios": [
+      "定期报告的自动化产出（周报/月报）",
+      "分析结论的对外交付"
+    ],
+    "pitfalls": [
+      "模板名必须精确匹配，传错模板名会返回「Unknown template」错误",
+      "图表要能嵌入文档，需注意中文字体配置（否则中文显示为方块）"
+    ],
+    "tips": [
+      "一句话：报告导出是分析链路的最后一公里，决定成果能否被别人使用",
+      "配合 AI 助手可以做到「一句话出报告」"
+    ],
+    "related": [
+      "AI研究助理（智能体）",
+      "平台总览（这个平台能干什么）"
+    ]
+  },
+  {
+    "name": "数据血缘追踪",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "任何一个产出文件都能追问「你从哪来、经过了哪些加工」",
+    "detail": "数据血缘记录数据的来龙去脉：这个结果是基于哪个文件、经过了哪些步骤（上传/爬取/清洗/特征工程/训练/报告）产生的。平台用事件日志（LineageManager）记录每个环节，并在文件管理里维护快照与来源字段。好处有三：①出问题时能快速定位是哪个环节坏了；②满足审计要求（数据可追溯）；③避免误删上游文件导致下游全部失效。",
+    "scenarios": [
+      "数据质量问题的根因定位",
+      "合规审计：需要证明某个结论的数据来源与加工过程"
+    ],
+    "pitfalls": [
+      "血缘依赖埋点覆盖完整，新增功能如果没打点，链路会断",
+      "血缘记录的是「关系」不是「内容」，文件被覆盖后血缘仍指向同一路径，要注意版本管理"
+    ],
+    "tips": [
+      "一句话：血缘就是数据的「家谱」，出问题能顺藤摸瓜",
+      "工程价值：让数据链路可诊断、可审计、可复现"
+    ],
+    "related": [
+      "数据清洗",
+      "模型版本管理"
+    ]
+  },
+  {
+    "name": "模型版本管理",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "每次训练都存档模型与指标，新模型不好可以一键退回上一版",
+    "detail": "模型不是训练一次就完事：数据更新、参数调整都会产生新版本，如果新版本效果变差而旧版本被覆盖，就麻烦了。平台的做法是每次训练把模型文件与旁挂的 .meta.json（记录指标、参数、训练时间）一起存档，支持版本列表、版本对比、一键回滚，预测时默认使用当前生效版本。另外模型加载走安全加载器（白名单校验可信类型前缀），防止加载来路不明的模型文件时执行恶意代码。",
+    "params": [
+      {
+        "k": "/api/ml/models/versions",
+        "v": "列出版本及指标"
+      },
+      {
+        "k": "/api/ml/models/rollback",
+        "v": "回滚到指定版本"
+      },
+      {
+        "k": "/api/ml/models/compare",
+        "v": "对比多个版本的指标"
+      }
+    ],
+    "scenarios": [
+      "生产模型迭代与灰度切换",
+      "复现历史结论（当时用的是哪版模型）"
+    ],
+    "pitfalls": [
+      "为什么不能用 joblib 直接 load：pickle 反序列化可能执行任意代码，必须走白名单安全加载",
+      "回滚要同时回滚预处理流程（分箱规则、标准化参数），否则线上线下不一致"
+    ],
+    "tips": [
+      "一句话：模型版本管理 = 机器学习的「存档/读档」",
+      "安全加载与预处理一致性是两个高频追问点，提前准备"
+    ],
+    "related": [
+      "机器学习建模",
+      "数据血缘追踪"
+    ]
+  },
+  {
+    "name": "插件系统与安全沙箱",
+    "category": "platform",
+    "tab": "平台功能",
+    "desc": "让用户自定义分析逻辑，但同时限制它不能乱来",
+    "detail": "平台支持插件机制扩展分析能力，同时允许执行用户提供的公式与代码。风险在于：用户代码可能删文件、读隐私数据、占满内存。因此做了多层防护：代码在独立子进程沙箱中执行（Windows 下用 Job Object 限制内存，默认 512MB）；公式求值禁止直接 eval，改为沙箱化求值器并拦截危险语法（属性访问、方括号成员访问等）；SQL 只有只读守卫（仅允许 SELECT + 超时 + 强制 LIMIT）；文件路径统一校验必须落在输出目录内，防止路径穿越。",
+    "scenarios": [
+      "扩展平台能力（自定义指标、定制分析流程）",
+      "任何允许用户提交代码的 SaaS 场景的安全基线"
+    ],
+    "pitfalls": [
+      "沙箱不是万能的：白名单/黑名单都需要持续维护，新语法可能绕过旧规则",
+      "路径穿越（../../）是最常见的一类漏洞，必须用「resolve 后校验是否在允许目录内」的方式防"
+    ],
+    "tips": [
+      "口述要点：安全设计的关键是「默认拒绝」而不是「列出禁止项」",
+      "被问「用户代码怎么执行才安全」：独立进程 + 资源限额 + 语法白名单 + 路径校验，四层"
+    ],
+    "related": [
+      "NL2SQL（自然语言查数据库）",
+      "模型版本管理"
+    ]
+  }
+];
+
+const KB_CAT_LABELS = {
+  platform: '平台功能', finance: '金融数据', ml: '机器学习', stats: '统计分析', ts: '时序分析',
+  'finance-model': '金融建模', data: '数据处理', nlp: 'NLP与RAG',
+  viz: '可视化', ai: 'AI提效', system: '系统工程'
+};
+
+function kbEscape(s) {
+  return String(s == null ? '' : s).replace(/[&<>]/g, function (m) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m];
+  });
+}
+function kbSection(title, bodyHtml) {
+  return '<div style="margin-top:18px;">' +
+    '<div style="font-weight:600;color:var(--accent);margin-bottom:6px;border-left:3px solid var(--accent);padding-left:8px;">' + title + '</div>' +
+    bodyHtml + '</div>';
+}
+function kbList(arr) {
+  return '<ul style="margin:0;padding-left:20px;">' +
+    arr.map(function (s) { return '<li style="margin:4px 0;">' + kbEscape(s) + '</li>'; }).join('') + '</ul>';
+}
+function kbParams(params) {
+  return '<ul style="margin:0;padding-left:20px;">' +
+    params.map(function (p) { return '<li><b>' + kbEscape(p.k) + '</b>：' + kbEscape(p.v) + '</li>'; }).join('') + '</ul>';
+}
+
+function renderKbGrid(list) {
+  const grid = document.getElementById('kb-grid');
+  grid.innerHTML = '';
+  if (!list.length) {
+    grid.innerHTML = '<p style="color:var(--ink-subtle);grid-column:1/-1;">未找到匹配的知识点，换个关键词试试。</p>';
+    return;
+  }
+  list.forEach(function (item) {
+    const card = document.createElement('div');
+    card.className = 'kb-card';
+    card.innerHTML =
+      '<div style="font-weight:600;font-size:15px;margin-bottom:6px;">' + kbEscape(item.name) + '</div>' +
+      '<div style="color:var(--ink-subtle);font-size:13px;line-height:1.6;">' + kbEscape(item.desc) + '</div>' +
+      '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">' +
+        '<span class="kb-tag">' + kbEscape(item.tab) + '</span>' +
+        '<span class="kb-tag">' + kbEscape(KB_CAT_LABELS[item.category] || item.category) + '</span>' +
+      '</div>';
+    card.onclick = function () { openKbModal(item); };
+    grid.appendChild(card);
+  });
+}
+
+function filterKnowledge() {
+  const q = (document.getElementById('kb-search').value || '').trim().toLowerCase();
+  const cat = document.getElementById('kb-category').value;
+  const tab = document.getElementById('kb-tab').value;
+  const list = kbData.filter(function (it) {
+    if (cat && it.category !== cat) return false;
+    if (tab && it.tab !== tab) return false;
+    if (q) {
+      const hay = (it.name + ' ' + it.desc + ' ' + it.detail + ' ' + (it.related || []).join(' ')).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  renderKbGrid(list);
+}
+
+function openKbModal(item) {
+  document.getElementById('kb-modal-title').textContent = item.name;
+  document.getElementById('kb-modal-tags').innerHTML =
+    '<span class="kb-tag">' + kbEscape(item.tab) + '</span>' +
+    '<span class="kb-tag">' + kbEscape(KB_CAT_LABELS[item.category] || item.category) + '</span>';
+  let h = '<p style="margin:0;">' + kbEscape(item.detail) + '</p>';
+  if (item.formula) h += kbSection('公式', '<code style="background:var(--bg-muted);padding:2px 6px;border-radius:4px;">' + kbEscape(item.formula) + '</code>');
+  if (item.params && item.params.length) h += kbSection('主要参数', kbParams(item.params));
+  if (item.scenarios && item.scenarios.length) h += kbSection('适用场景', kbList(item.scenarios));
+  if (item.pitfalls && item.pitfalls.length) h += kbSection('常见踩坑', kbList(item.pitfalls));
+  if (item.cases) h += kbSection('实战案例扩展', '<p style="margin:0;">' + kbEscape(item.cases).replace(/\n/g, '<br>') + '</p>');
+  if (item.tips && item.tips.length) h += kbSection('注意事项', kbList(item.tips));
+  if (item.example) h += kbSection('示例代码', '<pre style="background:var(--bg-muted);padding:12px;border-radius:8px;overflow:auto;font-size:13px;margin:0;"><code>' + kbEscape(item.example) + '</code></pre>');
+  if (item.related && item.related.length) h += kbSection('相关概念', item.related.map(function (r) { return '<span class="kb-tag">' + kbEscape(r) + '</span>'; }).join(' '));
+  document.getElementById('kb-modal-content').innerHTML = h;
+  document.getElementById('kb-modal').style.display = 'flex';
+}
+function closeKbModal() { document.getElementById('kb-modal').style.display = 'none'; }
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeKbModal(); });
+
+(function initKb() {
+  const sel = document.getElementById('kb-tab');
+  const tabs = Array.from(new Set(kbData.map(function (it) { return it.tab; })));
+  tabs.forEach(function (t) {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    sel.appendChild(o);
+  });
+  const hint = document.getElementById('kb-count-hint');
+  if (hint) hint.textContent = tabs.length + ' 个标签页 · ' + kbData.length + ' 个核心概念 · 点击卡片查看详细';
+  renderKbGrid(kbData);
+  filterKnowledge();
+})();
+</script>

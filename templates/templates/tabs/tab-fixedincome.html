@@ -1,0 +1,98 @@
+<!-- ======================== 固定收益分析 ======================== -->
+<div id="tab-fixedincome" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📈</span>
+    <span class="cf-label">固定收益证券分析</span>
+    <span class="cf-hint">久期 / 凸性 / 收益率曲线 / 信用利差 / 压力测试</span>
+  </div>
+
+  <!-- 1. 单债计算器 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">① 单债计算器</div>
+      <div class="c-sub">价格 / 麦考利久期 / 修正久期 / 凸性 / DV01</div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="fg"><label>票息率 %（年化）</label><input type="number" id="fi-coupon" value="3" step="0.01"></div>
+      <div class="fg"><label>到期收益率 YTM %</label><input type="number" id="fi-ytm" value="3.5" step="0.01"></div>
+      <div class="fg"><label>期限（年）</label><input type="number" id="fi-maturity" value="10" step="0.5"></div>
+      <div class="fg"><label>年付息次数</label><input type="number" id="fi-freq" value="2" min="1" max="12"></div>
+      <div class="fg"><label>面值</label><input type="number" id="fi-face" value="100" step="1"></div>
+      <div class="fg"><label>应计利息占比(0~1)</label><input type="number" id="fi-accrual" value="0" step="0.05" min="0" max="1"></div>
+    </div>
+    <button class="btn primary" style="margin-top:12px" onclick="fiCalcBond()">计算单债指标</button>
+    <div id="fi-bond-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 2. 组合分析 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">② 组合分析（久期 / 凸性加权）</div>
+      <div class="c-sub">上传/粘贴债券持仓 CSV，或逐行录入</div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="fg">
+        <label>持仓 CSV（表头：name,coupon,ytm,maturity,freq,face,market_value）</label>
+        <textarea id="fi-port-csv" rows="7" placeholder="国债A,3,3.2,10,2,100,500&#10;信用债B,5,4.8,5,2,100,300"></textarea>
+      </div>
+      <div class="fg">
+        <label>或逐个录入（每行一只：名称,票息,ytm,期限,付息次数,面值,市值）</label>
+        <textarea id="fi-port-rows" rows="7" placeholder="国债A,3,3.2,10,2,100,500"></textarea>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr auto;gap:12px;margin-top:10px;align-items:end">
+      <div class="fg" style="margin:0"><label>示例 CSV 表头</label><code style="display:block;padding:6px 8px;background:var(--bg-muted);border-radius:6px;font-size:12px">name,coupon,ytm,maturity,freq,face,market_value</code></div>
+      <button class="btn primary" onclick="fiCalcPortfolio()">计算组合</button>
+    </div>
+    <div id="fi-port-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 3. 收益率曲线 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">③ 收益率曲线形态</div>
+      <div class="c-sub">判定 陡峭/平坦/倒挂 + 关键期限利差</div>
+    </div>
+    <div id="fi-curve-rows" style="margin-bottom:8px">
+      <div class="grid fi-curve-row" style="grid-template-columns:1fr 1fr auto;gap:10px;margin-bottom:6px">
+        <input placeholder="期限 如 2Y / 10 / 3M" class="cr-tenor">
+        <input placeholder="收益率 %" class="cr-yield" type="number" step="0.01">
+        <button class="btn ghost" onclick="fiRemoveCurveRow(this)">✕</button>
+      </div>
+    </div>
+    <button class="btn ghost" onclick="fiAddCurveRow()">+ 添加期限点</button>
+    <button class="btn primary" style="margin-left:8px" onclick="fiCalcCurve()">分析曲线</button>
+    <div id="fi-curve-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 4. 信用利差 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">④ 信用利差 / OAS</div>
+      <div class="c-sub">信用债 YTM − 同期限国债 YTM</div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="fg"><label>信用债 YTM %</label><input type="number" id="fi-credit" value="4.8" step="0.01"></div>
+      <div class="fg"><label>同期限国债 YTM %</label><input type="number" id="fi-bench" value="3.2" step="0.01"></div>
+      <div class="fg"><label>期权成本 %（含权债）</label><input type="number" id="fi-opt" value="0" step="0.01"></div>
+      <div class="fg"><label>违约概率 PD（可选）</label><input type="number" id="fi-pd" value="" step="0.001" placeholder="0~1"></div>
+      <div class="fg"><label>违约损失率 LGD（可选）</label><input type="number" id="fi-lgd" value="" step="0.01" placeholder="0~1"></div>
+      <div class="fg" style="align-self:end"><button class="btn primary" onclick="fiCalcSpread()">计算利差</button></div>
+    </div>
+    <div id="fi-spread-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 5. 压力测试 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">⑤ 利率压力测试</div>
+      <div class="c-sub">组合在平行冲击下的价值变动（久期 + 凸性二阶修正）</div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr auto;gap:12px;align-items:end">
+      <div class="fg" style="margin:0"><label>冲击情景（bp，逗号分隔，如 50,-25,100）</label><input id="fi-shocks" value="50,-25,100"></div>
+      <button class="btn primary" onclick="fiCalcStress()">运行压力测试</button>
+    </div>
+    <p style="font-size:12px;color:var(--ink-subtle);margin:8px 0 0">组合数据复用上方「② 组合分析」的 CSV / 逐行录入内容。</p>
+    <div id="fi-stress-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+</div>

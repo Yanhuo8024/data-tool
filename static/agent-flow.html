@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent 流程追踪 · data.tool</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#ffffff; --panel2:#fafbfc; --border:#e2e5ea;
+    --text:#1b1f24; --muted:#6b7280; --accent:#4f46e5;
+    --ok:#16a34a; --warn:#d97706; --err:#dc2626; --info:#2563eb; --skip:#94a3b8;
+    --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1115; --panel:#171a21; --panel2:#1c2028; --border:#2a303b;
+      --text:#e6e8ee; --muted:#98a1b0; --accent:#8b8cf7;
+      --shadow:0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);
+         border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+  header h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12px}
+  .grow{flex:1}
+  button{font:inherit;padding:5px 11px;border-radius:6px;border:1px solid var(--border);
+         background:var(--panel2);color:var(--text);cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{display:grid;grid-template-columns:300px 1fr;gap:14px;padding:14px 18px 40px;align-items:start}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+  .panel h2{font-size:12px;margin:0;padding:10px 13px;border-bottom:1px solid var(--border);
+            color:var(--muted);font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+  /* 看板 */
+  #dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+  .stat{padding:12px 14px}
+  .stat .k{color:var(--muted);font-size:11px;letter-spacing:.3px}
+  .stat .v{font-size:20px;font-weight:650;margin-top:3px;font-variant-numeric:tabular-nums}
+  .stat .d{color:var(--muted);font-size:11px;margin-top:2px}
+  .bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:8px;display:flex}
+  .bar i{display:block;height:100%}
+  /* 列表 */
+  #runList{max-height:calc(100vh - 260px);overflow:auto}
+  .run{padding:9px 13px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:9px}
+  .run:hover{background:var(--panel2)}
+  .run.sel{background:color-mix(in srgb,var(--accent) 12%,transparent);
+           box-shadow:inset 3px 0 0 var(--accent)}
+  .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+  .run .t{flex:1;min-width:0}
+  .run .msg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}
+  .run .meta{color:var(--muted);font-size:11px;margin-top:2px;white-space:nowrap;
+             overflow:hidden;text-overflow:ellipsis}
+  .tag{display:inline-block;padding:0 5px;border-radius:4px;font-size:10.5px;
+       border:1px solid currentColor;margin-left:4px;vertical-align:1px}
+  /* 详情 */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;padding:11px 14px}
+  .kv .k{color:var(--muted);font-size:11.5px}
+  .kv .v{font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prob{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;
+        display:flex;gap:9px;align-items:flex-start}
+  .prob:last-child{border-bottom:none}
+  .prob:hover{background:var(--panel2)}
+  .prob .badge{flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;color:#fff;margin-top:1px}
+  .prob .ttl{font-weight:600;font-size:12.5px}
+  .prob .det{color:var(--muted);font-size:12px;margin-top:2px}
+  .prob .hint{color:var(--info);font-size:11.5px;margin-top:3px}
+  .okmsg{padding:18px;text-align:center;color:var(--ok);font-size:13px}
+  /* 时间线 */
+  #timeline{padding:12px 14px 6px}
+  .ruler{display:grid;grid-template-columns:88px 1fr;gap:8px;margin-bottom:6px}
+  .ruler .r{position:relative;height:14px;color:var(--muted);font-size:10.5px;
+            border-bottom:1px dashed var(--border)}
+  .ruler .r span{position:absolute;transform:translateX(-50%)}
+  .lane{display:grid;grid-template-columns:88px 1fr;gap:8px;align-items:center;margin-bottom:7px}
+  .lane .lb{font-size:11.5px;color:var(--muted);text-align:right;padding-right:2px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track{position:relative;height:26px;background:var(--panel2);border-radius:5px;
+         border:1px solid var(--border)}
+  .lane.hl .track{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .seg{position:absolute;top:5px;height:16px;border-radius:3px;opacity:.30}
+  .seg.ok{background:var(--ok)} .seg.warn{background:var(--warn)}
+  .seg.fail{background:var(--err)} .seg.skip{background:var(--skip)}
+  .nd{position:absolute;top:8px;width:10px;height:10px;border-radius:50%;
+      border:2px solid var(--panel);cursor:pointer;transform:translateX(-5px)}
+  .nd.ok{background:var(--ok)} .nd.warn{background:var(--warn)}
+  .nd.fail{background:var(--err)} .nd.skip{background:var(--skip)}
+  .nd.sel{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent);z-index:5}
+  .nd:hover{transform:translateX(-5px) scale(1.35)}
+  /* 节点表 */
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;font-size:11px;position:sticky;top:0;background:var(--panel)}
+  tr.cand{cursor:pointer} tr.cand:hover{background:var(--panel2)}
+  tr.hl{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+  .empty{padding:26px;text-align:center;color:var(--muted)}
+  .pill{padding:1px 7px;border-radius:10px;font-size:11px;border:1px solid currentColor}
+  .c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-err{color:var(--err)}
+  .c-info{color:var(--info)} .c-muted{color:var(--muted)}
+  .scroll{max-height:280px;overflow:auto}
+  details summary{cursor:pointer;padding:8px 13px;color:var(--muted);font-size:11.5px}
+  pre{margin:0;padding:0 13px 12px;font-size:11.5px;white-space:pre-wrap;word-break:break-all;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent 流程追踪</h1>
+  <span class="sub" id="conn">正在连接…</span>
+  <span class="grow"></span>
+  <span class="sub" id="upd"></span>
+  <a href="/static/agent-problems.html" style="font:inherit;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);text-decoration:none">问题页</a>
+  <button id="autoBtn" class="on">自动刷新</button>
+  <button id="reloadBtn">立即刷新</button>
+</header>
+
+<main>
+  <div>
+    <div id="dashboard"></div>
+    <div class="panel">
+      <h2>运行列表</h2>
+      <div id="runList"><div class="empty">加载中…</div></div>
+    </div>
+  </div>
+  <div id="detail">
+    <div class="empty panel" style="padding:40px">从左侧选择一次运行，查看流程时间线与故障定位</div>
+  </div>
+</main>
+
+<script>
+const $ = (s, r) => (r || document).querySelector(s);
+const LV = {ok:'ok', warn:'warn', error:'err'};
+const ST = {ok:['ok','成功'], degraded:['warn','降级'], failed:['err','失败'],
+            running:['info','进行中'], interrupted:['err','中断'], unknown:['warn','未知']};
+const fmtMs = v => v == null ? '—'
+  : (v >= 1000 ? (v/1000).toFixed(v >= 10000 ? 0 : 1) + 's' : v + 'ms');
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtTime = ts => { if(!ts) return ''; try{ return new Date(ts).toLocaleString('zh-CN',{hour12:false}); }catch(e){ return ''; } };
+
+let CUR = null, AUTO = true, TIMER = null;
+
+async function api(url){
+  const r = await fetch(url, {cache:'no-store'});
+  const j = await r.json().catch(()=>({ok:false,error:'响应不是 JSON'}));
+  if(!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+/* ---------------- 看板 ---------------- */
+async function loadDash(){
+  const {data:h} = await api('/api/assistant/flows/health?limit=100');
+  const bs = h.by_status || {};
+  const total = h.runs || 1;
+  const order = ['ok','degraded','failed','interrupted','running'];
+  const segs = order.filter(k=>bs[k]).map(k=>{
+    const c = ST[k] ? ST[k][0] : 'skip';
+    const color = c==='ok'?'var(--ok)':c==='warn'?'var(--warn)':c==='err'?'var(--err)':'var(--info)';
+    return `<i style="width:${(bs[k]/total*100).toFixed(1)}%;background:${color}"></i>`;
+  }).join('');
+  const legend = order.filter(k=>bs[k])
+    .map(k=>`<span class="c-${ST[k][0]}">${ST[k][1]} ${bs[k]}</span>`).join(' · ');
+
+  const topCodes = (h.codes||[]).slice(0,6).map(c=>{
+    const color = c.severity==='critical'?'var(--err)':c.severity==='warning'?'var(--warn)':'var(--info)';
+    return `<div style="display:flex;gap:7px;align-items:baseline;margin-top:5px">
+      <span style="width:7px;height:7px;border-radius:50%;background:${color};flex:none"></span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.title)}</span>
+      <span class="c-muted mono">${(c.rate*100).toFixed(0)}%</span></div>`;
+  }).join('') || '<div class="c-muted" style="margin-top:5px">暂无</div>';
+
+  const topPhases = (h.phases||[]).slice(0,5).map(p=>
+    `<div style="display:flex;gap:7px;align-items:baseline;margin-top:5px">
+      <span style="flex:1">${esc(p.label)}</span>
+      <span class="c-muted mono">${p.problem_count}</span></div>`).join('')
+    || '<div class="c-muted" style="margin-top:5px">暂无</div>';
+
+  $('#dashboard').innerHTML = `
+    <div class="panel stat"><div class="k">最近运行</div>
+      <div class="v">${h.runs}</div>
+      <div class="d">${legend || '无数据'}</div>
+      <div class="bar">${segs}</div></div>
+    <div class="panel stat"><div class="k">健康率</div>
+      <div class="v">${(h.healthy_rate*100).toFixed(0)}%</div>
+      <div class="d">标记成功的占比</div></div>
+    <div class="panel stat"><div class="k">平均耗时</div>
+      <div class="v">${fmtMs(h.avg_elapsed_ms)}</div>
+      <div class="d">按 run_end 落盘口径</div></div>
+    <div class="panel stat"><div class="k">高频问题</div>
+      <div style="margin-top:4px">${topCodes}</div></div>
+    <div class="panel stat"><div class="k">问题集中环节</div>
+      <div style="margin-top:4px">${topPhases}</div></div>`;
+}
+
+/* ---------------- 列表 ---------------- */
+async function loadList(){
+  const {data} = await api('/api/assistant/flows?limit=40');
+  if(!data.length){ $('#runList').innerHTML = '<div class="empty">暂无轨迹</div>'; return; }
+  $('#runList').innerHTML = data.map(r=>{
+    const [cls, txt] = ST[r.status] || ST.unknown;
+    const pf = r.primary_fault;
+    const pfc = pf ? (pf.severity==='critical'?'c-err':pf.severity==='warning'?'c-warn':'c-info') : '';
+    return `<div class="run" data-id="${esc(r.run_id)}">
+      <span class="dot" style="background:var(--${cls==='err'?'err':cls==='warn'?'warn':cls==='ok'?'ok':'info'})"></span>
+      <div class="t">
+        <div class="msg">${esc(r.user_message || '(无消息)')}</div>
+        <div class="meta">
+          <span class="c-${cls}">${txt}</span>
+          · ${fmtMs(r.elapsed_ms)} · ${r.tool_calls == null ? '—' : r.tool_calls} 工具
+          ${r.model ? '· ' + esc(r.model) : ''}
+          ${pf ? `<span class="${pfc} tag">${esc(pf.code)}</span>` : ''}
+        </div>
+      </div></div>`;
+  }).join('');
+  [...$('#runList').querySelectorAll('.run')].forEach(el=>
+    el.onclick = () => selectRun(el.dataset.id));
+  if(CUR) markSel();
+}
+
+function markSel(){
+  [...$('#runList').querySelectorAll('.run')].forEach(el=>
+    el.classList.toggle('sel', el.dataset.id === CUR));
+}
+
+/* ---------------- 详情 ---------------- */
+async function selectRun(id){
+  CUR = id; markSel();
+  $('#detail').innerHTML = '<div class="empty panel" style="padding:40px">加载流程…</div>';
+  let flow;
+  try{ ({flow} = await api('/api/assistant/flows/' + encodeURIComponent(id))); }
+  catch(e){ $('#detail').innerHTML = `<div class="empty panel" style="padding:40px">加载失败：${esc(e.message)}</div>`; return; }
+  render(flow);
+}
+
+function render(f){
+  const m = f.metrics, d = f.diagnosis, [cls] = ST[f.status] || ST.unknown;
+  const total = Math.max(1, m.elapsed_ms || (f.nodes.reduce((a,n)=>Math.max(a,(n.offset_ms||0)+(n.elapsed_ms||0)),0)));
+
+  /* 概要 */
+  const kv = [
+    ['状态', `<span class="c-${cls}">${(ST[f.status]||ST.unknown)[1]}</span>`],
+    ['健康分', `<span class="c-${LV[d.level]||'muted'}">${d.score}</span>`],
+    ['总耗时', fmtMs(m.elapsed_ms)],
+    ['模型', esc(m.model || '—')],
+    ['轮数', m.iterations == null ? '—' : m.iterations],
+    ['LLM 调用', m.llm_calls],
+    ['工具调用', `${m.tool_calls}${m.failed_tools ? ` <span class="c-err">(${m.failed_tools} 失败)</span>` : ''}`],
+    ['数据文件', m.has_file ? esc(m.file) : '<span class="c-muted">无</span>'],
+    ['Tokens', m.total_tokens == null ? '—' : m.total_tokens],
+    ['输出长度', m.output_len == null ? '—' : m.output_len + ' 字'],
+  ].map(([k,v])=>`<div class="k">${k}</div><div class="v">${v}</div>`).join('');
+
+  /* 诊断 */
+  const probs = (d.problems||[]);
+  const probHtml = probs.length ? probs.map((p,i)=>{
+    const bg = p.severity==='critical'?'var(--err)':p.severity==='warning'?'var(--warn)':'var(--info)';
+    const label = p.severity==='critical'?'严重':p.severity==='warning'?'警告':'提示';
+    return `<div class="prob" data-i="${i}" data-phase="${esc(p.phase||'')}"
+                 data-seq="${(p.evidence||[]).join(',')}">
+      <span class="badge" style="background:${bg}">${label}</span>
+      <div><div class="ttl">${esc(p.title)}</div>
+        <div class="det">${esc(p.detail)}</div>
+        ${p.hint ? `<div class="hint">→ ${esc(p.hint)}</div>` : ''}</div></div>`;
+  }).join('') : '<div class="okmsg">✓ 未检测到问题</div>';
+
+  /* 时间线 */
+  const scale = 100 / total;
+  const ticks = [0,.25,.5,.75,1].map(t=>
+    `<span style="left:${t*100}%">${fmtMs(Math.round(total*t))}</span>`).join('');
+  const lanes = f.phases.map(p=>{
+    const off = (p.offset_ms||0)*scale;
+    const w = Math.max(0.4, (p.elapsed_ms||0)*scale);
+    const ns = (p.node_ids||[]).map(nid=>{
+      const n = f.nodes.find(x=>x.id===nid); if(!n) return '';
+      return `<span class="nd ${n.status}" data-phase="${p.key}" data-seq="${n.seq}"
+        style="left:${(n.offset_ms||0)*scale}%"
+        title="${esc(n.label)} · ${fmtMs(n.elapsed_ms)}${n.elapsed_estimated?'（推算）':''}${n.error?'\n'+esc(n.error):''}"></span>`;
+    }).join('');
+    return `<div class="lane" data-phase="${p.key}">
+      <div class="lb" title="${esc(p.label)}">${esc(p.label)}</div>
+      <div class="track">
+        <div class="seg ${p.status}" style="left:${off}%;width:${w}%"></div>${ns}
+      </div></div>`;
+  }).join('');
+
+  /* 节点表 */
+  const rows = f.nodes.map(n=>`
+    <tr class="cand" data-seq="${n.seq}">
+      <td class="mono">${n.seq}</td>
+      <td>${esc(n.label)}</td>
+      <td class="c-muted">${esc(f.phase_defs.find(x=>x.key===n.phase)?.label || n.phase)}</td>
+      <td class="c-${LV[n.status]||'muted'}">${n.status}</td>
+      <td class="num">${fmtMs(n.elapsed_ms)}${n.elapsed_estimated?'<span class="c-muted">*</span>':''}</td>
+      <td class="c-muted mono" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${esc(JSON.stringify(n.detail||{}))}">${esc(n.error || JSON.stringify(n.detail||{}))}</td>
+    </tr>`).join('');
+
+  $('#detail').innerHTML = `
+    <div class="grid2">
+      <div class="panel"><h2>运行概要</h2><div class="kv">${kv}</div></div>
+      <div class="panel"><h2>诊断（哪一部分出了问题）</h2>
+        <div class="scroll" id="probBox">${probHtml}</div></div>
+    </div>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>流程时间线 · 总 ${fmtMs(m.elapsed_ms)}</h2>
+      <div id="timeline">
+        <div class="ruler"><div></div><div class="r">${ticks}</div></div>
+        ${lanes}
+        <div style="color:var(--muted);font-size:11px;margin-top:8px">
+          条形=阶段占用时间，圆点=事件节点（红=失败／橙=警告／绿=正常）。悬停查看详情，点击查看节点明细。
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>节点明细（${f.nodes.length}）</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>#</th><th>节点</th><th>阶段</th><th>状态</th><th class="num">耗时</th><th>详情</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <details><summary>用户消息 / 原始轨迹元信息</summary>
+        <pre>${esc(m.user_message)}\n\nrun_id: ${esc(f.run_id)}\n文件: ${esc(f.file)}\n事件数: ${f.count}</pre></details>
+    </div>`;
+
+  /* 交互：问题 → 高亮阶段与节点 */
+  [...$('#detail').querySelectorAll('.prob')].forEach(el=>{
+    el.onclick = () => {
+      const ph = el.dataset.phase, seqs = (el.dataset.seq||'').split(',').filter(Boolean);
+      [...$('#detail').querySelectorAll('.lane')].forEach(l=>
+        l.classList.toggle('hl', !!ph && l.dataset.phase === ph));
+      [...$('#detail').querySelectorAll('tr.cand')].forEach(t=>
+        t.classList.toggle('hl', seqs.includes(t.dataset.seq)));
+      const first = seqs.length && $('#detail').querySelector(`tr.cand[data-seq="${seqs[0]}"]`);
+      if(first) first.scrollIntoView({block:'center', behavior:'smooth'});
+    };
+  });
+  /* 交互：节点 → 定位问题 */
+  [...$('#detail').querySelectorAll('.nd, tr.cand')].forEach(el=>{
+    el.onclick = () => {
+      const seq = el.dataset.seq;
+      [...$('#detail').querySelectorAll('tr.cand')].forEach(t=>t.classList.toggle('hl', t.dataset.seq === seq));
+      [...$('#detail').querySelectorAll('.nd')].forEach(n=>n.classList.toggle('sel', n.dataset.seq === seq));
+      const p = probs.findIndex(x=>(x.evidence||[]).map(String).includes(String(seq)));
+      if(p >= 0){
+        const box = $('#probBox');
+        const item = box.querySelector(`.prob[data-i="${p}"]`);
+        if(item){ item.scrollIntoView({block:'nearest',behavior:'smooth'});
+                  item.style.outline = '2px solid var(--accent)';
+                  setTimeout(()=>item.style.outline='', 1200); }
+      }
+    };
+  });
+}
+
+/* ---------------- 轮询 ---------------- */
+async function refresh(){
+  try{
+    await Promise.all([loadDash(), loadList()]);
+    $('#conn').textContent = '已连接';
+    $('#upd').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN',{hour12:false});
+    if(CUR) await selectRun(CUR);
+  }catch(e){
+    $('#conn').textContent = '接口不可用：' + e.message;
+  }
+}
+function setAuto(on){
+  AUTO = on; $('#autoBtn').classList.toggle('on', on);
+  if(TIMER){ clearInterval(TIMER); TIMER = null; }
+  if(on) TIMER = setInterval(refresh, 5000);
+}
+$('#autoBtn').onclick = () => setAuto(!AUTO);
+$('#reloadBtn').onclick = refresh;
+setAuto(true); refresh();
+</script>
+</body>
+</html>

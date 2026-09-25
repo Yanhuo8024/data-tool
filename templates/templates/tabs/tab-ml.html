@@ -1,0 +1,224 @@
+﻿<!-- ======================== 机器学习 ======================== -->
+<div id="tab-ml" class="sec">
+  <!-- 当前文件指示器 -->
+  <div class="current-file-bar" id="mlFileBar">
+    <span class="cf-icon">📄</span>
+    <span class="cf-label">当前文件：</span>
+    <span class="cf-name" id="mlFileName">未选择</span>
+    <span class="cf-hint">可在顶栏切换文件</span>
+  </div>
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">模型训练</div>
+      <div class="c-sub">选择算法并训练模型</div>
+    </div>
+    <div class="grid">
+      <div class="fg">
+        <label>任务类型</label>
+        <select id="ml-task-type" onchange="onMLTaskChange()">
+          <option value="regression">回归预测</option>
+          <option value="classification">分类预测</option>
+          <option value="clustering">聚类分析</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>算法模型</label>
+        <select id="ml-model">
+          <option value="">选择模型...</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid" id="ml-target-row">
+      <div class="fg">
+        <label>目标列 (Y)</label>
+        <select id="ml-target">
+          <option value="">选择目标列...</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>测试集比例</label>
+        <select id="ml-test-size">
+          <option value="0.2" selected>20%</option>
+          <option value="0.3">30%</option>
+          <option value="0.1">10%</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid" id="ml-cluster-row" style="display:none">
+      <div class="fg">
+        <label>聚类数 K</label>
+        <input type="number" id="ml-n-clusters" value="3" min="2" max="20">
+      </div>
+    </div>
+    <div class="fg s2" style="margin-top:12px">
+      <label>特征列 (X) - 多选</label>
+      <div id="ml-features" class="flex" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+        <span class="tm">请先加载数据</span>
+      </div>
+    </div>
+    <div class="chk" style="margin-top:12px">
+      <input type="checkbox" id="ml-tune">
+      <label for="ml-tune">自动调参 (GridSearchCV)</label>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="trainMLModel()">
+        <span>开始训练</span>
+      </button>
+      <button class="btn btn-s" onclick="loadMLColumns()">
+        <span>刷新列</span>
+      </button>
+    </div>
+  </div>
+  <div id="ml-results" class="card hide">
+    <div class="c-head">
+      <div class="c-title">训练结果</div>
+      <div class="c-sub" id="ml-result-model"></div>
+    </div>
+    <div id="ml-metrics"></div>
+    <div class="cg" id="ml-charts"></div>
+  </div>
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">模型预测</div>
+      <div class="c-sub">使用训练好的模型进行预测</div>
+    </div>
+    <div id="ml-predict-form">
+      <p class="tm">请先训练模型，然后在此处进行预测</p>
+    </div>
+  </div>
+
+  <!-- ============ 算法分类说明 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">算法分类与场景推荐</div><div class="c-sub">回归 / 分类 / 聚类 — 算法详解与适用场景</div></div>
+    <div id="ml-catalog" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+      <div style="padding:16px;background:rgba(255,255,255,0.02);border-radius:8px;text-align:center;color:var(--ink-muted);font-size:13px;">点击"加载分类目录"查看</div>
+    </div>
+    <div class="bgrp"><button class="btn btn-g" onclick="loadMLCatalog()">加载分类目录</button></div>
+  </div>
+
+  <!-- ============ 自动特征工程 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">时序特征 & 交叉特征生成</div><div class="c-sub">一键生成滞后/滚动/增长率/差分特征，或数值交叉/分类组合特征</div></div>
+    <div class="grid">
+      <div class="fg s2"><label>操作</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-p" onclick="genTSFeatures()">时序特征</button>
+          <button class="btn btn-g" onclick="genCrossFeatures()">交叉特征</button>
+          <button class="btn btn-w" onclick="genAllFeatures()">一键全部</button>
+          <button class="btn btn-s" onclick="loadMLColumns()">刷新列</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg"><label>日期列（可选）</label><select id="fe-date-col"><option value="">无日期列</option></select></div>
+      <div class="fg"><label>数值列（多选）</label><div id="fe-num-cols" style="display:flex;flex-wrap:wrap;gap:6px;"></div></div>
+      <div class="fg"><label>分类列（多选）</label><div id="fe-cat-cols" style="display:flex;flex-wrap:wrap;gap:6px;"></div></div>
+    </div>
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg"><label>滞后阶数</label><input id="fe-lags" type="text" value="1,2,3" placeholder="如 1,2,3"></div>
+      <div class="fg"><label>滚动窗口</label><input id="fe-windows" type="text" value="5,10" placeholder="如 5,10,20"></div>
+      <div class="fg"><label>增长率周期</label><input id="fe-periods" type="text" value="1,4" placeholder="如 1,4,12"></div>
+      <div class="fg"><label>交叉运算</label><select id="fe-ops" multiple style="height:60px;"><option value="add" selected>+</option><option value="sub" selected>-</option><option value="mul" selected>×</option><option value="div" selected>÷</option></select></div>
+    </div>
+    <div id="fe-new-res" class="mt"></div>
+  </div>
+
+  <!-- ============ 已有特征工程 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">自动特征工程</div><div class="c-sub">方差筛选 / 相关性筛选 / 标准化 / 归一化</div></div>
+    <div class="grid">
+      <div class="fg"><label>目标列 (可选，用于监督筛选)</label><select id="fe-target"><option value="">自动选择</option></select></div>
+      <div class="fg"><label>任务类型</label><select id="fe-task"><option value="regression">回归</option><option value="classification">分类</option></select></div>
+      <div class="fg"><label>保留特征数 K</label><input id="fe-select-k" type="number" value="10" min="3" max="50"></div>
+      <div class="fg"><label>筛选方法</label><select id="fe-method"><option value="f_test">F 检验（f_classif/f_regression）</option><option value="spearman">斯皮尔曼秩相关（Spearman）</option><option value="mutual_info">互信息（Mutual Info）</option></select></div>
+    </div>
+    <div class="grid" style="margin-top:8px;">
+      <div class="fg"><label><input type="checkbox" id="fe-std" checked> 标准化 (StandardScaler)</label></div>
+      <div class="fg"><label><input type="checkbox" id="fe-norm" checked> 归一化 (MinMaxScaler)</label></div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runFeatureEng()">执行特征工程</button>
+      <button class="btn btn-g" onclick="loadMLColumns()">刷新列</button>
+    </div>
+    <div id="fe-res" class="mt"></div>
+    <div id="fe-chart" class="cg"></div>
+  </div>
+
+  <!-- ============ 特征相关性（Spearman） ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">📊 特征相关性（Spearman 秩相关）</div><div class="c-sub">衡量特征间的单调相关关系（不要求线性），自动生成相关系数矩阵 + 热力图 + 结论</div></div>
+    <div class="grid">
+      <div class="fg" style="grid-column:span 3;"><label>选择数值列（多选）</label><select id="spearman-cols" multiple size="6" style="width:100%;height:130px;"><option value="">加载中...</option></select></div>
+      <div class="fg"><label>&nbsp;</label>
+        <div class="bgrp">
+          <button class="btn btn-p" onclick="runSpearman()">🔍 计算 Spearman</button>
+          <button class="btn btn-g" onclick="loadSpearmanColumns()">刷新列</button>
+        </div>
+      </div>
+    </div>
+    <div id="spearman-res" class="mt"></div>
+  </div>
+
+  <!-- ============ 模型评估面板 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head"><div class="c-title">模型评估面板</div><div class="c-sub">混淆矩阵 / ROC 曲线 / 特征重要性</div></div>
+    <div class="grid">
+      <div class="fg"><label>任务类型</label><select id="eval-task"><option value="classification">分类</option><option value="regression">回归</option></select></div>
+      <div class="fg"><label>目标列</label><select id="eval-target"><option value="">选择目标列...</option></select></div>
+      <div class="fg"><label>算法</label><select id="eval-model"><option value="logistic">逻辑回归</option><option value="rf_classifier">随机森林</option><option value="gb_classifier">梯度提升</option><option value="knn_classifier">K近邻</option><option value="svc">SVM</option></select></div>
+      <div class="fg"><label>测试集比例</label><select id="eval-ts"><option value="0.2">20%</option><option value="0.3" selected>30%</option></select></div>
+    </div>
+    <div class="fg s2" style="margin-top:12px">
+      <label>特征列 (多选)</label>
+      <div id="eval-features" class="flex" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
+        <span class="tm">请先刷新列</span>
+      </div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="runEvalPanel()">生成评估面板</button>
+      <button class="btn btn-g" onclick="loadEvalColumns()">刷新列</button>
+    </div>
+    <div id="eval-panel-res" class="mt"></div>
+    <div id="eval-panel-charts" class="cg"></div>
+  </div>
+
+  <!-- ============ 模型版本管理 ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">🗂️ 模型版本管理</div>
+      <div class="c-sub">迭代历史 · 回滚当前版本 · 指标对比</div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="loadMLVersions()">加载版本列表</button>
+      <button class="btn btn-s" onclick="compareMLVersions()">对比所选两版本</button>
+    </div>
+    <div id="ml-version-table" class="mt" style="overflow-x:auto;"></div>
+    <div id="ml-compare-res" class="mt"></div>
+  </div>
+
+  <!-- ============ 分析插件（图表/模型扩展） ============ -->
+  <div class="card" style="margin-top:28px;">
+    <div class="c-head">
+      <div class="c-title">🧩 分析插件</div>
+      <div class="c-sub">上传 Python 脚本扩展图表类型 / 分析模型（plugins/ 目录）· 已启用 AST 沙箱审查</div>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-p" onclick="loadPlugins()">加载插件列表</button>
+      <button class="btn btn-s" onclick="togglePluginUpload()">上传新插件</button>
+    </div>
+    <div id="plugin-upload-box" class="mt hide" style="margin-top:10px;">
+      <div class="fg"><label>插件文件名（.py）</label><input id="plugin-file-name" placeholder="my_plugin.py"></div>
+      <div class="fg s2"><label>插件代码</label><textarea id="plugin-code" rows="8" style="width:100%;font-family:monospace;font-size:12px;" placeholder="PLUGIN_META = {&#10;  &quot;name&quot;: &quot;插件名&quot;, &quot;type&quot;: &quot;chart&quot;, &quot;description&quot;: &quot;...&quot;, &quot;version&quot;: &quot;0.1&quot;&#10;}&#10;def render(df, params): ..."></textarea></div>
+      <div class="bgrp"><button class="btn btn-g btn-sm" onclick="uploadPlugin()">安装并校验</button></div>
+    </div>
+    <div id="plugin-list" class="mt" style="overflow-x:auto;"></div>
+    <div class="grid" style="margin-top:12px;">
+      <div class="fg"><label>数据文件（output/ 下）</label><input id="plugin-file" placeholder="finance_ml_final_project_data.csv"></div>
+      <div class="fg"><label>插件参数（JSON，可选）</label><input id="plugin-params" placeholder='{"target":"savings_balance_wan"}'></div>
+    </div>
+    <div class="bgrp" style="margin-top:10px;">
+      <button class="btn btn-p" onclick="runPlugin()">▶ 运行选中插件</button>
+    </div>
+    <div id="plugin-result" class="mt"></div>
+  </div>
+</div>

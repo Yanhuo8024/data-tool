@@ -1,0 +1,287 @@
+<!-- ======================== 数据库直连 + 智能 SQL ======================== -->
+<div id="tab-db" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">🗄️</span>
+    <span class="cf-label">数据库直连</span>
+    <span class="cf-hint">直连 MySQL / PostgreSQL / ClickHouse · 凭证加密 · 只读护栏 · 自然语言生成 SQL</span>
+  </div>
+
+  <style>
+    .db-conn-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--glass-border); border-radius:8px; margin-bottom:6px; cursor:pointer; font-size:13px; transition:border-color .15s; }
+    .db-conn-item:hover { border-color: var(--accent); }
+    .db-conn-item.on { border-color: var(--accent); background: rgba(69,183,209,.08); }
+    .db-tag { font-size:10px; padding:1px 6px; border-radius:4px; background: var(--bg-muted); color: var(--ink-subtle); }
+    table.dbrs { width:100%; border-collapse:collapse; font-size:12px; }
+    table.dbrs th, table.dbrs td { border:1px solid var(--glass-border); padding:4px 8px; text-align:left; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+    table.dbrs th { background: var(--bg-muted); position:sticky; top:0; }
+    .db-box { max-height:360px; overflow:auto; border:1px solid var(--glass-border); border-radius:8px; }
+    .db-sql-out { background: var(--bg-muted); border-left:3px solid #22c55e; padding:8px 12px; font-family: var(--font-mono); font-size:12px; white-space:pre-wrap; word-break:break-all; border-radius:4px; }
+  </style>
+
+  <!-- ① 连接管理 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">① 连接管理</div>
+      <div class="c-sub">密码加密存储，接口不回传明文</div>
+    </div>
+    <div style="padding:16px;display:grid;grid-template-columns:260px 1fr;gap:16px;">
+      <div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button class="btn btn-p btn-sm" onclick="dbNewForm()">＋ 新建</button>
+          <button class="btn btn-g btn-sm" onclick="dbLoadConnections()">↻ 刷新</button>
+        </div>
+        <div id="db-conn-list" style="max-height:300px;overflow:auto;"><div style="color:var(--ink-subtle);font-size:13px;">加载中...</div></div>
+      </div>
+      <div id="db-conn-form" style="border-left:1px solid var(--glass-border);padding-left:16px;">
+        <div style="color:var(--ink-subtle);font-size:13px;padding:12px 0;">选择左侧连接查看/编辑，或点「＋ 新建」添加连接。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 智能 SQL -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">② 智能 SQL 查询</div>
+      <div class="c-sub">自然语言提问 → LLM 生成只读 SQL → 安全执行（SELECT 仅读，DDL/DML 拦截，自动 LIMIT）</div>
+    </div>
+    <div style="padding:16px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <label style="font-size:13px;">选择连接</label>
+        <select id="db-sel" style="min-width:220px;" onchange="dbLoadTables()"><option value="">-- 选择连接 --</option></select>
+        <span id="db-tables-here" style="font-size:12px;color:var(--ink-subtle);"></span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="db-nlq-input" placeholder="自然语言提问，如：过去30天交易额大于100万的客户有多少？" style="flex:1;" onkeydown="if(event.key==='Enter')dbNlq()"/>
+        <button class="btn btn-p" onclick="dbNlq()">🧠 生成并查询</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="db-sql-input" placeholder="或直接输入 SQL（只读 SELECT/WITH，自动限行）" style="flex:1;" onkeydown="if(event.key==='Enter')dbRawSql()"/>
+        <button class="btn btn-s" onclick="dbRawSql()">执行 SQL</button>
+      </div>
+      <div id="db-result" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- ③ 审计日志 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">③ 操作审计</div>
+      <div class="c-sub">谁在何时执行了什么操作，只追加记录</div>
+    </div>
+    <div style="padding:16px;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button class="btn btn-g btn-sm" onclick="dbLoadAudit()">↻ 刷新审计</button>
+      </div>
+      <div id="db-audit" style="max-height:240px;overflow:auto;"><div style="color:var(--ink-subtle);font-size:13px;">加载中...</div></div>
+    </div>
+  </div>
+
+  <script>
+  var dbCurrent = null;
+
+  document.addEventListener('DOMContentLoaded', function(){ dbLoadConnections(); });
+
+  async function dbApi(url, opts) {
+    const r = await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+    if (!r.ok) {
+      return { ok: false, error: r.status === 401 ? '未登录或权限不足，请先登录' : ('请求失败(' + r.status + ')') };
+    }
+    return r.json();
+  }
+
+  // ---------- 连接列表 ----------
+  async function dbLoadConnections() {
+    const list = document.getElementById('db-conn-list');
+    try {
+      const d = await dbApi('/api/db/connections');
+      if (!d.ok) { list.innerHTML = '<div style="color:var(--error);font-size:13px;">加载失败: ' + (d.error||'') + '</div>'; return; }
+      if (!d.connections.length) { list.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无连接，点「＋ 新建」添加</div>'; }
+      else {
+        list.innerHTML = d.connections.map(function(c){
+          return '<div class="db-conn-item' + (dbCurrent && dbCurrent.id === c.id ? ' on' : '') + '" onclick="dbSelect(\'' + c.id + '\')">' +
+            '<b>' + c.name + '</b><span class="db-tag">' + c.db_type + '</span><span style="color:var(--ink-subtle);font-size:11px;margin-left:auto;">' + (c.host||'') + '</span></div>';
+        }).join('');
+      }
+      // 更新智能 SQL 下拉
+      const sel = document.getElementById('db-sel');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">-- 选择连接 --</option>' + d.connections.map(function(c){ return '<option value="' + c.id + '">' + c.name + ' (' + c.db_type + ')</option>'; }).join('');
+      if (prev) sel.value = prev;
+      if (d.connections.length && !prev) { sel.value = d.connections[0].id; dbLoadTables(); }
+    } catch(e) { list.innerHTML = '<div style="color:var(--error);font-size:13px;">' + e.message + '</div>'; }
+  }
+
+  function dbSelect(id) {
+    dbCurrent = null;
+    dbApi('/api/db/connections').then(function(d){
+      if (!d.ok || !d.connections) { dbLoadConnections(); return; }
+      const c = d.connections.find(function(x){ return x.id === id; });
+      if (!c) return;
+      dbCurrent = c;
+      dbLoadConnections();
+      dbRenderForm(c);
+    });
+  }
+
+  function dbNewForm() {
+    dbCurrent = null;
+    dbLoadConnections();
+    dbRenderForm({db_type:'mysql', host:'127.0.0.1', port:3306, database:'', username:'', remark:'', name:''});
+  }
+
+  function dbRenderForm(c) {
+    const box = document.getElementById('db-conn-form');
+    box.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:14px;">' + (c.id ? '编辑连接：' + c.name : '新建连接') + '</b>' +
+      (c.id ? '<button class="btn btn-w btn-sm" onclick="dbDelete(\'' + c.id + '\')" style="margin-left:auto;">删除</button>' : '') + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;max-width:560px;">' +
+      '<div class="fg"><label>连接名称 *</label><input id="f-name" value="' + esc(c.name||'') + '" placeholder="如：生产MySQL"/></div>' +
+      '<div class="fg"><label>类型 *</label><select id="f-type">' +
+        '<option value="mysql"' + (c.db_type==='mysql'?' selected':'') + '>MySQL</option>' +
+        '<option value="postgres"' + (c.db_type==='postgres'?' selected':'') + '>PostgreSQL</option>' +
+        '<option value="clickhouse"' + (c.db_type==='clickhouse'?' selected':'') + '>ClickHouse</option>' +
+        '<option value="sqlite"' + (c.db_type==='sqlite'?' selected':'') + '>SQLite</option>' +
+      '</select></div>' +
+      '<div class="fg"><label>主机</label><input id="f-host" value="' + esc(c.host||'127.0.0.1') + '"/></div>' +
+      '<div class="fg"><label>端口</label><input id="f-port" type="number" value="' + (c.port||'') + '" placeholder="3306"/></div>' +
+      '<div class="fg"><label>数据库名 *</label><input id="f-db" value="' + esc(c.database||'') + '"/></div>' +
+      '<div class="fg"><label>用户名</label><input id="f-user" value="' + esc(c.username||'') + '"/></div>' +
+      '<div class="fg"><label>密码（' + (c.has_password ? '已保存，留空不变' : '必填') + '）</label><input id="f-pwd" type="password"/></div>' +
+      '<div class="fg" style="grid-column:span 2;"><label>备注</label><input id="f-remark" value="' + esc(c.remark||'') + '"/></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px;">' +
+        '<button class="btn btn-p btn-sm" onclick="dbSave()">保存</button>' +
+        '<button class="btn btn-s btn-sm" onclick="dbTest()">测试连接</button>' +
+        '<span id="db-test-msg" style="font-size:12px;color:var(--ink-subtle);align-self:center;"></span>' +
+      '</div>';
+  }
+
+  function dbFormData() {
+    const port = parseInt(document.getElementById('f-port').value || '0', 10);
+    return {
+      name: document.getElementById('f-name').value.trim(),
+      db_type: document.getElementById('f-type').value,
+      host: document.getElementById('f-host').value.trim(),
+      port: port || null,
+      database: document.getElementById('f-db').value.trim(),
+      username: document.getElementById('f-user').value.trim(),
+      password: document.getElementById('f-pwd').value,
+      remark: document.getElementById('f-remark').value.trim()
+    };
+  }
+
+  async function dbSave() {
+    const fd = dbFormData();
+    if (!fd.name || !fd.database) { showToast('名称和数据库名必填', 'error'); return; }
+    if (!dbCurrent && !fd.password) { showToast('新建连接需填写密码', 'error'); return; }
+    const url = dbCurrent ? '/api/db/connections/' + dbCurrent.id : '/api/db/connections';
+    const opts = dbCurrent ? {method:'PUT', body:JSON.stringify(fd)} : {method:'POST', body:JSON.stringify(fd)};
+    const d = await dbApi(url, opts);
+    if (d.ok) { showToast('已保存', 'success'); dbLoadConnections(); }
+    else showToast(d.error || '保存失败', 'error');
+  }
+
+  async function dbTest() {
+    const fd = dbFormData();
+    document.getElementById('db-test-msg').textContent = '测试中...';
+    const d = await dbApi('/api/db/test', {method:'POST', body:JSON.stringify(fd)});
+    document.getElementById('db-test-msg').innerHTML = d.ok ? '<span style="color:#22c55e;">✔ 连接成功</span>' : '<span style="color:var(--error);">✘ ' + (d.error||d.message||'失败') + '</span>';
+  }
+
+  async function dbDelete(id) {
+    if (!confirm('确认删除该连接？')) return;
+    const d = await dbApi('/api/db/connections/' + id, {method:'DELETE'});
+    if (d.ok) { showToast('已删除', 'success'); dbCurrent = null; dbLoadConnections(); }
+    else showToast(d.error || '删除失败', 'error');
+  }
+
+  // ---------- 智能 SQL ----------
+  async function dbLoadTables() {
+    const id = document.getElementById('db-sel').value;
+    const here = document.getElementById('db-tables-here');
+    if (!id) { here.textContent = ''; return; }
+    try {
+      const d = await dbApi('/api/db/connections/' + id + '/tables');
+      if (d.ok) here.textContent = '已连接，共 ' + d.tables.length + ' 张表';
+      else here.textContent = d.error || '';
+    } catch(e) { here.textContent = '连接失败'; }
+  }
+
+  function dbRenderResult(d) {
+    const box = document.getElementById('db-result');
+    if (!d.ok) { box.innerHTML = '<div class="ai-msg assistant" style="border-color:var(--error);font-size:13px;">❌ ' + esc(d.error||'查询失败') + '</div>'; return; }
+    let html = '';
+    if (d.sql) html += '<div class="db-sql-out">' + esc(d.sql) + '</div>';
+    const rows = d.rows || [];
+    html += '<div style="font-size:12px;color:var(--ink-subtle);margin:6px 0;">共 ' + rows.length + ' 行' + (d.truncated ? '（已达上限截断）' : '') + '</div>';
+    if (!rows.length) html += '<div style="color:var(--ink-subtle);font-size:13px;">查询成功，无数据。</div>';
+    else {
+      const cols = d.columns || Object.keys(rows[0]);
+      html += '<div class="db-box"><table class="dbrs"><thead><tr>' + cols.map(function(c){return '<th>'+esc(String(c))+'</th>';}).join('') + '</tr></thead><tbody>' +
+        rows.map(function(r){ return '<tr>' + cols.map(function(c,i){ var v = Array.isArray(r)? r[i] : r[c]; return '<td title="'+esc(String(v))+'">'+esc(String(v===null?'NULL':v))+'</td>'; }).join('') + '</tr>'; }).join('') +
+        '</tbody></table></div>';
+    }
+    box.innerHTML = html;
+  }
+
+  async function dbNlq() {
+    const id = document.getElementById('db-sel').value;
+    const q = document.getElementById('db-nlq-input').value.trim();
+    if (!id) { showToast('请先选择连接', 'error'); return; }
+    if (!q) { showToast('请输入问题', 'error'); return; }
+    const box = document.getElementById('db-result');
+    // 第一步：只生成 SQL，预览供用户审核
+    box.innerHTML = '<div class="ai-msg assistant"><span class="spin"></span> 正在生成 SQL...</div>';
+    const d = await dbApi('/api/db/connections/' + id + '/nlq', {method:'POST', body:JSON.stringify({question:q, preview:true})});
+    if (d.preview && d.sql) {
+      box.innerHTML = '<div class="ai-msg assistant"><div style="font-weight:600;margin-bottom:6px;">🤖 生成的 SQL（请审核后执行）：</div>' +
+        '<pre style="background:rgba(94,106,210,.06);border-radius:8px;padding:10px;font-size:12px;overflow:auto;white-space:pre-wrap;">' + esc(d.sql) + '</pre>' +
+        '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+        '<button class="btn btn-p btn-sm" onclick="dbNlqExecute(\'' + id + '\',\'' + encodeURIComponent(d.sql) + '\')">✅ 确认执行</button>' +
+        '<button class="btn btn-s btn-sm" onclick="dbNlq()">🔄 重新生成</button>' +
+        '<span style="font-size:11px;color:#999;">确认前请核对表名/列名是否与表结构一致</span>' +
+        '</div></div>';
+      return;
+    }
+    if (!d.ok) { box.innerHTML = '<div class="ai-msg assistant" style="color:var(--error);">' + esc(d.error || '生成失败') + '</div>'; return; }
+    dbRenderResult(d);
+  }
+
+  // 第二步：执行用户已确认的 SQL
+  async function dbNlqExecute(id, sqlEnc) {
+    const box = document.getElementById('db-result');
+    box.innerHTML = '<div class="ai-msg assistant"><span class="spin"></span> 执行中...</div>';
+    try {
+      const d = await dbApi('/api/db/connections/' + id + '/query', {method:'POST', body:JSON.stringify({sql: decodeURIComponent(sqlEnc)})});
+      dbRenderResult(d);
+    } catch (e) {
+      box.innerHTML = '<div class="ai-msg assistant" style="color:var(--error);">执行失败: ' + esc(e.message) + '</div>';
+    }
+  }
+
+  async function dbRawSql() {
+    const id = document.getElementById('db-sel').value;
+    const q = document.getElementById('db-sql-input').value.trim();
+    if (!id) { showToast('请先选择连接', 'error'); return; }
+    if (!q) { showToast('请输入 SQL', 'error'); return; }
+    const box = document.getElementById('db-result');
+    box.innerHTML = '<div class="ai-msg assistant"><span class="spin"></span> 执行中...</div>';
+    const d = await dbApi('/api/db/connections/' + id + '/query', {method:'POST', body:JSON.stringify({sql:q})});
+    dbRenderResult(d);
+  }
+
+  // ---------- 审计 ----------
+  async function dbLoadAudit() {
+    const box = document.getElementById('db-audit');
+    try {
+      const d = await dbApi('/api/db/audit');
+      if (!d.ok || !d.logs.length) { box.innerHTML = '<div style="color:var(--ink-subtle);font-size:13px;">暂无审计记录</div>'; return; }
+      box.innerHTML = '<table class="dbrs"><thead><tr><th>时间</th><th>连接</th><th>操作</th><th>SQL/说明</th><th>行数</th><th>状态</th></tr></thead><tbody>' +
+        d.logs.map(function(l){
+          const st = l.ok ? '<span style="color:#22c55e;">✔</span>' : '<span style="color:var(--error);">✘ ' + esc(l.error||'') + '</span>';
+          return '<tr><td>' + esc((l.created_at||'').replace('T',' ').slice(0,19)) + '</td><td>' + esc(l.conn_name||'') + '</td><td>' + esc(l.action||'') + '</td><td title="' + esc(l.sql||'') + '">' + esc((l.sql||'') .slice(0,60)) + '</td><td>' + (l.row_count==null?'-':l.row_count) + '</td><td>' + st + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    } catch(e) { box.innerHTML = '<div style="color:var(--error);font-size:13px;">' + e.message + '</div>'; }
+  }
+  </script>
+</div>

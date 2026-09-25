@@ -1,0 +1,74 @@
+<!-- ======================== 基金分析 ======================== -->
+<div id="tab-fund" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">📊</span>
+    <span class="cf-label">基金分析</span>
+    <span class="cf-hint">公募净值 → 夏普 / 年化 / 波动 / 回撤 / Calmar / Sortino</span>
+  </div>
+
+  <!-- 1. 基金代码取数 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">① 基金业绩指标（按代码取数）</div>
+      <div class="c-sub">输入 6 位基金代码，一键拉取历史净值并计算风险收益指标</div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="fg">
+        <label>基金代码</label>
+        <input type="text" id="fund-code" value="005827" placeholder="如 005827（易方达蓝筹精选）">
+      </div>
+      <div class="fg">
+        <label>数据源</label>
+        <select id="fund-source">
+          <option value="akshare" selected>akshare（无需 token）</option>
+          <option value="tushare">tushare（需 token）</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>无风险利率 rf %（年化）</label>
+        <input type="number" id="fund-rf" value="2" step="0.1">
+      </div>
+    </div>
+    <button class="btn primary" style="margin-top:12px" onclick="fundCalc()">计算指标</button>
+    <div id="fund-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 2. 净值 CSV -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">② 净值 CSV 计算</div>
+      <div class="c-sub">粘贴净值 CSV（含 日期 + 净值 列，如 date,nav 或 日期,单位净值），自动识别净值列</div>
+    </div>
+    <div class="fg">
+      <label>净值 CSV</label>
+      <textarea id="fund-csv" rows="6" placeholder="date,nav&#10;2024-01-02,2.5000&#10;2024-01-03,2.5150&#10;2024-01-04,2.4980"></textarea>
+    </div>
+    <button class="btn primary" style="margin-top:10px" onclick="fundCalcCsv()">用 CSV 计算指标</button>
+    <div id="fund-csv-out" class="result-box" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 3. 指标速查 -->
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">③ 指标速查</div>
+      <div class="c-sub">这些指标怎么读？</div>
+    </div>
+    <div style="font-size:13px;line-height:1.9;color:var(--ink)">
+      <table class="kb-table" style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--glass-border)">指标</th>
+          <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--glass-border)">含义</th>
+          <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--glass-border)">怎么读</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">夏普比率</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">每承担 1 单位波动获得的超额收益</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">&gt;1 良好，&gt;2 优秀</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">年化收益率</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">按 252 交易日折算的年化回报</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">越高越好</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">年化波动率</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">净值日收益的年化标准差</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">越低越稳</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">最大回撤</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">历史净值从高点到低点的最大跌幅</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">负数，绝对值越小越好</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">Calmar 卡玛</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">年化收益 / 最大回撤</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">越高说明收益质量越好</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">Sortino 索提诺</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">只用下行波动计算的夏普（惩罚亏损风险）</td><td style="padding:6px 8px;border-bottom:1px solid var(--glass-border)">越高越好，通常 ≥ 夏普</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

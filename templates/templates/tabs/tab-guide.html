@@ -1,0 +1,88 @@
+﻿<!-- ======================== 智能流程推荐 ======================== -->
+<div id="tab-guide" class="sec">
+  <div class="card">
+    <div class="c-head">
+      <div class="c-title">智能流程推荐</div>
+      <div class="c-sub">选择你的场景，自动规划最优操作流程</div>
+    </div>
+
+    <div class="eyebrow">你的使用场景</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+      <div class="fg">
+        <label>使用背景</label>
+        <select id="gd-bg">
+          <option value="">选择你的角色...</option>
+          <option value="analyst">数据分析师/数据科学家</option>
+          <option value="finance">金融从业者/投资者</option>
+          <option value="accountant">财务人员</option>
+          <option value="student">学生/研究人员</option>
+          <option value="ops">运营/业务人员</option>
+          <option value="dev">开发者</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>数据类型</label>
+        <select id="gd-data">
+          <option value="">选择数据类型...</option>
+          <option value="csv">CSV/Excel 表格数据</option>
+          <option value="stock">股票行情数据 (OHLCV)</option>
+          <option value="finstmt">财务报表数据</option>
+          <option value="web">网页数据（需爬取）</option>
+          <option value="timeseries">时间序列数据</option>
+          <option value="multitable">多表关联数据</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>期望结果</label>
+        <select id="gd-goal">
+          <option value="">选择你的目标...</option>
+          <option value="stats">描述统计 + 可视化</option>
+          <option value="charts">技术指标图表 (K线/MACD等)</option>
+          <option value="predict">价格/趋势预测</option>
+          <option value="ml">机器学习建模</option>
+          <option value="hypothesis">假设检验 (t检验/ANOVA等)</option>
+          <option value="backtest">交易策略回测</option>
+          <option value="finanalysis">财务报表分析</option>
+          <option value="clean_export">数据清洗 + 导出</option>
+          <option value="full_auto">全流程自动化</option>
+        </select>
+      </div>
+    </div>
+    <div class="bgrp" style="margin-top:12px;">
+      <button class="btn btn-p" onclick="recommendFlow()">推荐流程</button>
+      <button class="btn btn-g btn-sm" onclick="clearFlow()" style="margin-left:6px;">重置</button>
+    </div>
+
+    <!-- 推荐流程展示 -->
+    <div id="gd-flow-area" class="flow-empty">请选择场景后点击"推荐流程"，系统将自动规划操作路径</div>
+
+    <!-- 快捷场景 -->
+    <div class="eyebrow" style="margin-top:24px;">快捷场景（一键推荐）</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:8px;">
+      <div class="scenario-card" onclick="quickFlow('stock_chart')">
+        <b>查看股票K线图</b> — 获取数据 → 可视化 → 多图对比
+      </div>
+      <div class="scenario-card" onclick="quickFlow('stock_predict')">
+        <b>股票价格预测</b> — 获取数据 → 金融建模 → 模型复用
+      </div>
+      <div class="scenario-card" onclick="quickFlow('fin_analysis')">
+        <b>财务报表分析</b> — 获取财报 → 比率计算 → 杜邦分析
+      </div>
+      <div class="scenario-card" onclick="quickFlow('strategy_backtest')">
+        <b>交易策略回测</b> — 获取数据 → CAPM分析 → 策略回测
+      </div>
+      <div class="scenario-card" onclick="quickFlow('data_clean')">
+        <b>数据清洗导出</b> — 上传 → 清洗 → 存储 → 导出CSV
+      </div>
+      <div class="scenario-card" onclick="quickFlow('ml_train')">
+        <b>机器学习建模</b> — 上传 → 算法选择 → 训练 → 预测
+      </div>
+      <div class="scenario-card" onclick="quickFlow('timeseries_forecast')">
+        <b>时序趋势预测</b> — 上传 → 时序分解 → ADF检验 → ARIMA
+      </div>
+      <div class="scenario-card" onclick="quickFlow('hypothesis_test')">
+        <b>统计假设检验</b> — 上传 → 假设检验 → 导出报告
+      </div>
+    </div>
+  </div>
+</div>
