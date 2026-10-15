@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import ai_agent          # noqa: E402
 import agent_pipeline    # noqa: E402
+import agent_graph_nodes as _gn  # noqa: E402
 import llm_client        # noqa: E402
 
 
@@ -80,6 +81,8 @@ def test_no_plan_skips_both_planners(monkeypatch):
 
     monkeypatch.setattr(llm_client, 'chat', fake_chat)
     monkeypatch.setattr(ai_agent, '_should_plan', lambda *a, **k: True)
+    # `_lg_planner` 在 agent_graph_nodes 内解析该全局名，只 patch ai_agent 打不中
+    monkeypatch.setattr(_gn, '_should_plan', lambda *a, **k: True)
 
     # legacy planner 由 _needs_plan 驱动：max_iterations>=4 时必然为真
     res = ai_agent._lg_planner({'cfg': {'no_plan': True, 'user_message': 'x' * 200,
@@ -99,6 +102,8 @@ def test_planner_still_runs_without_no_plan(monkeypatch):
 
     monkeypatch.setattr(llm_client, 'chat', fake_chat)
     monkeypatch.setattr(ai_agent, '_should_plan', lambda *a, **k: True)
+    # `_lg_planner` 在 agent_graph_nodes 内解析该全局名，只 patch ai_agent 打不中
+    monkeypatch.setattr(_gn, '_should_plan', lambda *a, **k: True)
     res = ai_agent._lg_planner({'cfg': {'user_message': 'x' * 200, 'max_iterations': 5,
                                         'llm_config': {}, 'trace_id': None},
                                 'messages': [{'role': 'user', 'content': 'x'}],
@@ -121,6 +126,7 @@ def test_lg_tools_runs_parallel_and_keeps_order(monkeypatch):
         monkeypatch.setitem(ai_agent.registry._tools, name,
                             {'func': make(name, d), 'params': [], 'description': name})
     monkeypatch.setattr(ai_agent, '_TOOLS_PARALLEL', True)
+    monkeypatch.setattr(_gn, '_TOOLS_PARALLEL', True)
     monkeypatch.setattr(ai_agent, 'TOOL_TIMEOUT_S', 10.0)
 
     st = _state([{'tool': n, 'params': {}} for n in ('par_a', 'par_b', 'par_c')])
@@ -148,6 +154,8 @@ def test_lg_tools_parallel_can_be_disabled(monkeypatch):
         monkeypatch.setitem(ai_agent.registry._tools, name,
                             {'func': make(0.25), 'params': [], 'description': name})
     monkeypatch.setattr(ai_agent, '_TOOLS_PARALLEL', False)
+    # `_lg_tools` 在 agent_graph_nodes 内解析该全局名
+    monkeypatch.setattr(_gn, '_TOOLS_PARALLEL', False)
     monkeypatch.setattr(ai_agent, 'TOOL_TIMEOUT_S', 10.0)
 
     t0 = time.time()
@@ -262,6 +270,8 @@ def test_agent_loop_accepts_all_three_fast_switches(monkeypatch):
     - tool_names   → 系统提示里只有白名单工具（`ml_train` 必须消失）
     """
     monkeypatch.setattr(ai_agent, '_should_plan', lambda *a, **k: True)
+    # `_lg_planner` 在 agent_graph_nodes 内解析该全局名，只 patch ai_agent 打不中
+    monkeypatch.setattr(_gn, '_should_plan', lambda *a, **k: True)
     monkeypatch.setattr(llm_client, 'chat_stream',
                         lambda *a, **k: iter([{'type': 'delta', 'text': 'done'}]), raising=False)
 

@@ -61,8 +61,13 @@ def infer_compute_intent(message: str) -> Optional[str]:
 def _require_file(current_file: str) -> Optional[Path]:
     if not current_file:
         return None
-    path = OUT_DIR / current_file
-    return path if path.exists() else None
+    # P1 修复：路径穿越守卫（与 load_dataframe 同一白名单语义，防 ../ 读任意文件）
+    try:
+        from core_config import safe_data_path
+        safe = safe_data_path(OUT_DIR / current_file)
+        return safe if (safe and safe.exists()) else None
+    except Exception:
+        return None
 
 
 # ---------------- 基金业绩指标（真实计算） ----------------

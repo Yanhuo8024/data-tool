@@ -53,31 +53,31 @@
   <!-- ================== RAG 知识库 ================== -->
   <div class="card" style="margin-top:28px;">
     <div class="c-head">
-      <div class="c-title">RAG 知识库</div>
-      <div class="c-sub">研报/财报智能问答 · 原文引用（文档上传请前往「🗄️ 知识库管理」页）</div>
+      <div class="c-title">文档问答（指定知识库文档）</div>
+      <div class="c-sub">只在选定文档内检索并回答，带引用来源。上传/管理文档请到「知识库管理」；全库综合问答请用「RAG 问答」页。</div>
     </div>
     <div class="grid">
       <div class="fg s2">
         <label>已上传文档</label>
-        <select id="rag-docs" style="width:100%"><option value="">加载中...</option></select>
-        <button class="btn btn-w btn-sm" onclick="loadRAGDocs()" style="margin-top:8px;">刷新列表</button>
+        <select id="nlp-rag-docs" style="width:100%"><option value="">加载中...</option></select>
+        <button class="btn btn-w btn-sm" onclick="loadNlpRagDocs()" style="margin-top:8px;">刷新列表</button>
       </div>
     </div>
     <div class="grid" style="margin-top:12px;">
       <div class="fg s2">
         <label>提问</label>
-        <textarea id="rag-question" placeholder="如：总结这几份研报对宁德时代未来三年的盈利预测" style="width:100%;min-height:80px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:8px;"></textarea>
-        <button class="btn btn-p" onclick="askRAG()" style="margin-top:8px;">智能问答</button>
+        <textarea id="nlp-rag-question" placeholder="如：总结这几份研报对宁德时代未来三年的盈利预测" style="width:100%;min-height:80px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:8px;"></textarea>
+        <button class="btn btn-p" onclick="askNlpDocRAG()" style="margin-top:8px;">智能问答</button>
       </div>
       <div class="fg">
         <label>回答</label>
-        <div id="rag-answer" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;min-height:120px;font-size:13px;white-space:pre-wrap;overflow-y:auto;color:#e0e0e0;">上传文档后开始提问...</div>
+        <div id="nlp-rag-answer" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;min-height:120px;font-size:13px;white-space:pre-wrap;overflow-y:auto;color:#e0e0e0;">上传文档后开始提问...</div>
       </div>
     </div>
     <div class="grid" style="margin-top:8px;">
       <div class="fg s2">
         <label>引用来源</label>
-        <div id="rag-sources" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;max-height:150px;overflow-y:auto;font-size:12px;color:#888;">等待检索...</div>
+        <div id="nlp-rag-sources" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;max-height:150px;overflow-y:auto;font-size:12px;color:#888;">等待检索...</div>
       </div>
     </div>
   </div>

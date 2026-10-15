@@ -120,12 +120,11 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr /C:":!PORT! " 2^>nul ^| finds
     echo [INFO] Killing stale listener PID %%p...
     taskkill /F /PID %%p >nul 2>&1
 )
-:: 杀老 python 进程（watchdog_server / run_server）。用 wmic 替代 PowerShell（省 ~1s）
-wmic process where "name='python.exe'" get processid,commandline /format:csv 2>nul | findstr /I "run_server.py watchdog_server.py" > "%CACHE_DIR%\old_pids.txt" 2>nul
-for /f "tokens=2 delims=," %%p in ('type "%CACHE_DIR%\old_pids.txt" 2^>nul') do (
-    taskkill /F /PID %%p >nul 2>&1
-)
-del "%CACHE_DIR%\old_pids.txt" >nul 2>&1
+:: Kill stale python processes (watchdog_server / run_server).
+:: [!] wmic was REMOVED from Windows 11. Calling it aborts the whole script with
+::     RC=255 (symptom: window closes instantly). Use PowerShell CIM instead --
+::     it is the official successor to wmic; equivalent capability, ~1s startup.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -match 'run_server|watchdog_server' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 if defined FOUND_PID (
     ping -n 2 127.0.0.1 >nul
 )

@@ -1,4 +1,4 @@
-﻿<!-- ======================== 智能流程推荐 ======================== -->
+<!-- ==================== 智能流程推荐（教程内容已迁至 tab-help）==================== -->
 <div id="tab-guide" class="sec">
   <div class="card">
     <div class="c-head">
@@ -59,6 +59,12 @@
     <!-- 快捷场景 -->
     <div class="eyebrow" style="margin-top:24px;">快捷场景（一键推荐）</div>
     <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:8px;">
+      <div class="scenario-card" onclick="quickFlow('company_deep')">
+        <b>🏢 企业深度分析</b> — 输入公司名 → 自动分析 → 导出 Word/PPT 报告
+      </div>
+      <div class="scenario-card" onclick="quickFlow('ai_ask')">
+        <b>🤖 AI 助手问数据</b> — 自然语言问公司/行业/资料 → 带引用回答
+      </div>
       <div class="scenario-card" onclick="quickFlow('stock_chart')">
         <b>查看股票K线图</b> — 获取数据 → 可视化 → 多图对比
       </div>
@@ -85,4 +91,18 @@
       </div>
     </div>
   </div>
+
+  <!-- 教程类内容已统一到「📖 使用教程」页：这里原先内嵌的几块教程与本页智能流程推荐
+       职责无关、且与教程页重复（两处各写一半），2026-10-03 已并入教程页，此处只留入口。 -->
+  <div class="card" style="margin-top:20px;">
+    <div class="c-head">
+      <div class="c-title">📖 各模块怎么用</div>
+      <div class="c-sub">按左侧导航 10 个分组，逐模块给出「怎么做 · 关键字段 · 容易踩的坑」，支持关键词搜索</div>
+      <div class="flex gap" style="margin-left:auto;">
+        <button class="btn btn-sm btn-p" onclick="switchToTab('tab-help')">打开使用教程 →</button>
+        <button class="btn btn-sm btn-s" onclick="switchToTab('tab-troubleshooting')">故障排查 →</button>
+      </div>
+    </div>
+  </div>
+
 </div>

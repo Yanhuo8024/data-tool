@@ -276,8 +276,9 @@ def validate_readonly_sql(sql: str, allowed_tables: list = None) -> str:
     # 全词扫描黑名单（防止 SELECT 后跟子查询写操作等）
     upper = stripped.upper()
     for kw in _BLOCKED_KEYWORDS:
-        # 注意 SET 用 "SET " 防误伤 set 开头的单词
-        if kw in upper or (kw.strip() and re.search(rf'\b{re.escape(kw.strip())}\b', upper)):
+        # 全词边界匹配：修复 "SET " 子串命中 "OFFSET 10" 的误杀
+        # （子串匹配在带分页 OFFSET 的合法分页查询上会误判为写操作 SET）
+        if re.search(rf'\b{re.escape(kw.strip())}\b', upper):
             raise ValueError(f"检测到被禁止的关键字: {kw.strip()}，已拒绝执行")
     # 第二层：语义解析二次确认（权威校验，覆盖注释/子查询/危险函数/表白名单）
     try:

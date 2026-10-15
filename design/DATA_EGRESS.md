@@ -29,8 +29,8 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | E1 | 云 LLM 推理 | `token.sensenova.cn`（默认）等 16 个 provider | 系统提示词 + 知识库片段 + 会话历史 + **数据文件样本 / 文档正文** + **用户上传图片** + 工具结果 | 用户在 AI 助手提问 | **开启**（有凭据即用） | 不配置 API Key |
 | E2 | 文件内容进 Prompt | 经 E1 出站 | CSV/Excel **样本前 6000 字符**；文档类（PDF/DOCX/TXT/MD/JSON/HTML）**正文前 20000 字符**；RAG 片段前 300 字符 | 该文件被选为当前文件并提问 | **开启** | 设置 → 数据出境 → 关闭（转「仅本地统计」，文档只剩元信息），或移除当前文件 |
-| E3 | 联网搜索 | `cn.bing.com`（主）、`www.baidu.com`（备）、`html.duckduckgo.com`（兜底） | 由问题清洗出的**搜索关键词** | 意图判定命中，或 Agent 选 `web_search` 工具 | **开启**（可关） | 设置 → 数据出境 → 关闭联网搜索，或 `ALLOW_WEB_SEARCH=0` |
-| E4 | 行情/宏观数据 | akshare（东财等）、baostock、tushare、yfinance、FRED | 股票/指数代码、日期区间、频度 | 用户请求行情/财务/宏观数据 | 按需 | 不调用相应功能 |
+| E3 联网搜索 | `cn.bing.com`（主）、`www.baidu.com`（备）、`html.duckduckgo.com`（兜底）、`www.sogou.com`（兜底 2） | 由问题清洗出的**搜索关键词** | 意图判定命中，或 Agent 选 `web_search` 工具 | **开启**（可关） | 设置 → 数据出境 → 关闭联网搜索，或 `ALLOW_WEB_SEARCH=0` |
+| E4 | 行情/宏观数据 | akshare（东财等）、baostock、tushare、yfinance、FRED；巨潮资讯（公告/资料卡/行业聚合）、东财数据中心 F10 | 股票/指数代码、日期区间、频度；**公司名关键词**（巨潮证券搜索/资料卡） | 用户请求行情/财务/宏观/公司分析数据 | 按需 | 不调用相应功能 |
 | E5 | 遥测导出（OTel） | `TRACE_OTEL_ENDPOINT` 指定地址 | Agent 运行事件 span（名称/属性/序号/错误） | 显式设置 endpoint | **关闭** | 不设置该变量即关闭 |
 | E6 | 前端 CDN（浏览器侧） | `cdn.jsdelivr.net` | 静态资源请求（含访客 IP/UA，无业务数据） | 打开引用 CDN 的页面 | 开启 | 改为本地静态资源（§5-P2-3） |
 | E7 | 识图（多模态） | 经 E1 出站（云端视觉模型） | 用户上传/粘贴的**图片原文**（base64，最多 4 张） | 对话中带图提问 | **开启**（可关） | 设置 → 数据出境 → 关闭「图片出境（识图）」，或 `ALLOW_IMAGE_EGRESS=0` |
@@ -206,10 +206,27 @@ python -c "import egress_policy as e, json; print(json.dumps(e.snapshot(), ensur
 | 通道 | 登记主机 |
 | --- | --- |
 | E1 云 LLM（16） | `token.sensenova.cn` `api.deepseek.com` `open.bigmodel.cn` `dashscope.aliyuncs.com` `qianfan.baidubce.com` `ark.cn-beijing.volces.com` `api.moonshot.cn` `api.lingyiwanwu.com` `api.hunyuan.tencent.com` `spark-api-open.xf-yun.com` `api.openai.com` `api.anthropic.com` `generativelanguage.googleapis.com` `api.x.ai` `api.mistral.ai` `api.groq.com` |
-| E3 联网搜索 | `www.baidu.com` `cn.bing.com` `html.duckduckgo.com` |
-| E4 行情/宏观（本仓直连部分） | `push2.eastmoney.com` `quote.eastmoney.com` `data.eastmoney.com` `datacenter-web.eastmoney.com` `finance.sina.com.cn` `hq.sinajs.cn` `qt.gtimg.cn` `api.stlouisfed.org` `fred.stlouisfed.org` |
+| E3 联网搜索 | `www.baidu.com` `cn.bing.com` `html.duckduckgo.com` `www.sogou.com` |
+| E4 行情/宏观（本仓直连部分） | `push2.eastmoney.com` `quote.eastmoney.com` `data.eastmoney.com` `datacenter-web.eastmoney.com` `emweb.securities.eastmoney.com` `finance.sina.com.cn` `hq.sinajs.cn` `qt.gtimg.cn` `api.stlouisfed.org` `fred.stlouisfed.org` `www.cninfo.com.cn` `static.cninfo.com.cn` |
 | E5 遥测（动态端点，不可静态登记） | 由 `TRACE_OTEL_ENDPOINT` 决定 —— R8 对此类文件只给 info |
 | E6 前端 CDN（浏览器侧，R8 不扫描） | `cdn.jsdelivr.net` |
 
 维护提示：删掉主机前先确认代码里已无引用（`python tools/arch_guard.py --rule R8` 会告诉你），
 否则清单与实际不符——清单本身也是"默认值必须可查"的一部分。
+
+
+- `github.com` / `api.github.com`：上传打包脚本与源码同步（开发者主动触发）
+
+## 边界与不保证（2026-09-25 补）
+
+本清单与出站开关**不能**保证下列路径：
+
+1. **进程内任意代码**（插件沙箱外的自定义脚本、调试 REPL）仍可自行 socket/HTTP。
+2. **子进程与系统命令**：脚本调用 curl/wget/浏览器时，不经本仓库 egress 检查。
+3. **用户粘贴到对话框的内容**：上传与展示不在本清单覆盖范围。
+4. **模型服务商侧日志**：发往 LLM API 的文本以服务商隐私政策为准。
+5. **依赖库自更新**：pip/npm 等安装时的网络访问由包管理器发起。
+6. **本地回环与内网**：127.0.0.1 / 局域网默认视为可信，未做细粒度策略。
+
+**适用边界**：本机制管的是 **data.tool 业务工具与注册出站主机** 的登记与开关；
+它是防误操作与可审计层，**不是**通用防火墙或容器隔离。

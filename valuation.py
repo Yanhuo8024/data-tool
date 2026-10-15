@@ -4,10 +4,13 @@
 用于判断公司股价是否合理。
 数据源：A股-新浪日K+同花顺摘要+新浪报表；港股-新浪日K+东财数据中心。
 """
+import os
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 from finance_data import normalize_hk_code
+import valuation_guard as _vg
 
 
 def _get_ak():
@@ -16,6 +19,10 @@ def _get_ak():
         return ak
     except ImportError:
         return None
+
+
+# `_snapshot` 的 TTL 缓存（env `SNAPSHOT_TTL_S` 可调）：symbol -> (写入时刻, 快照 dict)
+_SNAP_TTL = float(os.environ.get('SNAPSHOT_TTL_S', '300')); _SNAP_CACHE = {}
 
 
 def _num(v, default=0.0):
@@ -64,6 +71,24 @@ def _get_price_shares(ak, market, code):
 
 
 def _snapshot(symbol):
+    """`_snapshot_uncached` 的**带 TTL 缓存**版本（企业深析提速的关键）。
+
+    必需原因：一次「企业深析」会对同一只股票反复取快照 —— `get_market_data`（本股）、
+    `get_competitors`（N 个同业）、`dcf_valuation`（本股）、`peer_comparison`（本股 + N 同业），
+    实测单次 3.3–5.1s，全管线合计约 9 次 → 30s+ 纯重复往返。只缓存**成功**（有 price）的结果，
+    避免把一次失败固化成 TTL 内的永久空值。TTL 默认 300s（env `SNAPSHOT_TTL_S`）。
+    """
+    ck = str(symbol or '').upper()
+    hit = _SNAP_CACHE.get(ck)
+    if hit and (time.time() - hit[0]) < _SNAP_TTL:
+        return dict(hit[1])
+    sn = _snapshot_uncached(symbol)
+    if isinstance(sn, dict) and sn.get('price'):
+        _SNAP_CACHE[ck] = (time.time(), dict(sn))
+    return sn
+
+
+def _snapshot_uncached(symbol):
     """获取一只股票的基本面快照（指标 + 现价 + 股本 + 净负债）"""
     ak = _get_ak()
     market, code = _resolve(symbol)
@@ -216,14 +241,11 @@ def dcf_valuation(symbol, params=None):
 
     # 增长率：优先用户输入，否则用净利/营收同比（百分比数值，如 15.85 表示 15.85%）
     g1 = params.get("g1")
-    if g1 is None or g1 == "":
-        g1 = sn["profit_growth"] or sn["revenue_growth"] or 0
-        g1 = max(float(g1), 0.0)
-    else:
-        g1 = float(g1)
+    g1 = float(g1) if g1 not in (None, "") else max(float(sn["profit_growth"] or sn["revenue_growth"] or 0), 0.0)
     r = float(params.get("r", 9) or 9) / 100.0          # 折现率（百分数→小数）
     g2 = float(params.get("g2", 2.5) or 2.5) / 100.0    # 永续增长率（百分数→小数）
     years = int(params.get("years", 5) or 5)
+    g1_raw, g1 = g1, _vg.normalize_growth(g1, years)[0]  # 单年高增速截断（见 valuation_guard）
     if g2 >= r:
         return {"error": "永续增长率必须小于折现率"}
     if r <= 0:
@@ -244,13 +266,10 @@ def dcf_valuation(symbol, params=None):
     ev = pv + pv_tv
     equity_value = ev - (sn["net_debt"] or 0)
     per_share = equity_value / sn["shares"]
-    spread = (per_share - sn["price"]) / sn["price"] * 100
-    if spread > 20:
-        verdict, verdict_cn = "undervalued", "低估（内在价值高于现价 20% 以上）"
-    elif spread < -20:
-        verdict, verdict_cn = "overvalued", "高估（内在价值低于现价 20% 以上）"
-    else:
-        verdict, verdict_cn = "fair", "估值合理（内在价值与现价差距在 ±20% 内）"
+    _g = _vg.evaluate(sn=sn, per_share=per_share, g1_raw=g1_raw, g1_used=g1, r=r, g2=g2,
+                      years=years, base=base, base_mode=base_mode,
+                      reported_market_cap=_vg.fetch_market_cap(sn["code"], sn["market"]))
+    spread, verdict, verdict_cn = _g["spread_pct"] or 0.0, _g["verdict"], _g["verdict_cn"]
 
     # 敏感性矩阵：增长率 × 折现率（键统一字符串，避免 jsonify sort_keys 混型比较）
     g_grid = [round(g1 + d, 1) for d in (-4, -2, 0, 2, 4)]
@@ -298,6 +317,7 @@ def dcf_valuation(symbol, params=None):
         "spread_pct": round(spread, 1),
         "verdict": verdict,
         "verdict_cn": verdict_cn,
+        "guard": _g,
         "sensitivity": {"g_grid": g_grid, "r_grid": r_grid, "matrix": matrix},
     }
 

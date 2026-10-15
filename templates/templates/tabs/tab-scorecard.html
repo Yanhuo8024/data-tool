@@ -3,7 +3,7 @@
   <div class="current-file-bar">
     <span class="cf-icon">🃏</span>
     <span class="cf-label">信用评分卡</span>
-    <span class="cf-hint">分箱 → WOE/IV → 逻辑回归 → 评分刻度 → KS/AUC 评估 → PSI 稳定性</span>
+    <span class="cf-hint">分箱 → WOE/IV → 逻辑回归 → 评分刻度 → KS/AUC/Gini 评估 → PSI 稳定性</span>
   </div>
 
   <style>
@@ -270,6 +270,7 @@ function renderScorecardResult(d) {
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;">' +
       '<div class="stat-box"><div class="stat-num">' + ev.test_auc + '</div><div class="stat-lbl">测试集 AUC</div></div>' +
       '<div class="stat-box"><div class="stat-num">' + ev.ks + '</div><div class="stat-lbl">KS 统计量</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + ev.gini + '</div><div class="stat-lbl">Gini 系数（=2×AUC−1）</div></div>' +
       '<div class="stat-box"><div class="stat-num">' + ev.train_auc + '</div><div class="stat-lbl">训练集 AUC</div></div>' +
       '<div class="stat-box"><div class="stat-num">' + ev.avg_score_good + '</div><div class="stat-lbl">好客户均分</div></div>' +
       '<div class="stat-box"><div class="stat-num">' + ev.avg_score_bad + '</div><div class="stat-lbl">坏客户均分</div></div>' +

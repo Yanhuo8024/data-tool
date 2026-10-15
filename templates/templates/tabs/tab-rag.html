@@ -1,11 +1,11 @@
 <div id="tab-rag" class="sec">
   <div class="card">
-    <div class="c-head"><div class="c-title">🔍 RAG 问答</div><div class="c-sub">知识库 + 用户文件融合检索 · LLM 综合回答</div></div>
+    <div class="c-head"><div class="c-title">🔍 知识库 RAG 问答</div><div class="c-sub">全库融合检索（内置知识点 + 全部用户文件）后 LLM 综合回答。若只想问某一份文档，请用「NLP 分析 → 文档问答」。</div></div>
     <div class="grid">
       <div class="fg s2">
         <label>提问</label>
-        <input id="rag-question" placeholder="输入问题..." onkeydown="if(event.key==='Enter')askRAG()">
-        <button class="btn btn-p btn-sm" onclick="askRAG()">提问</button>
+        <input id="rag-question" placeholder="输入问题..." onkeydown="if(event.key==='Enter')askKnowledgeRAG()">
+        <button class="btn btn-p btn-sm" onclick="askKnowledgeRAG()">提问</button>
       </div>
     </div>
     <div id="rag-result" class="mt"></div>
@@ -17,6 +17,9 @@
 </div>
 
 <script>
+async function askKnowledgeRAG() {
+  return askRAG();
+}
 async function askRAG() {
   const q = ((document.getElementById('rag-question') || {}).value || '').trim();
   if (!q) return;

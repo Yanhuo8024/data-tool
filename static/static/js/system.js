@@ -150,14 +150,23 @@ function loadRAGDocs() {
   fetch('/api/rag/docs')
     .then(r => r.json())
     .then(data => {
+      const docs = data.documents || [];
       const el = document.getElementById('rag-doc-list');
-      if (el && data.documents) {
-        el.innerHTML = data.documents.map(d =>
+      if (el) {
+        el.innerHTML = docs.map(d =>
           '<div class="rag-doc"><span>' + d.name + '</span>' +
-          '<button onclick="askRAG(\'' + d.id + '\')">问</button></div>'
+          '<button type="button" onclick="askKnowledgeRAG()">问</button></div>'
+        ).join('') || '<div class="rag-doc">暂无文档</div>';
+      }
+      const sel = document.getElementById('nlp-rag-docs');
+      if (sel) {
+        sel.innerHTML = '<option value="">（全部文档）</option>' + docs.map(d =>
+          '<option value="' + String(d.name || '').replace(/"/g, '&quot;') + '">' +
+          String(d.name || d.id || '') + '</option>'
         ).join('');
       }
-    });
+    })
+    .catch(() => {});
 }
 
 // ===== NLQ (Natural Language Query) =====

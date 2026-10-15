@@ -146,8 +146,13 @@ function initKeyboardShortcuts() {
       }
     }
 
-    // ? 或 / → 帮助
-    if (!_mods.ctrl && !_mods.alt && !_mods.shift && (e.key === '?' || e.key === '/')) {
+    // ? 或 / → 帮助。
+    // 注意：在输入框/文本域里打字时不能拦截，否则像「使用教程」搜索框这类地方
+    // 根本打不出 "/" 和 "?"（会弹出快捷键面板），属既有缺陷，这里补上焦点判断。
+    var _tgt = e.target;
+    var _typing = !!(_tgt && (_tgt.tagName === 'INPUT' || _tgt.tagName === 'TEXTAREA'
+      || _tgt.tagName === 'SELECT' || _tgt.isContentEditable));
+    if (!_typing && !_mods.ctrl && !_mods.alt && !_mods.shift && (e.key === '?' || e.key === '/')) {
       e.preventDefault();
       showShortcutHelp();
       return;
@@ -354,7 +359,9 @@ const QUICK_FLOWS = {
   'data_clean': { label: '数据清洗导出', flow: ['tab-up', 'tab-clean', 'tab-store', 'tab-report'] },
   'ml_train': { label: '机器学习建模', flow: ['tab-up', 'tab-clean', 'tab-ml', 'tab-report'] },
   'timeseries_forecast': { label: '时序趋势预测', flow: ['tab-up', 'tab-ts', 'tab-ml', 'tab-report'] },
-  'hypothesis_test': { label: '统计假设检验', flow: ['tab-up', 'tab-ht', 'tab-report'] }
+  'hypothesis_test': { label: '统计假设检验', flow: ['tab-up', 'tab-ht', 'tab-report'] },
+  'company_deep': { label: '企业深度分析', flow: ['tab-company-deep', 'tab-datasources', 'tab-report'] },
+  'ai_ask': { label: 'AI 助手问数据', flow: ['tab-ai-assistant', 'tab-rag', 'tab-datasources'] }
 };
 
 function recommendFlow() {
@@ -397,29 +404,53 @@ function clearFlow() {
 }
 
 function switchToTab(tabId) {
-  const btn = document.querySelector('.nbtn[data-t="' + tabId + '"]');
-  if (btn) btn.click();
+  if (!tabId) return;
+  // 历史/帮助里的旧 id 与文件名别名
+  const alias = {
+    'tab-upload': 'tab-up',
+    'tab-screener': 'tab-screen',
+    'tab-kb': 'tab-knowledge',
+    'tab-knowledge-manager': 'tab-knowledge-mgmt',
+    'tab-llm': 'tab-ai-assistant',
+    'tab-agent': 'tab-ai-assistant',
+    'tab-viz': 'tab-finance-viz',
+    'tab-finance-chart': 'tab-finance-viz',
+  };
+  const id = alias[tabId] || tabId;
+  let btn = document.querySelector('.nbtn[data-t="' + id + '"]');
+  if (!btn && alias[tabId]) btn = document.querySelector('.nbtn[data-t="' + tabId + '"]');
+  if (btn) { btn.click(); return; }
+  // 兜底：直接切 sec，防止按钮暂未渲染
+  const sec = document.getElementById(id) || document.getElementById(tabId);
+  if (sec) {
+    document.querySelectorAll('.sec').forEach(x => x.classList.remove('on'));
+    sec.classList.add('on');
+  }
 }
 
 // ===== navigation.js =====
 
 const _tabNames = {
   'tab-guide': '⚡ 智能流程',
-  'tab-up': '📤 上传',
+  'tab-overview': '🏠 市场概览',
+  'tab-upload': '📤 上传',
   'tab-store': '💾 存储',
   'tab-scrape': '🕷 爬取',
   'tab-finance': '💰 金融数据',
   'tab-finance-viz': '📊 可视化',
   'tab-finance-model': '💹 金融建模',
+  'tab-screener': '🔍 筛选器',
   'tab-screen': '🔍 筛选器',
   'tab-table': '🔢 表格工具',
   'tab-clean': '🧹 清洗',
   'tab-analyze': '📈 分析',
+  'tab-chart': '📊 图表',
   'tab-did': '📊 DID计量',
   'tab-ml': '🧠 机器学习',
   'tab-pipeline': '⛓ Pipeline',
   'tab-nlp': '📝 NLP分析',
   'tab-fs': '📑 财务报表',
+  'tab-company-deep': '🏢 企业深析',
   'tab-ts': '📉 时序分析',
   'tab-ht': '🔬 假设检验',
   'tab-report': '📄 报告',
@@ -428,13 +459,29 @@ const _tabNames = {
   'tab-agent-flow': '🧭 Agent 流程',
   'tab-security': '🔐 安全中心',
   'tab-ai-assistant': '🤖 AI 助手',
-  'tab-help': '📖 使用教程'
+  'tab-help': '📖 使用教程',
+  'tab-multi-agent': '🤝 多Agent协同',
+  'tab-knowledge': '📚 知识点库',
+  'tab-knowledge-mgmt': '🗄 知识库管理',
+  'tab-fund': '📈 基金分析',
+  'tab-fixedincome': '💵 固收',
+  'tab-scorecard': '💳 评分卡',
+  'tab-scheduler': '🕘 定时任务',
+  'tab-templates': '🧩 模板市场',
+  'tab-datasources': '🗂 数据源',
+  'tab-db': '🗄 数据库',
+  'tab-auth': '👤 认证',
+  'tab-troubleshooting': '🛠 故障排查'
 };
 
 const tabInitMap = {
   'tab-clean': rf, 'tab-analyze': rf, 'tab-store': rf, 'tab-up': rf,
   'tab-report': function() { if (typeof refreshReportList === 'function') refreshReportList(); else if (typeof rf === 'function') rf(); },
-  'tab-help': loadDashboard,
+  'tab-help': function () {
+    // 教程页自身的初始化（目录高亮 / 搜索）在 tutorial.js 中；此处只负责按需触发。
+    if (window.TutorialUI && typeof window.TutorialUI.init === 'function') window.TutorialUI.init();
+    else console.warn('[TabInit] tutorial.js 未加载');
+  },
   // 以下函数定义在其他 JS 文件中，用惰性包装避免未定义错误
   // 首次进入才拉历史：重复拉取会清空 DOM 里尚未落库的消息（消息无前端副本）
   'tab-ai-assistant': function() {
@@ -446,7 +493,8 @@ const tabInitMap = {
   // 首次进入才给 iframe 设 src（画布页面 209KB，不拖慢首屏）
   'tab-agent-flow': function() { if (typeof agentFlowVizInit === 'function') agentFlowVizInit(); },
   'tab-nlp': function() { if (typeof loadNLPFiles === 'function') loadNLPFiles(); else console.warn('[TabInit] loadNLPFiles not loaded yet'); },
-  'tab-ht': function() { if (typeof htTypeChange === 'function') htTypeChange(); else console.warn('[TabInit] htTypeChange not loaded yet'); }
+  'tab-ht': function() { if (typeof htTypeChange === 'function') htTypeChange(); else console.warn('[TabInit] htTypeChange not loaded yet'); },
+  'tab-company-deep': function() { if (typeof window.cdInit === 'function') window.cdInit(); }
 };
 
 function toggleAllNav() {
@@ -500,61 +548,28 @@ async function loadDashboard() {
     if (data.files !== undefined) {
       // 兼容数字和数组两种格式
       const count = Array.isArray(data.files) ? data.files.length : data.files;
-      document.getElementById('db-file-count').textContent = count;
+      // 仪表盘的「文件数」计数卡片已不在模板中：此前直接 .textContent 会抛 TypeError，
+      // 中断整个 loadDashboard —— 连带后面的 renderFL(data.files) 永不执行（首屏文件列表为空的真因之一）。
+      const cntEl = document.getElementById('db-file-count');
+      if (cntEl) cntEl.textContent = count;
       if (Array.isArray(data.files)) renderFL(data.files);
     }
     if (data.models !== undefined) {
       const mCount = Array.isArray(data.models) ? data.models.length : data.models;
-      document.getElementById('db-model-count').textContent = mCount;
+      const mdlEl = document.getElementById('db-model-count');
+      if (mdlEl) mdlEl.textContent = mCount;
     }
   } catch (e) {
     console.error('Dashboard load error:', e);
   } finally {
-    initTutHelp();
     hideLoading();
   }
 }
 
-// ===== 使用教程页：目录点击展开（内联 onclick 调用，避免模板脚本执行时机问题） =====
-function tutToggleChapter(id) {
-  var d = document.getElementById(id);
-  if (!d) return;
-  if (!d.open) d.open = true;
-  var tut = document.getElementById('tab-help');
-  if (tut) {
-    var links = Array.prototype.slice.call(tut.querySelectorAll('.tut-toc a, .tut-chips a'));
-    links.forEach(function (a) {
-      a.classList.toggle('active', a.getAttribute('href') === ('#' + id));
-    });
-  }
-  var sum = d.querySelector('summary');
-  if (sum) setTimeout(function () { sum.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
-}
-
-function initTutHelp() {
-  var tut = document.getElementById('tab-help');
-  if (!tut) return;
-  var bar = tut.querySelector('.tut-progress > i');
-  var chapters = Array.prototype.slice.call(tut.querySelectorAll('details.tut-ch-d'));
-  function updateProgress() {
-    var n = chapters.filter(function (d) { return d.open; }).length;
-    if (bar) bar.style.width = (chapters.length ? (n / chapters.length * 100) : 0) + '%';
-  }
-  if (!window.__tutHelpBound) {
-    window.__tutHelpBound = true;
-    chapters.forEach(function (d) {
-      d.addEventListener('toggle', function () {
-        updateProgress();
-        if (d.open) tutToggleChapter(d.id);
-      });
-    });
-    var expBtn = tut.querySelector('#tut-expand');
-    var colBtn = tut.querySelector('#tut-collapse');
-    if (expBtn) expBtn.onclick = function () { tut.querySelectorAll('.tut-mod').forEach(function (m) { m.open = true; }); };
-    if (colBtn) colBtn.onclick = function () { tut.querySelectorAll('.tut-mod').forEach(function (m) { m.open = false; }); };
-  }
-  updateProgress();
-}
+// 注：使用教程页的目录高亮 / 搜索 / 展开收起已迁移到 static/js/tutorial.js。
+// 此前这里的 tutToggleChapter() / initTutHelp() 查询的是 .tut-toc / .tut-chips /
+// .tut-progress / .tut-mod 等**模板中已不存在**的元素（教程页改版后成了死代码），
+// 已随本次改版删除，避免与新实现重复绑定 #tut-expand / #tut-collapse。
 
 function rf() {
   if (typeof loadMultiFiles === 'function') {
@@ -565,23 +580,40 @@ function rf() {
 }
 
 function renderFL(files) {
-  const el = document.getElementById('db-files');
-  if (!el) return;
-  if (!files || files.length === 0) {
-    el.innerHTML = '<span style="color:var(--ink-subtle);font-size:13px;">暂无数据文件</span>';
+  // 渲染目标：上传页的「已导入文件」容器 #fl。
+  // 此前本函数写的是 #db-files —— 该 id 在整个项目里并不存在（模板中早已移除），
+  // 于是 getElementById 返回 null 后直接 return：上传成功、列表接口 200，界面却始终空白。
+  // 仍兼容 #db-files：任一容器存在即写入，两个都不在（其他页签）才什么都不做。
+  const targets = ['fl', 'db-files']
+    .map(function (id) { return document.getElementById(id); })
+    .filter(Boolean);
+  if (!targets.length) return;
+
+  const list = files || [];
+  const title = document.getElementById('fl-title');
+  if (title) title.style.display = list.length ? 'block' : 'none';
+
+  if (!list.length) {
+    targets.forEach(function (el) {
+      el.innerHTML = '<span style="color:var(--ink-subtle);font-size:13px;">暂无数据文件</span>';
+    });
     return;
   }
-  el.innerHTML = files.map(f => {
+  const html = list.map(function (f) {
     // 安全提取文件名（兼容对象和字符串）
     const name = typeof f === 'string' ? f : (f.name || f.filename || JSON.stringify(f).slice(0, 30));
     const size = f.size || '';
+    const mt = (f && typeof f === 'object' && f.mtime) ? new Date(f.mtime * 1000).toLocaleString() : '';
+    const meta = [size, mt].filter(Boolean).join(' · ');
     // 后端删除接口按绝对路径定位文件（data-path 传值，规避路径中的引号/反斜杠转义问题）
     const p = (f && typeof f === 'object' && f.path) ? f.path : name;
-    return '<div class="db-file-item"><span>' + esc(name) + '</span>' +
-      '<span class="db-file-size">' + size + '</span>' +
-      '<button class="db-file-del" data-path="' + esc(p) + '" data-fname="' + esc(name) +
-      '" onclick="delF(this.dataset.path, this.dataset.fname)">🗑</button></div>';
+    return '<div class="file-item"><span class="file-item-icon">📄</span>' +
+      '<div class="file-item-info"><div class="file-item-name">' + esc(name) + '</div>' +
+      (meta ? '<div class="file-item-meta">' + esc(meta) + '</div>' : '') + '</div>' +
+      '<button class="btn btn-w btn-sm" data-path="' + esc(p) + '" data-fname="' + esc(name) +
+      '" onclick="delF(this.dataset.path, this.dataset.fname)" style="font-size:11px;padding:2px 8px;" title="删除此文件">✕</button></div>';
   }).join('');
+  targets.forEach(function (el) { el.innerHTML = html; });
 }
 
 function delF(path, name) {
@@ -1021,25 +1053,43 @@ function stripThinking(text) {
 
 function formatMD(text) {
   if (!text) return '';
-  let html = String(stripThinking(text))
+  let html = String(stripThinking(text)).replace(/\r\n?/g, '\n')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, function(m, lang, code) {
-    return '<pre style="background:rgba(0,0,0,.06);padding:10px 14px;border-radius:6px;font-size:12px;overflow-x:auto;border:1px solid rgba(0,0,0,.08);margin:6px 0;"><code>' + code.trim() + '</code></pre>';
+    return '<pre class="md-pre"><code>' + code.trim() + '</code></pre>';
   });
-  html = html.replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:12px;">$1</code>');
-  html = html.replace(/^### (.+)$/gm, '<h4 style="margin:8px 0 4px;font-size:14px;">$1</h4>');
-  html = html.replace(/^## (.+)$/gm, '<h3 style="margin:10px 0 4px;font-size:15px;">$1</h3>');
+  html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+  // 分隔线：必须早于列表规则，否则 "---" 会被当作列表项
+  html = html.replace(/^[ \t]*([-*_])[ \t]*(\1[ \t]*){2,}$/gm, '<hr class="md-hr"/>');
+  // 标题：一级 → h2，二级 → h3，三级及更深 → h4（与原 ##/### 行为兼容）
+  html = html.replace(/^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/gm, function(m, hashes, t) {
+    var lv = hashes.length;
+    if (lv === 1) return '<h2 class="md-h1">' + t.trim() + '</h2>';
+    if (lv === 2) return '<h3 class="md-h2">' + t.trim() + '</h3>';
+    return '<h4 class="md-h3">' + t.trim() + '</h4>';
+  });
   html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
-  html = html.replace(/^[\-\*] (.+)$/gm, '<li style="margin-left:16px;">$1</li>');
-  html = html.replace(/^\|(.+)\|$/gm, function(m) {
-    var cols = m.split('|').filter(c => c.trim());
-    if (cols.every(c => /^[\-:]+$/.test(c.trim()))) return '';
-    return '<tr>' + cols.map(c => '<td style="padding:3px 8px;border:1px solid rgba(0,0,0,.08);font-size:12px;">' + c.trim() + '</td>').join('') + '</tr>';
+  html = html.replace(/^[ \t]*[-*+] (.+)$/gm, '<li class="md-li">$1</li>');
+  html = html.replace(/^[ \t]*\d+[.)] (.+)$/gm, '<li class="md-li md-oli">$1</li>');
+  // 表格：整块包进 <table>。原实现只产出裸 <tr>，浏览器不渲染成表格 → 表格塌成一行文字
+  html = html.replace(/^[ \t]*\|.*\|[ \t]*(?:\n[ \t]*\|.*\|[ \t]*)+/gm, function(block) {
+    var rows = block.split('\n').filter(function(l) { return l.trim(); });
+    var out = [], head = false;
+    rows.forEach(function(l) {
+      var cells = l.trim().replace(/^\||\|$/g, '').split('|');
+      if (cells.every(function(c) { return /^[\s:/-]+$/.test(c); })) return;  // 对齐分隔行
+      var tag = head ? 'td' : 'th';
+      head = true;
+      out.push('<tr>' + cells.map(function(c) {
+        return '<' + tag + '>' + c.trim() + '</' + tag + '>';
+      }).join('') + '</tr>');
+    });
+    return out.length ? '<table class="md-table">' + out.join('') + '</table>' : '';
   });
   html = html.replace(/\n/g, '<br/>');
-  html = html.replace(/<br\/>(<h[34]|<li|<tr>|<pre)/g, '$1');
-  html = html.replace(/(<\/h[34]>|<\/li>|<\/tr>|<\/pre>)<br\/>/g, '$1');
+  html = html.replace(/<br\/>(?=<(?:h2|h3|h4|li|tr|table|pre|hr))/g, '');
+  html = html.replace(/(<\/(?:h2|h3|h4|li|tr|table|pre)>|<hr[^>]*>)<br\/>/g, '$1');
   return html;
 }
 
@@ -1201,7 +1251,7 @@ async function sendAIMessage() {
   const container = document.getElementById('ai-messages');
   if (!container) return;
   
-  container.innerHTML += '<div class="ai-msg user">' + message + '</div>';
+  container.innerHTML += '<div class="ai-msg user">' + esc(message) + '</div>';
   // 图片消息气泡
   if (_aiImages.length) {
     container.innerHTML += '<div class="ai-msg user" style="padding:8px;">' +
@@ -1393,7 +1443,13 @@ const AI_TOOL_LABELS = {
   correlation: '🔗 相关性', did_regression: '🧪 DID 回归', did_full: '🧪 DID 全流程',
   hypothesis_test: '🔬 假设检验', adf_test: '📉 平稳性检验', arima: '📈 时序预测',
   ml_train: '🤖 模型训练', feature_eng: '🛠 特征工程', clean_data: '🧹 数据清洗',
-  generate_chart: '📊 生成图表', company_analysis: '🏢 公司分析', finance_data: '📈 行情数据',
+  generate_chart: '📊 生成图表', company_analysis: '🏢 公司分析',
+  company_deep_analyze: '🏢 企业深析流水线', company_deep_export_report: '📄 深析报告导出',
+  company_deep_list_templates: '🎨 PPT模板', company_deep_dcf: '💹 DCF估值',
+  company_deep_redflags: '⚠ 排雷扫描', company_deep_moat_score: '🏰 护城河评分',
+  company_deep_playbook: '◎ 竞争推演', company_deep_fill: '✏ 回填分析卡',
+  company_deep_scorecard: '📋 综合计分卡',
+  finance_data: '📈 行情数据',
   stock_valuation: '💰 估值分析', financial_statements: '📑 财务报表', financial_ratios: '🧮 财务比率',
   db_query: '🗄 数据库查询'
 };
@@ -1791,14 +1847,15 @@ async function renderChatResult(data, container, opts) {
   }
   
   // 显示 LLM 回复（流式模式已渲染，跳过）
+  // 2026-10-07 修复：原按 source 白名单决定是否走 Markdown，而 agent_pipeline
+  //   （多Agent协作报告）与 debate 不在名单内 → 整篇报告被 esc() 成纯文本：
+  //   "#" "**" "|" 原样显示、换行被压成空格，用户看到的是一大坨无结构文字。
+  //   改为一律走 formatMD（其内部先做 &<> 转义，安全性等价于 esc）。
   if (data.reply && !data.insight && !opts.skipReply) {
-    // ops_* = 智能运营确定性应答（ops_faq / ops_product_match / ops_guide），同样走 Markdown 渲染
-    if (data.source === 'knowledge' || data.source === 'web' || data.source === 'agent' || (data.source || '').indexOf('ops_') === 0) {
-      const accent = data.source === 'knowledge' ? 'var(--accent,#45B7D1)' : (data.source === 'agent' ? '#22d3ee' : '#22c55e');
-      container.innerHTML += '<div class="ai-msg assistant md" style="border-left:3px solid ' + accent + ';padding:12px 16px;">' + formatMD(data.reply) + '</div>';
-    } else {
-      container.innerHTML += '<div class="ai-msg assistant">' + esc(data.reply) + '</div>';
-    }
+    const _src = data.source || '';
+    const accent = _src === 'knowledge' ? 'var(--accent,#45B7D1)'
+      : (_src.indexOf('agent') === 0 ? '#22d3ee' : '#22c55e');
+    container.innerHTML += '<div class="ai-msg assistant md" style="border-left:3px solid ' + accent + ';padding:12px 16px;">' + formatMD(data.reply) + '</div>';
   }
 
   // 渲染分析建议卡片（用户确认后自动执行）

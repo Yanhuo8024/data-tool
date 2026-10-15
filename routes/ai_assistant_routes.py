@@ -29,7 +29,6 @@ ai_assistant_bp.before_request(local_guard)
 # 仅免费模型：日日新 sensenova（免费公测）/ ollama（本地零成本）/ groq（完全免费）/ zhipu（GLM-4 Flash 免费额度）/ custom
 _ALLOWED_PROVIDERS = {'ollama', 'groq', 'zhipu', 'sensenova', 'dashscope', 'custom'}
 
-
 def _is_safe_custom_url(url: str) -> bool:
     """custom provider 的 apiUrl 安全校验：仅允许公网 http(s)，
     禁止内网/回环/链路本地地址段（防 SSRF 探测内网）。"""
@@ -56,7 +55,6 @@ def _is_safe_custom_url(url: str) -> bool:
     except Exception:
         return False
 
-
 def _sanitize_llm_config(raw_config):
     """服务端校验/清洗前端传入的 LLM 配置：
     - provider 必须在白名单内，否则回退 sensenova（默认免费 provider，2026-09-17 起）
@@ -79,10 +77,8 @@ def _sanitize_llm_config(raw_config):
             raise ValueError("custom apiUrl 必须是公网 http(s) 地址（本机服务请使用 provider=ollama）")
     return cfg
 
-
 # 多Agent管线可分段指定的阶段名（与 agent_pipeline.STAGE_DEFS + 终稿合成对齐）
 _PIPELINE_STAGE_NAMES = ('市场分析师', '量化建模师', '风控合规官', '终稿合成')
-
 
 def _sanitize_pipeline_models(raw):
     """校验/清洗多Agent分阶段模型配置。
@@ -121,7 +117,6 @@ def _sanitize_pipeline_models(raw):
         return None
     return out or None
 
-
 def _resolve_pipeline_models(data: dict, llm_config: dict):
     """决定多Agent各阶段使用的模型配置。
 
@@ -142,7 +137,6 @@ def _resolve_pipeline_models(data: dict, llm_config: dict):
         from core_config import logger
         logger.warning("[AI-PIPE] 自动选择大模型失败，回退显式配置: %s", e)
     return explicit
-
 
 @ai_assistant_bp.route('/api/assistant/pipeline-auto-models', methods=['GET'])
 def api_pipeline_auto_models():
@@ -175,7 +169,6 @@ def api_pipeline_auto_models():
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
-
 
 @ai_assistant_bp.route('/api/assistant/chat', methods=['POST'])
 def api_assistant_chat():
@@ -249,7 +242,6 @@ def api_assistant_chat():
     except Exception as e:
         return jsonify({'ok': False, 'error': f'处理失败: {str(e)}'}), 500
 
-
 @ai_assistant_bp.route('/api/assistant/run_code', methods=['POST'])
 def api_assistant_run_code():
     """代码执行接口"""
@@ -273,7 +265,6 @@ def api_assistant_run_code():
         return jsonify(result)
     except Exception as e:
         return jsonify({'ok': False, 'error': f'执行失败: {str(e)}'}), 500
-
 
 @ai_assistant_bp.route('/api/assistant/history', methods=['GET'])
 def api_assistant_history():
@@ -400,7 +391,16 @@ def api_assistant_feedback():
     if fb in ('dislike', 'inaccurate') and message:
         suggestion = ("已记录。建议：1) 若回答没命中，说明该词可加入同义词表或知识库；"
                       "2) 若分析不对，会在 Bad Case 中沉淀供 Prompt 迭代。")
-    return jsonify({'ok': True, 'recorded': recorded, 'feedback': fb, 'suggestion': suggestion})
+    # 负面反馈额外进入**人工复核队列**（可定级/指派/追踪 SLA；见 review_queue.py）
+    review_id = None
+    try:
+        from review_queue import enqueue_from_feedback
+        review_id = enqueue_from_feedback(fb, data, session_id=session_id, reply=reply)
+    except Exception as e:
+        from core_config import logger
+        logger.warning("复核入队失败: %s", e)
+    return jsonify({'ok': True, 'recorded': recorded, 'feedback': fb,
+                    'review_id': review_id, 'suggestion': suggestion})
 
 
 @ai_assistant_bp.route('/api/assistant/autonomous-analysis', methods=['POST'])

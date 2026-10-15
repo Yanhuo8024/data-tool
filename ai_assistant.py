@@ -35,6 +35,7 @@ _HISTORY_FIELDS = ('role', 'content', 'timestamp', 'metadata', 'conversation_id'
 # 实现已拆到 text_clean.py（纯文本工具，且本文件受 R1 行数门禁约束）；
 # 此处原样再导出，保持 `from ai_assistant import strip_thinking` 的既有调用点不变。
 from text_clean import strip_thinking  # noqa: E402,F401
+from answer_scaffold import clean_reply, FINANCE_ANSWER_RULE, FINANCE_MAX_TOKENS  # noqa: E402
 # 业务能力门面（券商能力对齐）：知识库引用增强 / 智能运营分流（详见 business_agent）
 from business_agent import kb_answer, try_ops_reply  # noqa: E402,F401
 from kb_cite import cite_id  # noqa: E402,F401
@@ -69,14 +70,6 @@ def looks_like_prompt_echo(text: str) -> bool:
         return False
     head = str(text)[:500]
     return sum(1 for m in _ECHO_MARKERS if m in head) >= 2
-
-
-def _clean_result(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """对响应体做统一后处理（当前仅剥离 thinking 标签），保持结构不变。"""
-    if isinstance(payload, dict) and isinstance(payload.get('reply'), str):
-        payload = dict(payload)
-        payload['reply'] = strip_thinking(payload['reply'])
-    return payload
 
 
 # ==================== P1：联网必要性闸门 ====================
@@ -120,8 +113,8 @@ def _needs_web_search(message: str, router: dict = None) -> bool:
         from real_compute import infer_compute_intent
         if infer_compute_intent(message):
             return False
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("ai_assistant.py:123 swallowed: %s", _e)
     # 明确的时效/外部信息需求 → 联网
     if any(w in message for w in _WEB_REQUIRED_KW):
         return True
@@ -368,8 +361,8 @@ class IntentRecognizer:
                     'confidence': 0.6,
                     'raw_text': text,
                 }
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("intent llm probe swallowed: %s", _e)
         for pattern, action, confidence in self.PATTERNS:
             if re.search(pattern, text_lower, re.IGNORECASE):
                 return {
@@ -715,8 +708,36 @@ _FIN_ACTION_KW = ('分析', '看看', '了解', '研究', '查一下', '查查',
                   '怎么样', '如何', '帮我看', '帮我分析', '看下', '看一下', '说说', '点评')
 
 
+def _company_name_candidates(message: str):
+    """从消息提取公司名候选片段：jieba 词典整词优先 + 相邻词组合（别名表外公司识别用）。"""
+    import re as _re
+    cands = []
+    for seg in _re.findall(r'[\u4e00-\u9fa5]{2,12}', message or ''):
+        try:
+            import jieba
+            words = [w for w in jieba.cut(seg) if w.strip()]
+        except Exception:
+            words = [seg]
+        # jieba 词典命中的整词最可靠（如 中际旭创/贵州茅台 整词在词典中）
+        cands.extend(w for w in words if len(w) >= 3)
+        # 相邻 2/3 词组合（新公司名常被词典拆开，如 佰维+存储）
+        stops = ('的', '了', '吗', '呢', '和', '与', '及', '或', '在', '是')
+        for i in range(len(words)):
+            combo = words[i]
+            for j in range(i + 1, min(i + 3, len(words))):
+                combo += words[j]
+                if not combo.endswith(stops):
+                    cands.append(combo)
+    out, seen = [], set()
+    for c in cands:
+        if c and c not in seen and 2 <= len(c) <= 10:
+            seen.add(c)
+            out.append(c)
+    return out[:12]
+
+
 def _extract_stock_code(message: str):
-    """从消息提取股票代码（HK+4位 / 6位A股 / 公司名）"""
+    """从消息提取股票代码（HK+4位 / 6位A股 / 公司名；别名表未命中走巨潮动态解析）"""
     import re
     m = re.search(r'HK\s?(\d{4})', message, re.I)
     if m:
@@ -727,6 +748,19 @@ def _extract_stock_code(message: str):
     for name, code in _STOCK_ALIASES.items():
         if name in message:
             return code
+    # 别名表未命中：切出公司名候选，逐个走巨潮证券搜索动态解析（进程内有缓存）。
+    # 候选须 ≥3 字且在巨潮为精确简称命中 —— 2 字候选（如"新能源"）会误命中
+    # "宝新能源"等证券，把行业分析消息误路由到个股取数。
+    try:
+        from company_analysis import resolve_ticker
+        for cand in _company_name_candidates(message):
+            if len(cand) < 3:
+                continue
+            code, _mkt = resolve_ticker(cand)
+            if code:
+                return code
+    except Exception:
+        pass
     return None
 
 
@@ -1189,15 +1223,16 @@ def process_chat_message(message: str, llm_config: dict = None, current_file: st
                     "以下是系统自动拉取的实时数据（DCF 估值 + 财务比率），请基于这些真实数据简洁分析："
                     "先给结论（低估/合理/高估），再列 2-3 个关键依据，引用数据里的具体数字。"
                     "结尾必须注明：⚠️ 本结论为客观数据分析，仅供参考，不构成任何投资建议。"
-                    + _depth_style('balanced')
+                    + FINANCE_ANSWER_RULE + _depth_style('balanced')
                 )
                 _sk = _skills_context()
                 if _sk:
                     sys_prompt = sys_prompt + "\n\n# 已加载技能（请遵循）\n" + _sk
                 user_prompt = f"用户问题：{message}\n\n实时数据：\n{_fin_live['context']}"
+                _cfg = dict(llm_config, reasoning_effort='none')
                 resp = chat([{'role': 'system', 'content': sys_prompt},
-                             {'role': 'user', 'content': user_prompt}], llm_config, max_tokens=500)
-                ans = (resp.get('content', '') if isinstance(resp, dict) else str(resp)).strip()
+                             {'role': 'user', 'content': user_prompt}], _cfg, max_tokens=FINANCE_MAX_TOKENS)
+                ans = clean_reply(resp.get('content', '') if isinstance(resp, dict) else str(resp)).strip()
                 if ans:
                     return {
                         'reply': ans, 'source': 'finance_live', 'llm_synthesized': True,
@@ -2791,20 +2826,24 @@ def stream_chat_message(message: str, llm_config: dict = None, current_file: str
             "以下是系统自动拉取的实时数据（DCF 估值 + 财务比率），请基于这些真实数据简洁分析："
             "先给结论（低估/合理/高估），再列 2-3 个关键依据，引用数据里的具体数字。"
             "结尾必须注明：⚠️ 本结论为客观数据分析，仅供参考，不构成任何投资建议。"
-            + _depth_style('balanced')
+            + FINANCE_ANSWER_RULE + _depth_style('balanced')
         )
         if _skills:
             sys_prompt = sys_prompt + "\n\n# 已加载技能（请遵循）\n" + _skills
         user_prompt = f"用户问题：{message}\n\n实时数据：\n{_fin_live['context']}"
         parts = []
         try:
+            # 缓冲后再发：答案仅 200 字，逐字 delta 无收益，但脚手架流出即无法收回
             for tok in chat_stream([{'role': 'system', 'content': sys_prompt},
-                                    {'role': 'user', 'content': user_prompt}], llm_config, max_tokens=600):
+                                    {'role': 'user', 'content': user_prompt}],
+                                   dict(llm_config, reasoning_effort='none'),
+                                   max_tokens=FINANCE_MAX_TOKENS):
                 parts.append(tok)
-                yield {'type': 'delta', 'text': tok}
         except Exception as e:
             logger.warning("金融实时分析流式失败，回退数据文本: %s", e)
-        answer = ''.join(parts).strip() or _fin_live['context']
+        answer = clean_reply(''.join(parts)) or _fin_live['context']
+        if parts:
+            yield {'type': 'delta', 'text': answer}
         yield {'type': 'done', 'data': {
             'ok': True, 'reply': answer, 'source': 'finance_live',
             'llm_synthesized': bool(parts), 'mode': mode,

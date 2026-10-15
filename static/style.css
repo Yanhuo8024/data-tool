@@ -757,6 +757,40 @@ tr:hover { background: var(--bg-card-hover); }
   font-size: 12px;
 }
 
+
+/* ===== Markdown 报告排版 =================================================
+   AI 助手 / 多Agent 协作产出的长报告（企业深析、个股研究报告等）此前只有
+   pre/code 有样式，标题、表格、列表、分隔线全走浏览器默认 —— 表现为
+   「标题与正文同号、表格塌成一行、整段文字扎堆」。此处补齐语义排版。 */
+.ai-msg.assistant.md { line-height: 1.75; }
+.ai-msg.assistant.md h2,
+.ai-msg.assistant.md h3,
+.ai-msg.assistant.md h4 { margin: 18px 0 8px; font-weight: 600; line-height: 1.45; }
+.ai-msg.assistant.md .md-h1 { font-size: 17px; padding-bottom: 7px; border-bottom: 1px solid var(--glass-border); }
+.ai-msg.assistant.md .md-h2 { font-size: 15px; }
+.ai-msg.assistant.md .md-h3 { font-size: 13.5px; color: var(--ink-muted); }
+.ai-msg.assistant.md .md-hr { margin: 18px 0; border: 0; border-top: 1px solid var(--glass-border); }
+.ai-msg.assistant.md .md-li { margin: 5px 0 5px 20px; }
+.ai-msg.assistant.md .md-table {
+  display: block; width: 100%; max-width: 100%; overflow-x: auto;
+  margin: 10px 0; border-collapse: collapse; font-size: 12px;
+}
+.ai-msg.assistant.md .md-table th,
+.ai-msg.assistant.md .md-table td {
+  padding: 6px 10px; border: 1px solid var(--glass-border);
+  text-align: left; white-space: nowrap; vertical-align: top;
+}
+.ai-msg.assistant.md .md-table th { background: rgba(127,127,127,.14); font-weight: 600; }
+.ai-msg.assistant.md .md-table tbody tr:nth-child(even) td { background: rgba(127,127,127,.05); }
+.ai-msg.assistant.md .md-pre {
+  margin: 8px 0; padding: 10px 14px; border: 1px solid var(--glass-border);
+  border-radius: 6px; background: rgba(127,127,127,.10); font-size: 12px; overflow-x: auto;
+}
+.ai-msg.assistant.md .md-code {
+  padding: 1px 5px; border-radius: 3px; font-size: 12px; background: rgba(127,127,127,.14);
+}
+body.light-theme .ai-msg.assistant.md .md-pre,
+body.light-theme .ai-msg.assistant.md .md-code { background: rgba(0,0,0,.05); }
 /* Structured Report */
 .ai-report {
   background: var(--bg-card) !important;

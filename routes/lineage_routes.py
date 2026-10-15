@@ -11,6 +11,9 @@ from data_lineage import lineage_mgr, LINEAGE_OPS
 
 def register_routes(app, limiter):
     bp = Blueprint('lineage_routes', __name__)
+    # 守卫：血缘图谱暴露数据文件名与处理链路（信息泄露面），远程必须认证
+    from auth import local_guard
+    bp.before_request(local_guard)
     # ============================================================
     #  血缘总览 / 统计
     # ============================================================

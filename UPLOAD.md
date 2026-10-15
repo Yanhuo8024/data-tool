@@ -18,8 +18,3 @@
 ```bat
 install.bat
 ```
-
-
-## 网页拖不了文件夹时
-
-在项目根目录双击 **upload_to_github_api.bat**（需 GitHub Token），可按完整目录结构推送到仓库。

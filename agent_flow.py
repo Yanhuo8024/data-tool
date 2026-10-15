@@ -26,6 +26,7 @@ agent_flow.py - Agent 流程可视化与故障定位（归一化层）
 import json
 import logging
 from datetime import datetime
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -1047,8 +1048,54 @@ def summarize_recent(limit: int = 30) -> List[Dict[str, Any]]:
     return out
 
 
+
+# ---- 诊断结果缓存（2026-09-25）----
+# flows/health / problems 在并发压测下 p95 可达数秒：每次全量扫 traces + build_flow。
+# 这里加进程内 TTL 缓存：同 limit 在 TTL 内直接复用，失败/空结果不缓存。
+_DIAG_CACHE: Dict[str, Any] = {}
+_DIAG_CACHE_TS: Dict[str, float] = {}
+_DIAG_CACHE_TTL = float(__import__("os").environ.get("AGENT_DIAG_CACHE_TTL", "8"))
+_DIAG_CACHE_LOCK = __import__("threading").Lock()
+
+
+def _diag_cache_get(key: str):
+    now = time.time()
+    with _DIAG_CACHE_LOCK:
+        if key in _DIAG_CACHE and (now - _DIAG_CACHE_TS.get(key, 0)) < _DIAG_CACHE_TTL:
+            return _DIAG_CACHE[key]
+    return None
+
+
+def _diag_cache_set(key: str, value: Any) -> None:
+    if not isinstance(value, dict) or not value.get("runs"):
+        return  # 空结果不缓存，避免污染期粘住
+    with _DIAG_CACHE_LOCK:
+        _DIAG_CACHE[key] = value
+        _DIAG_CACHE_TS[key] = time.time()
+        # 简单容量控制
+        if len(_DIAG_CACHE) > 32:
+            for k in sorted(_DIAG_CACHE_TS, key=_DIAG_CACHE_TS.get)[:16]:
+                _DIAG_CACHE.pop(k, None)
+                _DIAG_CACHE_TS.pop(k, None)
+
+
+def invalidate_diag_cache() -> None:
+    with _DIAG_CACHE_LOCK:
+        _DIAG_CACHE.clear()
+        _DIAG_CACHE_TS.clear()
+
+
 def aggregate_health(limit: int = 100) -> Dict[str, Any]:
-    """跨运行的聚合视角：各故障码 / 各阶段出现频率排行 → "哪一部分最常出问题"。"""
+    """跨运行的聚合视角：各故障码 / 各阶段出现频率排行 → "哪一部分最常出问题"。
+
+    2026-09-25：TTL 缓存，缓解 /flows/health 并发下 p95 过高。
+    """
+    _ck = f"health:{max(1, min(int(limit or 100), 200))}"
+    _hit = _diag_cache_get(_ck)
+    if _hit is not None:
+        out = dict(_hit)
+        out["cached"] = True
+        return out
     from trace_store import list_runs
     try:
         runs = list_runs(limit=max(1, min(int(limit or 100), 200)))
@@ -1105,7 +1152,7 @@ def aggregate_health(limit: int = 100) -> Dict[str, Any]:
                            'rate': round(c / n, 4) if n else 0.0})
     phases.sort(key=lambda p: -p['problem_count'])
 
-    return {
+    _payload = {
         'runs': n,
         'by_status': by_status,
         'healthy_rate': round(by_status.get('ok', 0) / n, 4) if n else 0.0,
@@ -1113,6 +1160,8 @@ def aggregate_health(limit: int = 100) -> Dict[str, Any]:
         'codes': codes,
         'phases': phases,
     }
+    _diag_cache_set(_ck, _payload)
+    return _payload
 
 
 # ----------------------------------------------------------------------
@@ -1230,12 +1279,15 @@ def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
 def problems_dashboard(limit: int = 100) -> Dict[str, Any]:
     """Agent 问题页数据源：时间统计 + 问题台账 + 优化方向。
 
-    相对 aggregate_health 的增强：
-      1. 耗时分位（avg/p50/p90/p95/max）与按阶段耗时、按日趋势；
-      2. 每个问题码的：次数、占比、首/末次出现、出问题时的平均耗时、样例 run；
-      3. 按「频率 × 严重度」生成可执行的优化方向清单（给用户下一步做什么）。
-    纯只读、零网络。异常时返回可读空结构，不抛到路由层。
+    2026-09-25：TTL 缓存 + 限制 sample 扫描成本。
     """
+    _ck = f"problems:{max(1, min(int(limit or 100), 200))}"
+    _hit = _diag_cache_get(_ck)
+    if _hit is not None:
+        out = dict(_hit)
+        out["cached"] = True
+        return out
+
     from trace_store import list_runs
     empty = {
         'runs': 0,
@@ -1565,7 +1617,7 @@ def problems_dashboard(limit: int = 100) -> Dict[str, Any]:
         },
     }
 
-    return {
+    _payload = {
         'runs': n,
         'generated_at': datetime.now().isoformat(timespec='seconds'),
         'by_status': by_status,
@@ -1577,3 +1629,5 @@ def problems_dashboard(limit: int = 100) -> Dict[str, Any]:
         'rule_catalog': catalog,
         'week_over_week': wow,
     }
+    _diag_cache_set(_ck, _payload)
+    return _payload

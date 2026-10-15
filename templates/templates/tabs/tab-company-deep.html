@@ -1,0 +1,743 @@
+<!-- ======================== 企业深度分析 ======================== -->
+<div id="tab-company-deep" class="sec">
+  <div class="current-file-bar">
+    <span class="cf-icon">🏢</span>
+    <span class="cf-label">企业深度分析</span>
+    <span class="cf-hint">信息收集 → 业务理解 → 商业模式 → 财务验证 → 风险排雷 → 结论输出</span>
+    <div class="flex gap" style="margin-left:auto;">
+      <button type="button" class="btn btn-sm" onclick="cdSave()">保存</button>
+      <button type="button" class="btn btn-sm" onclick="cdExport()">导出 JSON</button>
+      <button type="button" class="btn btn-sm" onclick="cdExportReport('docx')">导出 Word</button>
+      <button type="button" class="btn btn-sm" onclick="cdExportReport('pptx')">导出 PPT</button>
+      <button type="button" class="btn btn-sm btn-p" onclick="cdBuildVerdict(true)">生成判断卡</button>
+    </div>
+  </div>
+
+  <style>
+    #tab-company-deep .cd-funnel { display:flex; gap:8px; overflow-x:auto; padding:4px 0 12px; }
+    #tab-company-deep .cd-step {
+      flex:1; min-width:110px; padding:12px; border-radius:12px;
+      border:1px solid var(--glass-border); background:var(--bg-muted);
+      cursor:pointer; transition:.15s ease;
+    }
+    #tab-company-deep .cd-step:hover { border-color:var(--accent); }
+    #tab-company-deep .cd-step.on { border-color:var(--accent); background:rgba(91,140,255,.12); }
+    #tab-company-deep .cd-step .n { font-size:10px; font-weight:700; color:var(--ink-subtle); letter-spacing:.08em; }
+    #tab-company-deep .cd-step .t { margin-top:4px; font-size:12.5px; font-weight:700; color:var(--ink); }
+    #tab-company-deep .cd-step .bar { margin-top:8px; height:3px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; }
+    #tab-company-deep .cd-step .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--accent),#22d3ee); border-radius:99px; }
+
+    #tab-company-deep .cd-chips { display:flex; flex-wrap:wrap; gap:8px; }
+    #tab-company-deep .cd-chip {
+      padding:7px 12px; border-radius:999px; border:1px solid var(--glass-border);
+      background:rgba(255,255,255,.03); color:var(--ink); font-size:12px; font-weight:600; cursor:pointer;
+    }
+    #tab-company-deep .cd-chip.on { background:rgba(91,140,255,.16); border-color:var(--accent); color:var(--accent); }
+
+    #tab-company-deep .cd-check {
+      display:flex; gap:10px; align-items:flex-start; padding:11px 12px; margin-bottom:8px;
+      border-radius:11px; border:1px solid var(--glass-border); background:rgba(255,255,255,.02); cursor:pointer;
+    }
+    #tab-company-deep .cd-check.done { border-color:rgba(45,212,168,.35); background:rgba(45,212,168,.08); }
+    #tab-company-deep .cd-check input { margin-top:2px; accent-color:#2dd4a8; }
+    #tab-company-deep .cd-check .t { font-size:12.5px; font-weight:650; }
+    #tab-company-deep .cd-check .d { font-size:11px; color:var(--ink-subtle); margin-top:3px; line-height:1.5; }
+    #tab-company-deep .cd-check .grow { flex:1; min-width:0; }
+
+    #tab-company-deep .cd-src-actions { display:flex; gap:8px; margin-top:8px; }
+    #tab-company-deep .cd-src-btn {
+      padding:4px 10px; border-radius:8px; font-size:11px; font-weight:600; cursor:pointer;
+      background:rgba(91,140,255,.14); color:#22d3ee; border:1px solid rgba(91,140,255,.3); transition:.15s;
+    }
+    #tab-company-deep .cd-src-btn:hover { background:rgba(91,140,255,.28); }
+    #tab-company-deep .cd-src-btn.alt { background:rgba(45,212,168,.12); color:#2dd4a8; border-color:rgba(45,212,168,.3); }
+    #tab-company-deep .cd-src-btn.alt:hover { background:rgba(45,212,168,.25); }
+    #tab-company-deep .cd-src-btn.tiny { padding:2px 8px; font-size:10px; }
+    #tab-company-deep .cd-src-btn:disabled { opacity:.55; cursor:wait; }
+    #tab-company-deep .cd-src-res { margin:-2px 0 12px 34px; display:flex; flex-direction:column; gap:6px; }
+    #tab-company-deep .cd-src-item {
+      padding:8px 10px; border-radius:9px; border:1px solid var(--glass-border);
+      background:rgba(0,0,0,.18); font-size:11.5px; line-height:1.5;
+    }
+    #tab-company-deep .cd-src-item a { color:#22d3ee; text-decoration:none; font-weight:600; word-break:break-all; }
+    #tab-company-deep .cd-src-item a:hover { text-decoration:underline; }
+    #tab-company-deep .cd-src-item .snip { color:var(--ink-subtle); margin:4px 0 2px; }
+    #tab-company-deep .cd-src-empty, #tab-company-deep .cd-src-loading {
+      font-size:11px; color:var(--ink-subtle); padding:2px 0 8px;
+    }
+
+    #tab-company-deep .cd-score-row { display:grid; grid-template-columns:110px 1fr 48px; gap:10px; align-items:center; margin-bottom:10px; }
+    #tab-company-deep .cd-score-row input[type=range] { width:100%; accent-color:var(--accent); }
+    #tab-company-deep .cd-score-row .val { text-align:right; font-family:var(--mono); font-size:12px; font-weight:700; color:#22d3ee; }
+
+    #tab-company-deep .cd-loop { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    #tab-company-deep .cd-loop-node {
+      padding:12px; border-radius:11px; border:1px solid var(--glass-border); background:rgba(255,255,255,.025); min-height:86px;
+    }
+    #tab-company-deep .cd-loop-node .lt { font-size:11px; font-weight:700; color:#22d3ee; margin-bottom:6px; }
+    #tab-company-deep .cd-loop-node textarea {
+      min-height:54px; width:100%; background:transparent; border:none; padding:0; resize:vertical;
+      color:var(--ink); font-size:11.5px; line-height:1.5; outline:none;
+    }
+
+    #tab-company-deep .cd-alert {
+      display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:12px;
+      border:1px solid var(--glass-border); margin-bottom:10px; font-size:12.5px; line-height:1.6;
+    }
+    #tab-company-deep .cd-alert.danger { background:rgba(248,113,113,.12); border-color:rgba(248,113,113,.3); }
+    #tab-company-deep .cd-alert.warn { background:rgba(245,196,81,.12); border-color:rgba(245,196,81,.3); }
+    #tab-company-deep .cd-alert.ok { background:rgba(45,212,168,.12); border-color:rgba(45,212,168,.3); }
+    #tab-company-deep .cd-alert.info { background:rgba(91,140,255,.12); border-color:rgba(91,140,255,.3); }
+
+    #tab-company-deep .cd-stat {
+      padding:14px; border-radius:12px; border:1px solid var(--glass-border); background:rgba(255,255,255,.025); text-align:center;
+    }
+    #tab-company-deep .cd-stat .v { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; }
+    #tab-company-deep .cd-stat .k { margin-top:4px; font-size:11.5px; color:var(--ink-subtle); }
+
+    #tab-company-deep .cd-formula {
+      display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:14px; border-radius:12px;
+      border:1px dashed var(--glass-border); background:rgba(255,255,255,.02); font-family:var(--mono); font-size:12px;
+    }
+    #tab-company-deep .cd-formula .num { padding:6px 10px; border-radius:8px; background:rgba(91,140,255,.14); color:#22d3ee; font-weight:700; }
+    #tab-company-deep .cd-formula .result {
+      padding:6px 12px; border-radius:8px; background:rgba(91,140,255,.2); color:var(--ink); font-weight:800;
+      border:1px solid rgba(91,140,255,.3);
+    }
+
+    #tab-company-deep .cd-jcard {
+      border-radius:16px; border:1px solid rgba(91,140,255,.3); overflow:hidden;
+      background:linear-gradient(160deg, rgba(91,140,255,.1), transparent 40%), var(--bg-muted);
+    }
+    #tab-company-deep .cd-jhead {
+      padding:20px 22px 16px; border-bottom:1px solid var(--glass-border);
+      display:flex; justify-content:space-between; gap:16px; align-items:flex-start;
+    }
+    #tab-company-deep .cd-jhead h3 { margin:0; font-size:20px; font-weight:800; }
+    #tab-company-deep .cd-verdict { padding:8px 14px; border-radius:12px; font-size:13px; font-weight:800; white-space:nowrap; }
+    #tab-company-deep .cd-verdict.good { background:rgba(45,212,168,.14); color:#2dd4a8; border:1px solid rgba(45,212,168,.35); }
+    #tab-company-deep .cd-verdict.mid { background:rgba(245,196,81,.14); color:#f5c451; border:1px solid rgba(245,196,81,.35); }
+    #tab-company-deep .cd-verdict.bad { background:rgba(248,113,113,.14); color:#f87171; border:1px solid rgba(248,113,113,.35); }
+    #tab-company-deep .cd-jq { padding:16px 22px; border-bottom:1px solid var(--glass-border); }
+    #tab-company-deep .cd-jq .q { display:flex; gap:10px; align-items:center; font-size:13.5px; font-weight:750; margin-bottom:8px; }
+    #tab-company-deep .cd-jq .q .n {
+      width:22px; height:22px; border-radius:7px; background:rgba(91,140,255,.16); color:#22d3ee;
+      display:grid; place-items:center; font-size:11px;
+    }
+    #tab-company-deep .cd-jq .a { font-size:13px; line-height:1.75; padding-left:32px; }
+    #tab-company-deep .cd-jq .ev {
+      margin-top:8px; margin-left:32px; padding:8px 12px; border-radius:9px;
+      background:rgba(255,255,255,.03); border-left:2px solid #22d3ee;
+      font-size:11.5px; color:var(--ink-subtle); line-height:1.6;
+    }
+
+    #tab-company-deep .cd-timeline { position:relative; padding-left:18px; }
+    #tab-company-deep .cd-timeline:before {
+      content:""; position:absolute; left:5px; top:4px; bottom:4px; width:2px;
+      background:linear-gradient(180deg, var(--accent), #22d3ee, transparent);
+    }
+    #tab-company-deep .cd-tl-item {
+      position:relative; margin-bottom:12px; padding:12px 14px; border-radius:12px;
+      border:1px solid var(--glass-border); background:rgba(255,255,255,.025);
+    }
+
+    #tab-company-deep .cd-pctbar {
+      position:relative; height:26px; border-radius:8px; margin:12px 0 8px;
+      background:linear-gradient(90deg, rgba(45,212,168,.28), rgba(245,196,81,.28), rgba(248,113,113,.3));
+    }
+    #tab-company-deep .cd-pctbar .marker {
+      position:absolute; top:-3px; bottom:-3px; width:3px; background:#fff; border-radius:2px;
+      box-shadow:0 0 8px rgba(255,255,255,.5);
+    }
+
+    #tab-company-deep table.cd-tb { width:100%; border-collapse:collapse; font-size:12px; }
+    #tab-company-deep table.cd-tb th,
+    #tab-company-deep table.cd-tb td { border-bottom:1px solid var(--glass-border); padding:8px 10px; text-align:left; }
+    #tab-company-deep table.cd-tb th { background:var(--bg-muted); color:var(--ink-subtle); font-size:11px; }
+    #tab-company-deep table.cd-tb input {
+      width:100%; min-width:72px; padding:6px 8px; border-radius:8px;
+      border:1px solid var(--glass-border); background:rgba(0,0,0,.2); color:var(--ink);
+    }
+
+    @media (max-width: 900px) {
+      #tab-company-deep .cd-loop { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      #tab-company-deep .cd-loop { grid-template-columns: 1fr; }
+      #tab-company-deep .cd-score-row { grid-template-columns: 88px 1fr 40px; }
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #tab-company-deep, #tab-company-deep * { visibility: visible; }
+      #tab-company-deep { position:absolute; left:0; top:0; width:100%; }
+      #tab-company-deep .no-print, #tab-company-deep .card:not(#cd-verdict-card) { display:none !important; }
+      #tab-company-deep .cd-jcard { border:1px solid #ccc; background:#fff; color:#111; }
+    }
+    .cd-result-block {
+      border: 1px solid rgba(91,140,255,.35);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(91,140,255,.08), rgba(255,255,255,.02));
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .cd-result-block h4 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent, #5b8cff);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cd-result-block h4 .tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(34,211,238,.15);
+      color: #22d3ee;
+    }
+    .cd-result-kv {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 6px 12px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      margin-bottom: 8px;
+    }
+    .cd-result-kv .k { color: var(--ink-subtle, #8b9bb8); font-weight: 600; }
+    .cd-result-kv .v { color: var(--ink); }
+    .cd-result-text {
+      font-size: 12.5px;
+      line-height: 1.75;
+      color: var(--ink);
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.18);
+      border-left: 3px solid #22d3ee;
+      margin-top: 8px;
+      white-space: pre-wrap;
+    }
+    .cd-result-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .cd-result-chips span {
+      font-size: 11px; padding: 3px 9px; border-radius: 999px;
+      background: rgba(91,140,255,.14); color: var(--accent, #5b8cff); border:1px solid rgba(91,140,255,.25);
+    }
+    #cd-results-panel .cd-result-block.filled {
+      border-color: rgba(45,212,168,.4);
+      box-shadow: 0 0 0 1px rgba(45,212,168,.12);
+    }
+  </style>
+
+  <!-- 一句话开查：只输公司名 -->
+  <div class="card" id="cd-hero" style="margin-bottom:16px;border:1px solid rgba(91,140,255,.35);background:linear-gradient(135deg,rgba(91,140,255,.12),rgba(34,211,238,.06));">
+    <div class="c-head" style="margin-bottom:12px;">
+      <div class="c-title">输入公司名称，自动完成深度分析</div>
+      <div class="c-sub">识别代码 → 拉真实财报/行情/估值 → 规则排雷 → 智能草稿 → 一页纸判断卡 / PPT·Word</div>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input id="cd-quick-input" placeholder="公司名称或代码，例如：贵州茅台 / 600519 / 腾讯"
+             style="flex:1;min-width:220px;padding:12px 14px;font-size:15px;border-radius:12px;border:1px solid var(--glass-border);background:rgba(0,0,0,.25);color:var(--ink);"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();(window.cdQuickStart||function(){})();}" />
+      <button type="button" class="btn btn-p" style="padding:12px 20px;font-size:14px;"
+              onclick="(window.cdQuickStart||function(){alert('分析脚本未加载，请刷新页面')})()">⚡ 开始自动分析</button>
+      <button type="button" class="btn" onclick="(window.cdAutoPipeline||function(){})(false)">快速（不用 AI）</button>
+    </div>
+    <div style="padding:0 16px 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <span id="cd-hero-hint" class="muted" style="font-size:12px;">一般 20–60 秒；完成后分析结果会完整显示在下方</span>
+      <span id="cd-hero-actions" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span class="muted" style="font-size:11px;">PPT 模板</span>
+        <select id="cd-ppt-template" style="width:auto;min-width:128px;padding:6px 8px;font-size:12px;">
+          <option value="navy_business">商务深蓝</option>
+          <option value="dark_tech">科技深色</option>
+          <option value="growth_green">增长青绿</option>
+          <option value="minimal_light">简约汇报</option>
+          <option value="invest_memo">投研备忘录</option>
+        </select>
+        <button type="button" class="btn btn-sm" onclick="(window.cdExportReport||function(){})('pptx')">导出 PPT</button>
+        <button type="button" class="btn btn-sm btn-p" onclick="(window.cdExportReport||function(){})('docx')">导出 Word</button>
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('cd-verdict-card')&&document.getElementById('cd-verdict-card').scrollIntoView({behavior:'smooth',block:'start'})">查看判断卡</button>
+      </span>
+    </div>
+    <div id="cd-pipeline-panel" style="padding:0 16px 16px;display:none;">
+      <div class="eyebrow">自动化流水线进度</div>
+      <div id="cd-pipeline-stages"></div>
+    </div>
+    <div style="padding:0 16px 14px;">
+      <button type="button" class="btn btn-sm btn-ghost" onclick="var el=document.getElementById('cd-sec-profile'); if(el) el.style.display=el.style.display==='none'?'block':'none';">▸ 公司档案（分析后校正）</button>
+    </div>
+  </div>
+
+  <!-- 分析结果总览（流水线完成后强制展示） -->
+  <div class="card" id="cd-results-panel" style="margin-bottom:16px;display:none;border:1px solid rgba(45,212,168,.35);">
+    <div class="c-head">
+      <div class="c-title">📊 分析结果总览</div>
+      <div class="c-sub">业务与行业 · 商业模式拆解 · 竞争壁垒 · 财务验证 · 风险治理 · 估值结论</div>
+      <div class="flex gap" style="margin-left:auto;">
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('cd-verdict-card')&&document.getElementById('cd-verdict-card').scrollIntoView({behavior:'smooth'})">一页纸判断卡 →</button>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px;" id="cd-results-body">
+      <div class="muted" style="font-size:12px;">等待分析…</div>
+    </div>
+  </div>
+
+  <!-- 漏斗进度 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">分析漏斗</div>
+      <div class="c-sub">先锁死一手信源 → 看赛道 → 拆模式 → 验护城河 → 财务照妖 → 排雷估值 → 一页纸收口</div>
+    </div>
+    <div class="cd-funnel" id="cd-funnel"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+      <div class="cd-stat"><div class="v" id="cd-meter-biz" style="color:var(--accent)">—</div><div class="k">业务理解分</div></div>
+      <div class="cd-stat"><div class="v" id="cd-meter-fin" style="color:#2dd4a8">—</div><div class="k">财务健康分</div></div>
+      <div class="cd-stat"><div class="v" id="cd-meter-risk" style="color:#f5c451">—</div><div class="k">风险密度</div></div>
+    </div>
+  </div>
+
+  <!-- 公司档案（默认折叠：仅用于「分析后校正」） -->
+  <div class="card" id="cd-sec-profile" style="margin-bottom:16px;display:none;">
+    <div class="c-head">
+      <div class="c-title">公司档案 · 手动校正</div>
+      <div class="c-sub">自动分析会覆盖以下字段；如需修正，请在分析完成后改这里 —— 这些值会写入 Word / PPT 页眉</div>
+    </div>
+    <div style="padding:16px;display:grid;grid-template-columns:repeat(12,1fr);gap:12px;">
+      <div class="fg" style="grid-column:span 3;"><label>公司名称</label><input id="cd-name" placeholder="例：贵州茅台"></div>
+      <div class="fg" style="grid-column:span 3;"><label>股票代码</label><input id="cd-code" placeholder="例：600519 / HK0700"></div>
+      <div class="fg" style="grid-column:span 3;"><label>所属行业</label><input id="cd-industry" placeholder="例：高端白酒"></div>
+      <div class="fg" style="grid-column:span 3;"><label>市场</label>
+        <select id="cd-market"><option>A股</option><option>港股</option><option>美股</option><option>未上市</option><option>其他</option></select>
+      </div>
+      <div class="fg" style="grid-column:span 3;"><label>分析日期</label><input id="cd-date" type="date"></div>
+      <div class="fg" style="grid-column:span 3;"><label>分析人</label><input id="cd-analyst" placeholder="姓名 / 团队"></div>
+      <div class="fg" style="grid-column:span 6;">
+        <label>一句话：这家公司是干什么的？</label>
+        <input id="cd-oneliner" placeholder="用大白话说清靠什么赚钱">
+      </div>
+      <div class="fg" style="grid-column:span 12;">
+        <div class="flex gap wrap">
+          <button type="button" class="btn" onclick="(window.cdFetchCompany||function(){})()">仅拉取公司画像</button>
+          <button type="button" class="btn" onclick="(window.cdFillDemo||function(){})()">填入示例数据</button>
+          <button type="button" class="btn" onclick="if(confirm('清空当前全部分析内容？')){localStorage.removeItem('cd-state-v1');location.reload();}">重置</button>
+          <span id="cd-fetch-stat" style="font-size:12px;color:var(--ink-subtle);align-self:center;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 01 信息收集 -->
+  <div class="card" id="cd-sec-sources" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">① 信息收集</div><div class="c-sub">一手权威入口优先，二手只作交叉验证。每个信源可「跳转」直达该公司检索页，「获取信息」自动检索公开资料后写入摘录。</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;">
+      <div>
+        <div class="eyebrow">一手信源</div>
+        <div id="cd-src-primary"></div>
+      </div>
+      <div>
+        <div class="eyebrow">二手交叉验证</div>
+        <div id="cd-src-secondary"></div>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="fg"><label>招股说明书摘录</label><textarea id="cd-ipo-notes" rows="3" placeholder="行业格局 / 商业模式 / 竞争优劣势 / 募投 / 风险因素"></textarea></div>
+      <div class="fg"><label>年报 MD&amp;A 摘录</label><textarea id="cd-mda-notes" rows="3" placeholder="收入拆分 / 毛利率变化 / 资本开支 / 管理层展望"></textarea></div>
+      <div class="fg"><label>审计意见 / 监管问询</label><textarea id="cd-audit-notes" rows="3"></textarea></div>
+      <div class="fg"><label>研报 / 行业报告观点</label><textarea id="cd-research-notes" rows="3"></textarea></div>
+      <div class="fg" style="grid-column:span 2;"><label>信源检索摘录（点各信源「获取信息」→「＋摘录」自动写入，可继续手动整理）</label><textarea id="cd-web-notes" rows="4" placeholder="【巨潮资讯网】xxx — 摘要（链接）&#10;【裁判文书 / 执行信息】…"></textarea></div>
+    </div>
+  </div>
+
+  <!-- 02 业务与行业 -->
+  <div class="card" id="cd-sec-business" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">② 业务与行业</div><div class="c-sub">行业决定天花板。先看赛道再选马。</div></div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="eyebrow">行业画像</div>
+        <div class="fg"><label>行业规模（亿元）</label><input id="cd-ind-size" type="number"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>行业增速（%）</label><input id="cd-ind-growth" type="number" step="0.1"></div>
+          <div class="fg"><label>公司市占率（%）</label><input id="cd-mkt-share" type="number" step="0.1"></div>
+        </div>
+        <div class="fg"><label>生命周期</label>
+          <div class="cd-chips" id="cd-chip-lifecycle">
+            <span class="cd-chip" data-value="导入期">导入期</span>
+            <span class="cd-chip" data-value="成长期">成长期</span>
+            <span class="cd-chip" data-value="成熟期">成熟期</span>
+            <span class="cd-chip" data-value="衰退期">衰退期</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>CR3（%）</label><input id="cd-cr3" type="number" step="0.1"></div>
+          <div class="fg"><label>CR5（%）</label><input id="cd-cr5" type="number" step="0.1"></div>
+        </div>
+        <div class="fg"><label>政策方向</label>
+          <div class="cd-chips" id="cd-chip-policy">
+            <span class="cd-chip" data-value="强支持">强支持</span>
+            <span class="cd-chip" data-value="中性">中性</span>
+            <span class="cd-chip" data-value="监管收紧">监管收紧</span>
+            <span class="cd-chip" data-value="限制/淘汰">限制/淘汰</span>
+          </div>
+        </div>
+        <div class="fg"><label>行业判断</label>
+          <select id="cd-ind-score">
+            <option value="">请选择</option>
+            <option value="5">优秀 — 高增长/高壁垒</option>
+            <option value="4">良好 — 稳定增长</option>
+            <option value="3">一般 — 低增长/充分竞争</option>
+            <option value="2">较差 — 过剩/价格战</option>
+            <option value="1">危险 — 萎缩/被替代</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow">业务本质</div>
+        <div class="fg"><label>靠什么赚钱？</label><textarea id="cd-biz-what" rows="2"></textarea></div>
+        <div class="fg"><label>行业天花板</label><textarea id="cd-biz-ceiling" rows="2"></textarea></div>
+        <div class="fg"><label>行业关键成功要素</label><textarea id="cd-biz-kfs" rows="2"></textarea></div>
+        <div class="fg"><label>公司行业位置</label><textarea id="cd-biz-position" rows="2"></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 商业模式 -->
+  <div class="card" id="cd-sec-model" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">③ 商业模式拆解</div><div class="c-sub">钱从哪来、货往哪流、利润公式是什么。能大白话画出闭环才算懂。</div></div>
+    <div style="padding:16px;">
+      <div class="eyebrow">商业闭环画布</div>
+      <div class="cd-loop">
+        <div class="cd-loop-node"><div class="lt">① 客户是谁</div><textarea id="cd-loop-customer"></textarea></div>
+        <div class="cd-loop-node"><div class="lt">② 价值主张</div><textarea id="cd-loop-value"></textarea></div>
+        <div class="cd-loop-node"><div class="lt">③ 渠道触达</div><textarea id="cd-loop-channel"></textarea></div>
+        <div class="cd-loop-node"><div class="lt">④ 收入结构</div><textarea id="cd-loop-revenue"></textarea></div>
+        <div class="cd-loop-node"><div class="lt">⑤ 成本结构</div><textarea id="cd-loop-cost"></textarea></div>
+        <div class="cd-loop-node"><div class="lt">⑥ 利润与回款</div><textarea id="cd-loop-cash"></textarea></div>
+      </div>
+      <div class="fg" style="margin-top:12px;"><label>链条上最脆弱的一环</label><input id="cd-loop-weakest"></div>
+    </div>
+    <div style="padding:0 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="fg"><label>收入结构拆分</label><textarea id="cd-rev-mix" rows="2"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>第一大客户占比（%）</label><input id="cd-cust1" type="number" step="0.1"></div>
+          <div class="fg"><label>前五大客户占比（%）</label><input id="cd-cust5" type="number" step="0.1"></div>
+        </div>
+        <div class="fg"><label>回款模式</label>
+          <div class="cd-chips" id="cd-chip-payment">
+            <span class="cd-chip" data-value="先款后货">先款后货</span>
+            <span class="cd-chip" data-value="现款现货">现款现货</span>
+            <span class="cd-chip" data-value="信用期垫资">信用期垫资</span>
+            <span class="cd-chip" data-value="项目制回款">项目制回款</span>
+          </div>
+        </div>
+        <div class="fg"><label>定价权</label>
+          <select id="cd-pricing">
+            <option value="">请选择</option>
+            <option value="5">极强 — 可持续提价</option>
+            <option value="4">较强 — 有溢价</option>
+            <option value="3">一般 — 市价</option>
+            <option value="2">较弱 — 常价格战</option>
+            <option value="1">无 — 代工/成本加成</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="fg"><label>利润公式</label><textarea id="cd-profit-formula" rows="2"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>毛利率（%）</label><input id="cd-gm" type="number" step="0.01"></div>
+          <div class="fg"><label>净利率（%）</label><input id="cd-nm" type="number" step="0.01"></div>
+        </div>
+        <div class="fg"><label>商业模式类型</label>
+          <select id="cd-biz-type">
+            <option value="">请选择</option>
+            <option>品牌消费</option><option>平台/网络效应</option><option>订阅/SaaS</option>
+            <option>制造/代工</option><option>渠道分销</option><option>项目/工程</option>
+            <option>资源/周期</option><option>金融牌照</option><option>其他</option>
+          </select>
+        </div>
+        <div class="fg"><label>商业模式评价</label>
+          <select id="cd-model-score">
+            <option value="">请选择</option>
+            <option value="5">优秀 — 轻资产高复购强现金</option>
+            <option value="4">良好 — 可持续现金流健康</option>
+            <option value="3">一般 — 重资产/周转一般</option>
+            <option value="2">较差 — 垫资/毛利低</option>
+            <option value="1">危险 — 模式不成立</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 护城河 -->
+  <div class="card" id="cd-sec-moat" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">④ 竞争壁垒（护城河）</div><div class="c-sub">高毛利必引来竞争。客户为什么非选它？对手为什么打不进？</div></div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="eyebrow">六维壁垒评分（0–10）</div>
+        <div class="cd-score-row"><div>技术/专利</div><input type="range" min="0" max="10" id="cd-moat-tech"><div class="val" id="cd-moat-tech-v">5</div></div>
+        <div class="cd-score-row"><div>品牌心智</div><input type="range" min="0" max="10" id="cd-moat-brand"><div class="val" id="cd-moat-brand-v">5</div></div>
+        <div class="cd-score-row"><div>渠道网络</div><input type="range" min="0" max="10" id="cd-moat-channel"><div class="val" id="cd-moat-channel-v">5</div></div>
+        <div class="cd-score-row"><div>成本/规模</div><input type="range" min="0" max="10" id="cd-moat-cost"><div class="val" id="cd-moat-cost-v">5</div></div>
+        <div class="cd-score-row"><div>网络效应</div><input type="range" min="0" max="10" id="cd-moat-network"><div class="val" id="cd-moat-network-v">5</div></div>
+        <div class="cd-score-row"><div>牌照/资质</div><input type="range" min="0" max="10" id="cd-moat-license"><div class="val" id="cd-moat-license-v">5</div></div>
+        <div class="flex" style="justify-content:space-between;margin-top:12px;">
+          <span style="font-size:12px;color:var(--ink-subtle)">护城河总分</span>
+          <span id="cd-moat-total" style="font-weight:800;color:#22d3ee">5.0 / 10</span>
+        </div>
+      </div>
+      <div>
+        <div class="fg"><label>市占率变化（3–5 年）</label><textarea id="cd-share-trend" rows="2"></textarea></div>
+        <div class="fg"><label>毛利率 vs 同行</label><textarea id="cd-margin-peers" rows="2"></textarea></div>
+        <div class="fg"><label>客户为什么非选它不可？</label><textarea id="cd-why-choose" rows="2"></textarea></div>
+        <div class="fg"><label>对手为什么打不进来？</label><textarea id="cd-why-blocked" rows="2"></textarea></div>
+        <div class="fg"><label>壁垒可持续性</label>
+          <select id="cd-moat-dur">
+            <option value="">请选择</option>
+            <option value="5">极长 10 年+</option>
+            <option value="4">长 5–10 年</option>
+            <option value="3">中等 3–5 年</option>
+            <option value="2">短 易被颠覆</option>
+            <option value="1">几乎无壁垒</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 财务验证 -->
+  <div class="card" id="cd-sec-finance" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">⑤ 财务验证</div>
+      <div class="c-sub">财务反向验证生意判断。现金流是整条链的「照妖镜」。</div>
+      <div class="flex gap" style="margin-left:auto;">
+        <button type="button" class="btn btn-p btn-sm" onclick="cdCalcFinance()">计算 + 排雷扫描</button>
+      </div>
+    </div>
+    <div style="padding:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <div class="fg"><label>营业收入（亿元）</label><input id="cd-fin-rev" type="number" step="0.01"></div>
+      <div class="fg"><label>净利润（亿元）</label><input id="cd-fin-np" type="number" step="0.01"></div>
+      <div class="fg"><label>毛利润（亿元）</label><input id="cd-fin-gp" type="number" step="0.01"></div>
+      <div class="fg"><label>净利润现金含量</label><input id="cd-fin-cashratio" readonly></div>
+      <div class="fg"><label>经营现金流 OCF</label><input id="cd-fin-ocf" type="number" step="0.01"></div>
+      <div class="fg"><label>自由现金流 FCF</label><input id="cd-fin-fcf" type="number" step="0.01"></div>
+      <div class="fg"><label>总资产</label><input id="cd-fin-assets" type="number" step="0.01"></div>
+      <div class="fg"><label>净资产</label><input id="cd-fin-equity" type="number" step="0.01"></div>
+      <div class="fg"><label>资产负债率</label><input id="cd-fin-debt-ratio" readonly></div>
+      <div class="fg"><label>货币资金</label><input id="cd-fin-cash" type="number" step="0.01"></div>
+      <div class="fg"><label>有息负债</label><input id="cd-fin-idebt" type="number" step="0.01"></div>
+      <div class="fg"><label>货币资金/有息负债</label><input id="cd-fin-cash-debt" readonly></div>
+      <div class="fg"><label>应收同比（%）</label><input id="cd-fin-ar-g" type="number" step="0.1"></div>
+      <div class="fg"><label>存货同比（%）</label><input id="cd-fin-inv-g" type="number" step="0.1"></div>
+      <div class="fg"><label>营收同比（%）</label><input id="cd-fin-rev-g" type="number" step="0.1"></div>
+      <div class="fg"><label>ROE（%）</label><input id="cd-fin-roe" type="number" step="0.01"></div>
+      <div class="fg"><label>商誉（亿元）</label><input id="cd-fin-gw" type="number" step="0.01"></div>
+      <div class="fg"><label>分红率（%）</label><input id="cd-fin-payout" type="number" step="0.1"></div>
+      <div class="fg"><label>净利润同比（%）</label><input id="cd-fin-np-g" type="number" step="0.1"></div>
+      <div class="fg"><label>毛利率同比变化</label><input id="cd-fin-gm-d" type="number" step="0.1"></div>
+    </div>
+    <div style="padding:0 16px 16px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
+        <div class="cd-stat"><div class="v" id="cd-r-gm">—</div><div class="k">毛利率</div></div>
+        <div class="cd-stat"><div class="v" id="cd-r-nm">—</div><div class="k">净利率</div></div>
+        <div class="cd-stat"><div class="v" id="cd-r-roe">—</div><div class="k">ROE</div></div>
+        <div class="cd-stat"><div class="v" id="cd-r-ocfnp">—</div><div class="k">OCF / 净利润</div></div>
+      </div>
+      <div class="eyebrow">杜邦拆解</div>
+      <div class="cd-formula" style="margin-bottom:12px;">
+        <span>ROE</span><span>=</span>
+        <span class="num" id="cd-d-npm">净利率 —</span><span>×</span>
+        <span class="num" id="cd-d-tat">周转率 —</span><span>×</span>
+        <span class="num" id="cd-d-em">权益乘数 —</span><span>=</span>
+        <span class="result" id="cd-d-roe">—</span>
+      </div>
+      <div class="cd-alert info"><div>◎</div><div id="cd-dupont-insight">填入财务数据后解释 ROE 驱动源。</div></div>
+      <div class="eyebrow" style="margin-top:12px;">现金流照妖镜 · 自动排雷</div>
+      <div id="cd-redflag-live"></div>
+    </div>
+  </div>
+
+  <!-- 06 治理与风险 -->
+  <div class="card" id="cd-sec-gov" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">⑥ 管理层与治理</div><div class="c-sub">财务再好看，商誉减值或资金挪用也能让前面归零。</div></div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="fg"><label>实际控制人</label><input id="cd-gov-controller"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>持股比例（%）</label><input id="cd-gov-hold" type="number" step="0.1"></div>
+          <div class="fg"><label>股权质押率（%）</label><input id="cd-gov-pledge" type="number" step="0.1"></div>
+        </div>
+        <div class="fg"><label>股权结构</label><textarea id="cd-gov-structure" rows="2"></textarea></div>
+        <div class="fg"><label>高管稳定性</label>
+          <select id="cd-gov-stable">
+            <option value="">请选择</option>
+            <option value="5">很稳定</option><option value="4">稳定</option>
+            <option value="3">一般</option><option value="2">动荡</option><option value="1">混乱</option>
+          </select>
+        </div>
+        <div class="fg"><label>关联交易</label><textarea id="cd-gov-related" rows="2"></textarea></div>
+      </div>
+      <div>
+        <div class="fg"><label>分红 / 回购</label><textarea id="cd-gov-dividend" rows="2"></textarea></div>
+        <div class="fg"><label>承诺兑现记录</label><textarea id="cd-gov-promise" rows="2"></textarea></div>
+        <div class="fg"><label>激励机制</label><textarea id="cd-gov-incentive" rows="2"></textarea></div>
+        <div class="fg"><label>治理综合评价</label>
+          <select id="cd-gov-score">
+            <option value="">请选择</option>
+            <option value="5">优秀</option><option value="4">良好</option>
+            <option value="3">一般</option><option value="2">较差</option><option value="1">危险</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px;">
+      <div class="eyebrow">风险因素登记</div>
+      <div class="flex gap" style="margin-bottom:12px;">
+        <select id="cd-risk-type" style="width:130px">
+          <option>经营</option><option>财务</option><option>治理</option>
+          <option>政策</option><option>技术</option><option>市场</option>
+        </select>
+        <select id="cd-risk-level" style="width:100px">
+          <option>高</option><option selected>中</option><option>低</option>
+        </select>
+        <input id="cd-risk-text" class="grow" placeholder="描述风险点…">
+        <button type="button" class="btn btn-p btn-sm" onclick="cdAddRisk()">添加</button>
+      </div>
+      <div id="cd-risk-list"></div>
+    </div>
+  </div>
+
+  <!-- 07 估值 -->
+  <div class="card" id="cd-sec-val" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">⑦ 估值判断</div><div class="c-sub">好公司买贵了同样亏钱。回答「是不是好价格」。</div></div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="eyebrow">相对估值</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>PE（TTM）</label><input id="cd-val-pe" type="number" step="0.1"></div>
+          <div class="fg"><label>历史 PE 分位（%）</label><input id="cd-val-pe-pct" type="number" min="0" max="100"></div>
+          <div class="fg"><label>PB</label><input id="cd-val-pb" type="number" step="0.01"></div>
+          <div class="fg"><label>历史 PB 分位（%）</label><input id="cd-val-pb-pct" type="number" min="0" max="100"></div>
+          <div class="fg"><label>PS</label><input id="cd-val-ps" type="number" step="0.01"></div>
+          <div class="fg"><label>同行 PE 中位</label><input id="cd-val-peer-pe" type="number" step="0.1"></div>
+        </div>
+        <div class="cd-pctbar"><div class="marker" id="cd-pe-marker" style="left:50%"></div></div>
+        <div class="flex" style="justify-content:space-between;font-size:10.5px;color:var(--ink-subtle);">
+          <span>低估 0%</span><span>合理 50%</span><span>高估 100%</span>
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow">简易 DCF</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="fg"><label>FCF 均值（亿元）</label><input id="cd-dcf-fcf" type="number" step="0.01"></div>
+          <div class="fg"><label>永续 g（%）</label><input id="cd-dcf-g" type="number" step="0.1" value="2"></div>
+          <div class="fg"><label>WACC（%）</label><input id="cd-dcf-wacc" type="number" step="0.1" value="9"></div>
+          <div class="fg"><label>股本（亿股）</label><input id="cd-dcf-shares" type="number" step="0.01"></div>
+        </div>
+        <div class="fg"><label>净现金（亿元）</label><input id="cd-dcf-netcash" type="number" step="0.01" value="0"></div>
+        <button type="button" class="btn btn-p" onclick="cdCalcDcf()">计算内在价值</button>
+        <div class="cd-formula" style="margin-top:12px;">
+          <span>每股内在价值</span><span>→</span>
+          <span class="result" id="cd-dcf-result">—</span>
+        </div>
+        <div class="fg" style="margin-top:12px;"><label>价格结论</label>
+          <select id="cd-val-verdict">
+            <option value="">请选择</option>
+            <option>低估</option><option>合理</option><option>偏高</option><option>高估</option>
+          </select>
+        </div>
+        <div class="fg"><label>估值逻辑（证据链）</label><textarea id="cd-val-reason" rows="2"></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 排雷检查表 -->
+  <div class="card" id="cd-sec-red" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">排雷检查表</div><div class="c-sub">宁可错杀，不可放过。勾选已核查项。</div></div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="eyebrow">财务排雷</div>
+        <div id="cd-red-fin"></div>
+      </div>
+      <div>
+        <div class="eyebrow">经营与治理排雷</div>
+        <div id="cd-red-biz"></div>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px;display:grid;grid-template-columns:1fr 2fr;gap:12px;">
+      <div class="fg"><label>排雷结论</label>
+        <select id="cd-red-verdict">
+          <option value="">请选择</option>
+          <option>干净</option><option>轻度</option><option>中度</option><option>重度</option>
+        </select>
+      </div>
+      <div class="fg"><label>最担心的一颗雷</label><input id="cd-red-worst"></div>
+    </div>
+  </div>
+
+  <!-- 竞争推演 -->
+  <div class="card" id="cd-sec-playbook" style="margin-bottom:16px;">
+    <div class="c-head"><div class="c-title">竞争推演台</div><div class="c-sub">站在最大对手立场，推演它下一步会怎么打这家公司。</div></div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="fg"><label>我方核心优势</label><textarea id="cd-pb-strength" rows="2"></textarea></div>
+        <div class="fg"><label>我方软肋 / 脆弱一环</label><textarea id="cd-pb-weak" rows="2"></textarea></div>
+        <div class="fg"><label>我方下一步动作</label><textarea id="cd-pb-next" rows="2"></textarea></div>
+      </div>
+      <div>
+        <div class="fg"><label>最大对手是谁？核心武器</label><textarea id="cd-pb-rival" rows="2"></textarea></div>
+        <div class="fg"><label>对手最可能打法</label><textarea id="cd-pb-move" rows="2"></textarea></div>
+        <div class="fg"><label>冲击评估</label>
+          <select id="cd-pb-impact">
+            <option value="">请选择</option>
+            <option>致命</option><option>重大</option><option>中等</option><option>有限</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 16px 16px;">
+      <div class="flex gap" style="margin-bottom:12px;">
+        <input id="cd-pb-step" class="grow" placeholder="例：对手发起 20% 降价，冲击经销渠道…">
+        <button type="button" class="btn btn-p btn-sm" onclick="cdAddPbStep()">添加推演步骤</button>
+      </div>
+      <div class="cd-timeline" id="cd-pb-timeline"></div>
+      <div class="fg" style="margin-top:12px;"><label>守不守得住？</label><textarea id="cd-pb-conclusion" rows="2"></textarea></div>
+      <div class="fg"><label>投资含义</label><textarea id="cd-pb-invest" rows="2"></textarea></div>
+    </div>
+  </div>
+
+  <!-- 一页纸判断卡 -->
+  <div class="card" id="cd-verdict-card" style="margin-bottom:16px;">
+    <div class="c-head">
+      <div class="c-title">一页纸判断卡</div>
+      <div class="c-sub">五问收口：生意 / 公司 / 账 / 风险 / 价格</div>
+      <div class="flex gap no-print" style="margin-left:auto;">
+        <button type="button" class="btn btn-sm" onclick="cdBuildVerdict()">刷新</button>
+        <button type="button" class="btn btn-p btn-sm" onclick="window.print()">打印 / PDF</button>
+      </div>
+    </div>
+    <div class="cd-jcard" id="cd-jcard">
+      <div class="cd-jhead">
+        <div>
+          <h3 id="cd-jc-company">未命名分析项目</h3>
+          <div style="margin-top:6px;font-size:12.5px;color:var(--ink-subtle);" id="cd-jc-meta">填完各模块后自动生成</div>
+        </div>
+        <div class="cd-verdict mid" id="cd-jc-verdict">待完善</div>
+      </div>
+      <div id="cd-jc-body"></div>
+    </div>
+    <div class="no-print" style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="fg"><label>1. 这门生意好不好？</label><textarea id="cd-a1" rows="2"></textarea></div>
+      <div class="fg"><label>2. 这家公司强不强？</label><textarea id="cd-a2" rows="2"></textarea></div>
+      <div class="fg"><label>3. 账靠不靠谱？</label><textarea id="cd-a3" rows="2"></textarea></div>
+      <div class="fg"><label>4. 谁在管、有什么风险？</label><textarea id="cd-a4" rows="2"></textarea></div>
+      <div class="fg" style="grid-column:span 2;"><label>5. 当前价格值不值？</label><textarea id="cd-a5" rows="2"></textarea></div>
+      <div style="grid-column:span 2;" class="flex gap">
+        <button type="button" class="btn btn-p" onclick="cdSaveConclusions()">保存结论并刷新判断卡</button>
+        <button type="button" class="btn" onclick="cdExportReport('docx')">导出 Word 报告</button>
+        <button type="button" class="btn" onclick="cdExportReport('pptx')">导出 PPT 报告</button>
+        <span id="cd-export-stat" style="font-size:12px;color:var(--ink-subtle);align-self:center;"></span>
+      </div>
+    </div>
+  </div>
+</div>

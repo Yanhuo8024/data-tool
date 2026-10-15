@@ -27,6 +27,10 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# 金融专项检查（币种/时效/增速外推/极端估值/风险段落）与**弹性**免责声明匹配：
+# 原有精确子串匹配会把「不构成任何形式的投资建议」「股市有风险」判为缺失（实测误报）。
+from risk_checks_finance import FINANCE_CHECKS, check_disclaimer_flexible  # noqa: E402
+
 # 否定窗口：命中词前 10 字符内出现下列词 → 视为合规性引用/否定表述，不计违规
 _NEGATIONS = ('不', '无', '非', '禁止', '不得', '不能', '没有', '未', '拒绝', '严禁', '禁止')
 
@@ -39,11 +43,6 @@ _RETURN_PLEDGE_WORDS = (
 # 买卖指令：需要"祈使/建议"语境才算（单纯出现"买入"是中性词）
 _TRADE_VERBS = ('买入', '卖出', '增持', '减持', '加仓', '减仓', '清仓', '全仓', '重仓')
 _TRADE_CUES = ('建议', '推荐', '应该', '可以买', '不妨', '值得买', '果断', '立即', '马上')
-
-_DISCLAIMER_MARKERS = (
-    '不构成投资建议', '不构成任何投资建议', '投资有风险', '市场有风险',
-    '仅供参考', '风险自担', '以官方最新', '不承诺收益', '不保证收益', '不荐股',
-)
 
 # 出现这些词说明是金融/投研结论，应带免责声明
 _FINANCE_TOPIC = (
@@ -114,21 +113,12 @@ def check_trade_advice(text: str) -> Optional[Dict[str, Any]]:
 
 
 def check_disclaimer(text: str, has_finance_topic: bool = None) -> Optional[Dict[str, Any]]:
-    """规则 3：涉金融结论但缺免责声明"""
-    if not text or len(str(text)) < 60:
-        return None
-    body = str(text)
-    topic = has_finance_topic
-    if topic is None:
-        topic = any(k in body for k in _FINANCE_TOPIC)
-    if not topic:
-        return None
-    if any(m in body for m in _DISCLAIMER_MARKERS):
-        return None
-    return {
-        'rule': 'missing_disclaimer', 'label': '缺少免责声明', 'level': 'mid', 'hits': [],
-        'advice': '涉金融内容的结论须附风险提示（如「不构成投资建议，市场有风险」）。',
-    }
+    """规则 3：涉金融结论但缺免责声明。
+
+    实现已迁至 risk_checks_finance.check_disclaimer_flexible（弹性正则，全文扫描）——
+    原精确子串匹配实测误报：「不构成任何形式的投资建议」因中间插入"形式的"而匹配失败。
+    """
+    return check_disclaimer_flexible(text, has_finance_topic)
 
 
 def check_data_incomplete(file_name: str = None, stats: Dict[str, Any] = None,
@@ -197,7 +187,7 @@ def review(text: str, *, current_file: str = None, file_stats: Dict[str, Any] = 
     if len(body) >= min_length:
         for fn, args in ((check_return_pledge, (body,)),
                          (check_trade_advice, (body,)),
-                         (check_disclaimer, (body,))):
+                         (check_disclaimer, (body,))) + tuple((f, (body,)) for f in FINANCE_CHECKS):
             try:
                 r = fn(*args)
             except Exception as e:                    # 单条规则失败不拖垮整体初审
@@ -229,7 +219,7 @@ def review(text: str, *, current_file: str = None, file_stats: Dict[str, Any] = 
     else:
         verdict = 'pass'
     summary = {
-        'pass': '未发现合规风险项与资料缺陷。',
+        'pass': '未发现合规风险项与资料缺陷，可发布。',
         'needs_review': f'发现 {len(findings)} 项需复核事项，建议人工确认后再对外使用。',
         'block': f'发现 {len(findings)} 项问题，其中含合规红线，**须人工复核后方可外发**。',
     }[verdict]
@@ -239,8 +229,8 @@ def review(text: str, *, current_file: str = None, file_stats: Dict[str, Any] = 
     }
 
 
-_VERDICT_ICON = {'pass': '✅', 'needs_review': '🟡', 'block': '🔴'}
-_VERDICT_TEXT = {'pass': '通过', 'needs_review': '需人工复核', 'block': '拦截 · 转人工'}
+_VERDICT_ICON = {'pass': '🟢', 'needs_review': '🟡', 'block': '🔴'}
+_VERDICT_TEXT = {'pass': '可发布', 'needs_review': '需人工复核', 'block': '禁止发布 · 转人工'}
 
 
 def render_review(result: Dict[str, Any]) -> str:

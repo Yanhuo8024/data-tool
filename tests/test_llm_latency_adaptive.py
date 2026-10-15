@@ -223,10 +223,13 @@ def test_final_answer_uses_non_stream_without_callback(monkeypatch):
 
 def test_lg_finish_routes_through_streaming_helper():
     """终稿节点必须经由 _final_answer_call，否则退回静默非流式等待。
-    （2026-09-18：_lg_finish 改传 fin_cfg —— 终稿关思考 + 预算提到 4800，路由不变。）"""
-    src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                            'ai_agent.py'), encoding='utf-8').read()
+    （2026-09-18：_lg_finish 改传 fin_cfg —— 终稿关思考 + 预算提到 4800，路由不变。
+      实现已统一收敛到 agent_graph_nodes（单一事实源），ai_agent 为薄门面——
+      故检查 graph nodes 源码 + ai_agent 的 re-export。）"""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    src = open(os.path.join(root, 'agent_graph_nodes.py'), encoding='utf-8').read()
     assert '_final_answer_call(messages, fin_cfg, cb' in src
+    assert hasattr(ag, '_final_answer_call'), 'ai_agent 门面应 re-export _final_answer_call'
 
 
 def test_stream_agent_analysis_forwards_delta_as_top_level_event(monkeypatch):

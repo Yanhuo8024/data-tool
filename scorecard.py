@@ -258,7 +258,7 @@ def build_scorecard(df: pd.DataFrame, target_col: str, feature_cols: list,
     1) 每个特征分箱 + WOE/IV，筛选 IV >= min_iv（可单调性约束）
     2) WOE 替换特征，逻辑回归（训练/测试）
     3) 评分刻度映射 A/B
-    4) 评估：AUC / KS / 混淆矩阵 / 好坏客户均分
+    4) 评估：AUC / KS / Gini / 混淆矩阵 / 好坏客户均分
     reject_infer=True：目标含缺失（未观察样本）时，先基于已标签样本训练初模，
                        用预测概率对缺失样本打标（>0.5 违约），再重训（启发式拒绝推断）
     """
@@ -366,9 +366,8 @@ def build_scorecard(df: pd.DataFrame, target_col: str, feature_cols: list,
             'base_odds': base_odds,
         },
         'eval': {
-            'train_auc': round(train_auc, 4),
-            'test_auc': round(test_auc, 4),
-            'ks': round(ks, 4),
+            'train_auc': round(train_auc, 4), 'test_auc': round(test_auc, 4),
+            'ks': round(ks, 4), 'gini': round(2 * round(test_auc, 4) - 1, 4),  # 用取整 AUC，保证可人工验算
             'confusion_matrix': cm.tolist(),
             'avg_score_good': round(avg_good, 2) if avg_good is not None else None,
             'avg_score_bad': round(avg_bad, 2) if avg_bad is not None else None,
@@ -499,6 +498,7 @@ def generate_pdf_report(result: dict, out_path: str) -> str:
         ['指标', '数值'],
         ['测试集 AUC', str(ev.get('test_auc', ''))],
         ['KS 统计量', str(ev.get('ks', ''))],
+        ['Gini 系数', str(ev.get('gini', ''))],
         ['训练集 AUC', str(ev.get('train_auc', ''))],
         ['好客户均分', str(ev.get('avg_score_good', ''))],
         ['坏客户均分', str(ev.get('avg_score_bad', ''))],

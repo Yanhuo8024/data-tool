@@ -1,5 +1,5 @@
 """ML routes — model training, prediction, feature engineering"""
-from core_config import exc_response
+from core_config import exc_response, safe_path_or_resp
 import pickle, json
 from pathlib import Path
 from datetime import datetime
@@ -54,7 +54,11 @@ def register_routes(app, limiter):
         try:
             file_name = request.args.get("file")
             if file_name:
-                filepath = os.path.join(OUT_DIR, file_name)
+                # P0 修复：路径穿越守卫（../../ 可读 OUT_DIR 外文件）
+                _p = safe_path_or_resp(file_name, error_msg="非法文件路径")
+                if isinstance(_p, tuple):
+                    return _p
+                filepath = str(_p)
                 if not os.path.exists(filepath):
                     return jsonify({"error": "文件不存在"}), 400
             else:
@@ -119,7 +123,11 @@ def register_routes(app, limiter):
 
             # 读取数据
             if file_name:
-                file_path = os.path.join(OUT_DIR, file_name)
+                # P0 修复：路径穿越守卫
+                _p = safe_path_or_resp(file_name, error_msg="非法文件路径")
+                if isinstance(_p, tuple):
+                    return _p
+                file_path = str(_p)
             else:
                 files = [f for f in os.listdir(OUT_DIR) if f.endswith('.csv')]
                 if not files:

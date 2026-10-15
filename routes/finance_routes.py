@@ -547,7 +547,7 @@ def register_routes(app, limiter):
         except Exception as e:
             return exc_response(e)
 
-    @app.route("/api/finance/fetch-stock", methods=["POST"])
+    @bp.route("/api/finance/fetch-stock", methods=["POST"])
     def api_finance_fetch_stock():
         """按股票代码或名称获取 A 股日K行情并保存到 output（供 AI 助手自动取数分析）"""
         try:

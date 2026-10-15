@@ -110,13 +110,19 @@ def test_空文件名被拒(tmp_path):
 
 
 def test_路径锁定是单一实现():
-    """三个写盘工具必须共用 _load_guarded，禁止各自 `OUT_DIR / file`（否则绕过边界）"""
+    """三个写盘工具必须共用 _load_guarded，禁止各自 `OUT_DIR / file`（否则绕过边界）
+
+    单一实现在 agent_tool_registry（ai_agent 仅 re-export 门面），故检查 registry 源码。"""
     import inspect
-    src = inspect.getsource(ai_agent)
+    import agent_tool_registry as _tr
+    src = inspect.getsource(_tr)
     for fn in ('tool_clean_data', 'tool_feature_eng', 'tool_ml_train'):
         start = src.index(f'def {fn}(')
         body = src[start:start + 900]
         assert '_load_guarded' in body, f'{fn} 未经写入边界，仍是裸 OUT_DIR / file'
+    # ai_agent 门面必须可导入这些符号（保持既有调用方/测试的稳定导入点）
+    for fn in ('tool_clean_data', 'tool_feature_eng', 'tool_ml_train'):
+        assert hasattr(ai_agent, fn), f'ai_agent 门面缺少 {fn} re-export'
 
 
 def test_写盘工具拒绝穿越路径():

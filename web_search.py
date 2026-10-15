@@ -153,6 +153,48 @@ def _baidu_search(query: str, top_k: int = 5, timeout: int = 10) -> dict:
     return {"ok": True, "results": results, "query": query}
 
 
+def _sogou_search(query: str, top_k: int = 5, timeout: int = 10) -> dict:
+    """搜狗网页搜索（国内可达、无 Cookie 可用性好；百度降级/无结果时的主力兜底）"""
+    import requests
+    url = "https://www.sogou.com/web?query=" + quote(query.strip())
+    try:
+        resp = requests.get(url, headers=_HEADERS, timeout=timeout)
+        resp.raise_for_status()
+    except Exception as e:
+        logger.warning("sogou 搜索失败: %s", e)
+        return {"ok": False, "error": f"搜狗搜索失败: {e}"}
+
+    text = resp.text
+    results = []
+    seen = set()
+    blocks = re.split(r'<div class="(?:vrwrap|rb)', text)[1:]
+    if not blocks:
+        blocks = [text]
+    for b in blocks[: top_k * 2]:
+        hm = re.search(r'<h3[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', b, re.S)
+        if not hm:
+            continue
+        title = _clean(hm.group(2))
+        u = html.unescape(hm.group(1))
+        if u.startswith("/link"):
+            u = "https://www.sogou.com" + u
+        if not title or not u or u in seen or "sogou.com/web" in u:
+            continue
+        seen.add(u)
+        pm = (re.search(r'<p[^>]*class="[^"]*(?:star-wiki|text-layout|space-txt)[^"]*"[^>]*>(.*?)</p>', b, re.S)
+              or re.search(r'<div[^>]*class="[^"]*(?:fz-mid|space-txt)[^"]*"[^>]*>(.*?)</div>', b, re.S)
+              or re.search(r'<p[^>]*>(.*?)</p>', b, re.S))
+        seen.add(u)
+        results.append({
+            "title": title[:200],
+            "url": u[:300],
+            "snippet": (_clean(pm.group(1)) if pm else "")[:300],
+        })
+        if len(results) >= top_k:
+            break
+    return {"ok": True, "results": results, "query": query}
+
+
 def _ddg_search(query: str, top_k: int = 5, timeout: int = 10) -> dict:
     """DuckDuckGo HTML 搜索（备用源）"""
     import requests
@@ -221,15 +263,19 @@ def web_search(query: str, top_k: int = 5, timeout: int = 10, use_cache: bool = 
     except Exception as e:  # 策略模块缺失不应让搜索整体不可用，但必须留下痕迹
         logger.warning("出境策略读取失败，按默认（开启）继续: %s", e)
 
-    cleaned = build_search_query(query)
-    search_term = cleaned if cleaned else query.strip()
+    # site: 限定符会被 build_search_query 当标点清洗掉（冒号/点被替换），
+    # 先摘出原样保留，清洗完主体词后再拼回去，保证站内限定生效
+    site_parts = re.findall(r'site:\S+', query)
+    cleaned = build_search_query(re.sub(r'\s*site:\S+', ' ', query))
+    search_term = ((cleaned + ' ' + ' '.join(site_parts)).strip()
+                   if (cleaned or site_parts) else query.strip())
     if use_cache:
         cached = _cache_get(search_term + f"|{top_k}")
         if cached is not None:
             return cached
 
     last_err = ""
-    for fn in (_baidu_search, _bing_search, _ddg_search):
+    for fn in (_baidu_search, _sogou_search, _bing_search, _ddg_search):
         try:
             r = fn(search_term, top_k=top_k, timeout=timeout)
             if r.get("ok") and r.get("results"):

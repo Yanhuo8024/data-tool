@@ -209,6 +209,40 @@ _prune_last_ts = 0.0
 _prune_guard = threading.Lock()
 
 
+
+
+def startup_self_check(logger=None) -> dict:
+    """启动自检（2026-09-25）：确认 TRACE_DIR 未指到生产目录、目录可写。
+
+    背景：pytest 曾把轨迹写进 output/traces，污染健康面板。conftest 已隔离，
+    这里在应用启动时再打一条日志，便于一眼看出“测试/生产轨迹是否串了”。
+    """
+    import os as _os
+    resolved = _trace_dir()
+    env = (_os.environ.get("TRACE_DIR") or "").strip()
+    info = {
+        "trace_dir": str(resolved),
+        "env_trace_dir": env or None,
+        "module_override": bool(TRACE_DIR),
+        "writable": False,
+        "looks_like_test": "dt-test" in str(resolved).lower() or "pytest" in str(resolved).lower(),
+    }
+    try:
+        probe = resolved / "_startup_probe.tmp"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        info["writable"] = True
+    except Exception as e:
+        info["writable"] = False
+        info["error"] = str(e)[:160]
+    if logger is not None:
+        try:
+            logger.info("trace_store self-check: %s", info)
+        except Exception:
+            pass
+    return info
+
+
 def prune_runs(keep_max: int = None, keep_days: float = None) -> int:
     """清理轨迹：保留最近 keep_max 个 run，且删除超过 keep_days 天的旧文件。返回删除数。"""
     km = _PRUNE_KEEP_MAX if keep_max is None else int(keep_max)

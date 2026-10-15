@@ -105,3 +105,25 @@ def test_agent_flow_rule_mentions_must_be_real():
     import agent_flow
     assert 'data_must_be_real' in inspect.getsource(agent_flow) or \
            '数据必须真实' in inspect.getsource(agent_flow._rule_fact_unverified)
+
+
+# ---------- P0（2026-10-10）：章节编号黑名单 + 数字解析回归集 ----------
+
+def test_章节编号不进财务核验():
+    """第二次同类 bug：2.1/3 等目录编号混进核验清单。"""
+    body = ("## 2.1 行业格局\n\n行业规模约 3000 亿元。\n\n"
+            "### 3 结论\n\n毛利率提升 2.1 个百分点。\n")
+    toks = __import__('agent_fact_audit')._extract_numeric_tokens(body)
+    assert '2.1' not in toks, '标题编号 2.1 不得进核验'
+    assert '3' not in toks, '标题编号 3 不得进核验'
+    assert any('3000' in t for t in toks), '正文 3000 亿必须保留'
+    assert any('2.1 个百分点' in t or '2.1' in t for t in toks), '正文 2.1 个百分点保留'
+
+
+def test_法规型号回归集():
+    """P2 数字解析回归集：18C / 2.1 / SU7 / GLM-4 一律不进财务核验。"""
+    body = "法规 18C 要求；车型 GLM-4 与 SU7 交付 800 辆。"
+    toks = __import__('agent_fact_audit')._extract_numeric_tokens(body)
+    for bad in ('18', '4', '7'):
+        assert bad not in toks, f'{bad} 来自型号/法规混合串，不得进核验'
+    assert '800' in toks, '真实销量 800 辆必须保留'

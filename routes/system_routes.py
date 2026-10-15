@@ -615,8 +615,10 @@ def register_routes(app, limiter):
             top_k = int(body.get("top_k", 5) or 5)
         except (TypeError, ValueError):
             top_k = 5
+        doc_name = (body.get("doc_name") or body.get("document") or "").strip() or None
         from rag_answer import answer_with_knowledge
-        return jsonify(answer_with_knowledge(question, top_k=max(1, min(top_k, 50))))
+        return jsonify(answer_with_knowledge(
+            question, top_k=max(1, min(top_k, 50)), doc_name=doc_name))
 
 
     @bp.route("/api/rag/docs", methods=["GET"])
@@ -666,6 +668,122 @@ def register_routes(app, limiter):
                     download_name=f"{report.get('name', 'company')}_全方位分析报告.docx",
                 )
             return jsonify(report)
+        except Exception as e:
+            return exc_response(e)
+
+    # ============================================================
+    #  企业深析 · Word / PPT 报告导出
+    # ============================================================
+    @bp.route("/api/company-deep/export", methods=["POST"])
+    @limiter.limit("10 per minute")
+    def api_company_deep_export():
+        """将「企业深析」工作台状态导出为 Word 或 PPT。
+
+        body: { state: {...}, format: "docx"|"pptx", template?: "navy_business"|"dark_tech"|"growth_green"|"minimal_light"|"invest_memo" }
+        """
+        try:
+            data = request.json or {}
+            state = data.get("state") or {}
+            fmt = (data.get("format") or "docx").lower()
+            template = (data.get("template") or "").strip() or None
+            if not isinstance(state, dict) or not state:
+                return jsonify({"ok": False, "error": "缺少分析状态 state"}), 400
+            if fmt not in ("docx", "pptx"):
+                return jsonify({"ok": False, "error": "format 仅支持 docx / pptx"}), 400
+
+            import io as _io
+            from company_deep_report import generate_docx, generate_pptx, safe_filename, resolve_theme
+
+            if fmt == "pptx":
+                payload = generate_pptx(state, template=template)
+                mimetype = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            else:
+                payload = generate_docx(state)
+                mimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+            name = (state.get("company") or {}).get("name") or "企业深度分析"
+            fname = safe_filename(name, fmt)
+            buf = _io.BytesIO(payload)
+            resp = send_file(
+                buf,
+                mimetype=mimetype,
+                as_attachment=True,
+                download_name=fname,
+            )
+            if fmt == "pptx":
+                # 模板名是中文：HTTP 响应头仅允许 latin-1，需 URL 编码后写入
+                th = resolve_theme(template)
+                from urllib.parse import quote as _q
+                resp.headers["X-PPT-Template"] = th["id"]
+                resp.headers["X-PPT-Template-Name"] = _q(th.get("name") or "")
+            return resp
+        except Exception as e:
+            return exc_response(e)
+
+    @bp.route("/api/company-deep/ppt-templates", methods=["GET"])
+    def api_company_deep_ppt_templates():
+        """列出内置 PPT 汇报模板"""
+        try:
+            from company_deep_report import list_ppt_templates
+            return jsonify({"ok": True, "templates": list_ppt_templates()})
+        except Exception as e:
+            return exc_response(e)
+
+    # ============================================================
+    #  企业深析 · 信源检索（信息收集交互）
+    # ============================================================
+    @bp.route("/api/company-deep/source", methods=["POST"])
+    @limiter.limit("30 per minute")
+    def api_company_deep_source():
+        """按信源 id 抓取该公司公开资料（标题/链接/摘要）。
+
+        body: { source_id: "ipo|ar|mda|cninfo|exchange|ir|edgar|qcc|court|ip|report|wind|assoc",
+                name: "贵州茅台", code: "600519", industry?: "", market?: "A股", top_k?: 6 }
+        返回: { ok, source_id, title, query, items: [{title, url, snippet}] }
+        """
+        try:
+            data = request.json or {}
+            sid = (data.get("source_id") or "").strip()
+            name = (data.get("name") or "").strip()
+            code = (data.get("code") or "").strip()
+            industry = (data.get("industry") or "").strip()
+            market = (data.get("market") or "").strip()
+            top_k = min(max(int(data.get("top_k") or 6), 1), 10)
+            if not sid:
+                return jsonify({"ok": False, "error": "缺少 source_id"}), 400
+            if not (name or code):
+                return jsonify({"ok": False, "error": "请先填写公司名称或代码"}), 400
+
+            from company_deep_sources import fetch_source
+            return jsonify(fetch_source(sid, name=name, code=code, industry=industry,
+                                        market=market, top_k=top_k))
+        except Exception as e:
+            return exc_response(e)
+
+    # ============================================================
+    #  企业深析 · 自动化流水线
+    # ============================================================
+    @bp.route("/api/company-deep/auto", methods=["POST"])
+    @limiter.limit("6 per minute")
+    def api_company_deep_auto():
+        """一键自动分析流水线：拉真实数据 → 规则排雷 → AI/规则草稿 → 组装分析卡。
+
+        body: { company: "贵州茅台|600519", use_ai: bool }
+        返回: { ok, stages[], state, meta, report, elapsed_sec }
+        """
+        try:
+            data = request.json or {}
+            company = (data.get("company") or "").strip()
+            use_ai = bool(data.get("use_ai", True))
+            if not company:
+                return jsonify({"ok": False, "error": "请提供公司名称或股票代码"}), 400
+
+            from company_deep_pipeline import run_pipeline
+
+            result = run_pipeline(company, use_ai=use_ai)
+            if not result.get("ok"):
+                return jsonify(result), 400
+            return jsonify(result)
         except Exception as e:
             return exc_response(e)
 

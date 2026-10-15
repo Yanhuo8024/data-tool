@@ -3,7 +3,7 @@
   <div class="current-file-bar">
     <span class="cf-icon">🌐</span>
     <span class="cf-label">数据源导航</span>
-    <span class="cf-hint">官方统计 · 金融行情 · 债券货币 · 开放数据 · 学术研究 — 一键直达免费数据网站</span>
+    <span class="cf-hint">官方统计 · 金融行情 · 债券货币 · 开放数据 · 学术研究 · 企业深析 — 一键直达免费数据网站</span>
   </div>
 
   <div class="card">
@@ -20,7 +20,7 @@
   <div class="card" style="margin-top:20px;">
     <div class="c-head">
       <div class="c-title">数据源列表</div>
-      <div class="c-sub"><span id="ds-count">0</span> 个数据源 · 点击「打开」跳转官网</div>
+      <div class="c-sub"><span id="ds-count">0</span> 个数据源 · 点击「打开」跳转官网；「企业深析」分类支持「查该公司」直达公司维度检索</div>
     </div>
     <div id="ds-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:8px;"></div>
     <div id="ds-empty" style="display:none;text-align:center;color:var(--ink-subtle);padding:32px;">没有匹配的数据源</div>
@@ -42,6 +42,8 @@
       <li><b style="color:var(--ink);">接口目录 API</b> — 访问 <code>/api/finance/catalog</code> 可获得完整数据源清单（含分类与参数说明），
         也可让「AI 助手」直接按自然语言调用这些接口取数。</li>
       <li><b style="color:var(--ink);">筛选器 tab</b> — 一键获取全市场 A 股财务指标并按条件筛选。</li>
+      <li><b style="color:var(--ink);">企业深析分类</b> — 与「企业深析」tab 的信息收集清单一致（招股书 / 年报 / 巨潮 / 交易所 / 投资者关系 / SEC EDGAR / 企查查 / 裁判文书 / 知产局 / 研报 / Wind / 行业协会）。
+        先在「企业深析」里填好公司名称或代码，本页即出现「查该公司」按钮，一键直达该公司在各信源的检索页；在「企业深析」里还可点「获取信息」由后端自动检索并写入摘录。</li>
       <li>本页列出的站点适合获取行业、企业、专利、国际等站内未覆盖的数据；下载 CSV 后可回到「上传」tab 导入分析。</li>
     </ul>
   </div>
@@ -287,10 +289,94 @@ const DS_SOURCES = [
   { name: "Eurostat", org: "欧盟统计局", cat: "学术研究", free: true, gov: true,
     desc: "欧盟成员国经济、社会、环境统计数据，跨国比较研究常用。",
     url: "https://ec.europa.eu/eurostat" },
+
+  // ---- 企业深析（信息收集信源，支持「查该公司」直达公司维度检索） ----
+  { name: "招股说明书", org: "巨潮资讯网", cat: "企业深析", free: true, gov: true,
+    desc: "行业格局 / 商业模式 / 竞争优劣势 / 募投 / 风险因素；「查该公司」直达巨潮全文检索。",
+    url: "http://www.cninfo.com.cn", q: "http://www.cninfo.com.cn/new/fulltextSearch?notautosubmit=&keyWord={name} 招股说明书" },
+  { name: "年报 · 财务指标", org: "巨潮资讯网", cat: "企业深析", free: true, gov: true,
+    desc: "三张表核心数据与趋势；「查该公司」直达年度报告检索。",
+    url: "http://www.cninfo.com.cn", q: "http://www.cninfo.com.cn/new/fulltextSearch?notautosubmit=&keyWord={name} 年度报告" },
+  { name: "年报 · MD&A", org: "巨潮资讯网", cat: "企业深析", free: true, gov: true,
+    desc: "收入拆分、毛利率变化原因、管理层展望等经营讨论与分析章节。",
+    url: "http://www.cninfo.com.cn", q: "http://www.cninfo.com.cn/new/fulltextSearch?notautosubmit=&keyWord={name} 年度报告 经营情况讨论" },
+  { name: "巨潮资讯网 · 公告检索", org: "深交所指定", cat: "企业深析", free: true, gov: true,
+    desc: "招股书 / 年报 / 问询函 / 临时公告全文检索入口。",
+    url: "http://www.cninfo.com.cn", q: "http://www.cninfo.com.cn/new/fulltextSearch?notautosubmit=&keyWord={name}" },
+  { name: "交易所官网", org: "上交所 / 深交所 / 新三板", cat: "企业深析", free: true, gov: true,
+    desc: "上市文件、监管信息、退市风险；按代码自动定位沪 / 深 / 新三板公司页。",
+    url: "http://www.sse.com.cn", qf: dsCdExchangeUrl },
+  { name: "投资者关系页", org: "公司官网 IR", cat: "企业深析", free: true, gov: false,
+    desc: "业绩说明会、路演材料与公司自主披露的投资者关系内容。",
+    url: "http://www.cninfo.com.cn", q: "https://cn.bing.com/search?q={name} 投资者关系 业绩说明会" },
+  { name: "SEC EDGAR", org: "美国证监会", cat: "企业深析", free: true, gov: false,
+    desc: "10-K / 10-Q / S-1 等海外公司披露文件检索。",
+    url: "https://www.sec.gov/edgar/search/", q: "https://www.sec.gov/cgi-bin/browse-edgar?company={code}&CIK=&type=10-K&action=getcompany" },
+  { name: "企查查 / 天眼查", org: "工商信息平台", cat: "企业深析", free: true, gov: false,
+    desc: "工商股权穿透、对外投资、实际控制人核验。",
+    url: "https://www.qcc.com", q: "https://www.qcc.com/web/search?key={name}" },
+  { name: "裁判文书 / 执行信息", org: "中国裁判文书网", cat: "企业深析", free: true, gov: true,
+    desc: "诉讼、被执行、失信记录排雷（文书网需登录，跳转经搜索引擎代理）。",
+    url: "https://wenshu.court.gov.cn", q: "https://cn.bing.com/search?q={name} 裁判文书 被执行 失信" },
+  { name: "知识产权局", org: "国家知识产权局", cat: "企业深析", free: true, gov: true,
+    desc: "专利与商标布局，技术壁垒核查。",
+    url: "https://pss-system.cponline.cnipa.gov.cn", q: "https://cn.bing.com/search?q={name} 专利" },
+  { name: "券商 / 行业研报", org: "东方财富研报中心", cat: "企业深析", free: true, gov: false,
+    desc: "第三方视角（仅辅助）；A股按代码直达个股研报列表。",
+    url: "https://data.eastmoney.com/report/", qf: dsCdReportUrl },
+  { name: "Wind / 同花顺", org: "同花顺", cat: "企业深析", free: true, gov: false,
+    desc: "估值分位、同业对比数据；A股按代码直达个股页。",
+    url: "https://www.10jqka.com.cn", qf: dsCdWindUrl },
+  { name: "行业协会 / 统计局", org: "行业协会 / 国家统计局", cat: "企业深析", free: true, gov: true,
+    desc: "行业规模与增速官方口径；按「企业深析」中填写的所属行业检索。",
+    url: "https://data.stats.gov.cn", q: "https://cn.bing.com/search?q={industry} 行业协会 统计数据" },
 ];
 
 // ===== 渲染逻辑 =====
 let dsActiveCat = "全部";
+
+// ── 企业深析联动：读取当前分析的公司，让信源卡可「查该公司」直达检索页 ──
+function dsCdCompany() {
+  try {
+    const raw = localStorage.getItem("cd-state-v1");
+    if (!raw) return null;
+    const st = JSON.parse(raw);
+    const c = (st && st.company) || {};
+    return { name: (c.name || "").trim(), code: (c.code || "").trim(), industry: (c.industry || "").trim(), market: c.market || "" };
+  } catch (e) { return null; }
+}
+function dsCdFill(tpl, c) {
+  return tpl.replace(/\{(name|code|industry)\}/g, (_, k) => {
+    const v = k === "industry" ? (c.industry || c.name) : c[k];
+    return encodeURIComponent(String(v || "").trim());
+  }).replace(/ /g, "%20");
+}
+function dsCdExchangeUrl(c) {
+  const code = c.code || "";
+  if (/^6\d{5}$/.test(code)) return "https://www.sse.com.cn/assortment/stock/list/info/company/index.shtml?COMPANY_CODE=" + code;
+  if (/^[023]\d{5}$/.test(code)) return "https://www.szse.cn/certificate/individual/index.html?code=" + code;
+  if (/^[48]\d{5}$/.test(code)) return "https://www.neeq.com.cn";
+  return "http://www.sse.com.cn";
+}
+function dsCdReportUrl(c) {
+  const code = c.code || "";
+  if (/^[0236]\d{5}$/.test(code)) return "https://data.eastmoney.com/report/stock.jshtml?stockcode=" + code;
+  return "https://cn.bing.com/search?q=" + encodeURIComponent((c.name || "") + " 研究报告");
+}
+function dsCdWindUrl(c) {
+  const code = c.code || "";
+  if (/^[0236]\d{5}$/.test(code)) return "https://stockpage.10jqka.com.cn/" + code + "/";
+  return "https://cn.bing.com/search?q=" + encodeURIComponent((c.name || "") + " 估值 同业对比");
+}
+function dsCdSourceUrl(s) {
+  const c = dsCdCompany();
+  if (!c || (!c.name && !c.code)) return s.url || "#";
+  const hk = c.market === "港股" || /^HK/i.test(c.code) || (c.code.length === 5 && /^\d{5}$/.test(c.code));
+  if (hk && s.url && s.url.indexOf("cninfo.com.cn") >= 0) return "https://www1.hkexnews.hk/search/titlesearch.xhtml?lang=zh";
+  if (typeof s.qf === "function") return s.qf(c);
+  if (s.q) return dsCdFill(s.q, c);
+  return s.url || "#";
+}
 
 function dsRenderCats() {
   const cats = ["全部", ...new Set(DS_SOURCES.map(s => s.cat))];
@@ -330,6 +416,12 @@ function dsRender() {
     else tags.push('<span class="ds-tag">需注册/订阅</span>');
     if (s.gov) tags.push('<span class="ds-tag gov">官方</span>');
     tags.push(`<span class="ds-tag">${s.cat}</span>`);
+    const co = dsCdCompany();
+    const hasCo = co && (co.name || co.code);
+    const canCo = !!(s.q || s.qf);
+    const coLabel = hasCo ? String(co.name || co.code).slice(0, 10) : "";
+    const coBtn = (canCo && hasCo)
+      ? `<a href="${dsCdSourceUrl(s)}" target="_blank" rel="noopener noreferrer">查「${coLabel}」↗</a>` : "";
     return `<div class="ds-card">
       <div class="ds-name">${s.name}</div>
       <div class="ds-org">${s.org}</div>
@@ -337,6 +429,7 @@ function dsRender() {
       <div class="ds-tags">${tags.join("")}</div>
       <div class="ds-actions">
         <a href="${s.url}" target="_blank" rel="noopener noreferrer">打开官网 ↗</a>
+        ${coBtn}
       </div>
     </div>`;
   }).join("");

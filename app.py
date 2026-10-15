@@ -224,6 +224,15 @@ def stability_check():
 @app.after_request
 def stability_headers(response):
     response.headers["X-Memory-MB"] = str(round(memory_monitor.get_memory_mb(), 1))
+    # Service Worker 必须覆盖整个站点：sw.js 放在 /static/ 下，默认作用域会退化为
+    # /static/（实测 getRegistration('/') 为 null、controller 为 null）→ 它接管不了
+    # 任何页面，Chromium 因"SW 未覆盖 start_url"判定不可安装，安装成应用无从谈起。
+    # 该响应头把作用域放宽到 /；同时 SW 脚本本身绝不能长缓存，否则更新永远不生效。
+    if request.path == '/static/sw.js':
+        response.headers['Service-Worker-Allowed'] = '/'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers.pop('Expires', None)
+        return response
     # 静态资源缓存优化
     if request.path.startswith('/static/'):
         response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
@@ -248,6 +257,11 @@ else:
     logger.info("EMBED_SCHEDULER=0：调度器由独立 worker 进程（run_worker.py）运行")
 
 logger.info(f"App initialized with {len(list(app.url_map.iter_rules()))} routes")
+try:
+    from trace_store import startup_self_check as _trace_self_check
+    _trace_self_check(logger)
+except Exception as _e:
+    logger.debug("trace self-check skipped: %s", _e)
 
 # ---- 启动时预加载仪表盘数据（惰性：仅首次请求时预热）----
 _LazyWarmupDone = False

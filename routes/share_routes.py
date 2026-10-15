@@ -112,7 +112,9 @@ def register_routes(app, limiter):
                         classes="share-tbl",
                         na_rep="", escape=True)
                 except Exception:
-                    preview_html = '<pre>' + fp.read_text(encoding='utf-8', errors='ignore')[:2000] + '</pre>'
+                    # XSS 修复：纯文本预览必须先 HTML 转义再进模板（|safe 原样注入）
+                    from markupsafe import escape as _esc
+                    preview_html = '<pre>' + str(_esc(fp.read_text(encoding='utf-8', errors='ignore')[:2000])) + '</pre>'
             elif suffix in ('.xlsx', '.xls'):
                 try:
                     df = pd.read_excel(fp, nrows=20)

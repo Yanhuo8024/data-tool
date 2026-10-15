@@ -13,6 +13,9 @@
     <meta name="msapplication-tap-highlight" content="no">
 <title>data.tool v3.0 — Linear Tech</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
 <link rel="manifest" href="/static/manifest.json">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -22,6 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/design-new.css?v={{ asset_ver }}">
+  <link rel="stylesheet" href="/static/design-refresh.css?v={{ asset_ver }}">
   <script>window.ASSET_VER = {{ asset_ver|tojson }};</script>
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
 </head>
@@ -47,7 +51,7 @@
       <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></symbol>
       <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/></symbol>
       <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-5A8 8 0 1 1 21 12z"/></symbol>
-      <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></symbol>
+      <symbol id="i-logo" viewBox="0 0 24 24" fill="none"><path d="M4.312 14.531a1.875 1.875 0 0 1 1.875 -1.875a1.875 1.875 0 0 1 1.875 1.875V19.688h-3.750Z" fill="currentColor" fill-opacity="0.88"/><path d="M10.125 10.312a1.875 1.875 0 0 1 1.875 -1.875a1.875 1.875 0 0 1 1.875 1.875V19.688h-3.750Z" fill="currentColor" fill-opacity="0.94"/><path d="M15.938 6.094a1.875 1.875 0 0 1 1.875 -1.875a1.875 1.875 0 0 1 1.875 1.875V19.688h-3.750Z" fill="currentColor"/></symbol>
       <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
       <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
       <symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
@@ -76,66 +80,75 @@
     </div>
     <nav class="nav" id="nav">
       <div class="nav-row">
-        <span class="nav-cat">工作台</span>
+        <span class="nav-cat">1 开始</span>
         <button class="nbtn on" data-t="tab-overview"><svg><use href="#i-grid"/></svg>数据概览</button>
+        <button class="nbtn" data-t="tab-help">📖 使用教程</button>
+        <button class="nbtn" data-t="tab-guide">🧭 智能流程</button>
+        <button class="nbtn" data-t="tab-up">📤 上传</button>
+        <button class="nbtn" data-t="tab-store">💾 存储</button>
         <button class="nbtn" data-t="tab-templates">🧩 模板</button>
         <button class="nbtn" data-t="tab-report">📄 报告</button>
-        <button class="nbtn" data-t="tab-multi-agent">🤖 多Agent</button>
-        <button class="nbtn" data-t="tab-scheduler">⏰ 定时任务</button>
       </div>
   <div class="nav-toggle" onclick="toggleAllNav()" title="收起/展开全部">☰</div>
   <div class="nav-row">
-    <span class="nav-cat">数据接入</span>
-    <button class="nbtn" data-t="tab-up">上传</button>
+    <span class="nav-cat">2 取数</span>
     <button class="nbtn" data-t="tab-datasources">🌐 数据源</button>
-    <button class="nbtn" data-t="tab-db">🗄️ 数据库直连</button>
-    <button class="nbtn" data-t="tab-scrape">爬取</button>
-    <button class="nbtn" data-t="tab-finance">金融数据</button>
-    <button class="nbtn" data-t="tab-store">存储</button>
-    <button class="nbtn" data-t="tab-help">使用教程</button>
-    <button class="nbtn" data-t="tab-troubleshooting">🔧 排查</button>
+    <button class="nbtn" data-t="tab-finance">💰 金融行情</button>
+    <button class="nbtn" data-t="tab-scrape">🕷 爬取</button>
+    <button class="nbtn" data-t="tab-db">🗄 数据库</button>
   </div>
   <div class="nav-row">
-    <span class="nav-cat">数据处理</span>
-    <button class="nbtn" data-t="tab-clean">清洗</button>
-    <button class="nbtn" data-t="tab-screen">筛选器</button>
-    <button class="nbtn" data-t="tab-table">表格工具</button>
+    <span class="nav-cat">3 清洗</span>
+    <button class="nbtn" data-t="tab-clean">🧹 清洗</button>
+    <button class="nbtn" data-t="tab-table">🔢 表格</button>
+    <button class="nbtn" data-t="tab-screen">🔍 筛选</button>
   </div>
   <div class="nav-row">
-    <span class="nav-cat">分析洞察</span>
-    <button class="nbtn" data-t="tab-analyze">分析</button>
-    <button class="nbtn" data-t="tab-finance-viz">可视化</button>
-    <button class="nbtn" data-t="tab-ts">时序分析</button>
-    <button class="nbtn" data-t="tab-fixedincome">📈 固定收益</button>
-    <button class="nbtn" data-t="tab-fund">📊 基金分析</button>
-    <button class="nbtn" data-t="tab-fs">财务报表</button>
-    <button class="nbtn" data-t="tab-did">📊 DID计量</button>
-    <button class="nbtn" data-t="tab-ht">假设检验</button>
+    <span class="nav-cat">4 统计</span>
+    <button class="nbtn" data-t="tab-analyze">📈 分析</button>
+    <button class="nbtn" data-t="tab-chart">📊 图表</button>
+    <button class="nbtn" data-t="tab-ht">🔬 假设检验</button>
+    <button class="nbtn" data-t="tab-ts">📉 时序</button>
   </div>
   <div class="nav-row">
-    <span class="nav-cat">算法建模</span>
-    <button class="nbtn" data-t="tab-ml">机器学习</button>
-    <button class="nbtn" data-t="tab-scorecard">🃏 评分卡</button>
-    <button class="nbtn" data-t="tab-finance-model">金融建模</button>
-    <button class="nbtn" data-t="tab-nlp">NLP分析</button>
+    <span class="nav-cat">5 金融</span>
+    <button class="nbtn" data-t="tab-finance-viz">📉 金融可视化</button>
+    <button class="nbtn" data-t="tab-finance-model">💹 因子回测</button>
+    <button class="nbtn" data-t="tab-fs">📑 财报</button>
+    <button class="nbtn" data-t="tab-company-deep">🏢 企业深析</button>
+    <button class="nbtn" data-t="tab-fund">📈 基金</button>
+    <button class="nbtn" data-t="tab-fixedincome">💵 固收</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">6 计量风控</span>
+    <button class="nbtn" data-t="tab-did">📊 DID</button>
+    <button class="nbtn" data-t="tab-scorecard">💳 评分卡</button>
+  </div>
+  <div class="nav-row">
+    <span class="nav-cat">7 建模</span>
+    <button class="nbtn" data-t="tab-ml">🧠 机器学习</button>
+    <button class="nbtn" data-t="tab-nlp">📝 NLP</button>
     <button class="nbtn" data-t="tab-pipeline">⛓ Pipeline</button>
   </div>
   <div class="nav-row">
-    <span class="nav-cat">🤖 AI 提效</span>
+    <span class="nav-cat">8 AI</span>
     <button class="nbtn" data-t="tab-ai-assistant">🤖 AI 助手</button>
-    <button class="nbtn" data-t="tab-nlq">💬 自然语言查数</button>
-    <button class="nbtn" data-t="tab-chart">📊 智能图表</button>
-    <button class="nbtn" data-t="tab-rag">🔍 RAG 问答</button>
-    <button class="nbtn" data-t="tab-agent-flow">🧭 Agent 流程</button>
-    <button class="nbtn" data-t="tab-security">🔐 安全中心</button>
+    <button class="nbtn" data-t="tab-multi-agent">🤝 多Agent</button>
+    <button class="nbtn" data-t="tab-nlq">💬 NLQ查数</button>
+    <button class="nbtn" data-t="tab-rag">🔍 RAG问答</button>
+    <button class="nbtn" data-t="tab-agent-flow">🧭 流程诊断</button>
   </div>
   <div class="nav-row">
-    <span class="nav-cat">知识库</span>
+    <span class="nav-cat">9 知识</span>
     <button class="nbtn" data-t="tab-knowledge">📚 知识点</button>
-    <button class="nbtn" data-t="tab-knowledge-mgmt">🗄️ 知识库管理</button>
+    <button class="nbtn" data-t="tab-knowledge-mgmt">🗄 知识库</button>
   </div>
-  <div class="nav-row nav-global" style="border-top:1px solid rgba(128,128,128,.25); margin-top:8px; padding-top:8px;">
-    <button class="nbtn nbtn-global" data-t="tab-auth">🔐 登录</button>
+  <div class="nav-row">
+    <span class="nav-cat">10 系统</span>
+    <button class="nbtn" data-t="tab-scheduler">⏰ 定时</button>
+    <button class="nbtn" data-t="tab-security">🔐 安全</button>
+    <button class="nbtn" data-t="tab-troubleshooting">🛠 排查</button>
+    <button class="nbtn" data-t="tab-auth">👤 登录</button>
   </div>
 </nav>
     <div class="sidefoot">
@@ -187,6 +200,7 @@
 {% include 'tabs/tab-pipeline.html' %}
 {% include 'tabs/tab-table.html' %}
 {% include 'tabs/tab-fs.html' %}
+{% include 'tabs/tab-company-deep.html' %}
 {% include 'tabs/tab-ts.html' %}
 {% include 'tabs/tab-ht.html' %}
 {% include 'tabs/tab-nlq.html' %}
@@ -250,7 +264,17 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('/static/sw.js').catch(function() {});
+      // 先清理历史注册：sw.js 早期位于 /static/ 下，作用域只有 /static/ ——
+      // 既接管不了页面（PWA 判定不可安装），残留时还会继续用旧缓存覆盖图标等资源。
+      // 注意：Service-Worker-Allowed 只是"放宽上限"，不传 scope 时默认作用域仍取
+      // 脚本所在目录（实测仍为 /static/）；必须显式传 {scope:'/'} 才真正覆盖全站。
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        return Promise.all(regs.filter(function(r) {
+          return r.scope.indexOf('/static/') >= 0;
+        }).map(function(r) { return r.unregister(); }));
+      }).catch(function() {}).then(function() {
+        return navigator.serviceWorker.register('/static/sw.js', { scope: '/' });
+      }).catch(function() {});
     });
   }
 </script>
@@ -291,7 +315,7 @@ function __bindTabs() {
               'tab-analyze','tab-finance-viz','tab-ts','tab-fixedincome','tab-fund','tab-fs','tab-did','tab-ht',
               'tab-ml','tab-scorecard','tab-finance-model','tab-nlp','tab-pipeline',
               'tab-ai-assistant','tab-nlq','tab-chart','tab-rag','tab-security',
-              'tab-knowledge','tab-knowledge-mgmt','tab-auth','tab-guide'];
+              'tab-knowledge','tab-knowledge-mgmt','tab-auth','tab-guide','tab-company-deep'];
   window.__diag.n = document.querySelectorAll('.nbtn').length;
   for (var i = 0; i < tabs.length; i++) {
     var btn = document.querySelector('.nbtn[data-t="' + tabs[i] + '"]');
@@ -318,6 +342,7 @@ window.__diag.bindOk = document.querySelectorAll('.nbtn[onclick]').length;
 <script src="/static/chartStore.js?v={{ asset_ver }}" defer></script>
 <script src="/static/linkedKLine.js?v={{ asset_ver }}" defer></script>
 <script src="/static/js/data-analysis.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/company-deep.js?v={{ asset_ver }}" defer></script>
 <script src="/static/js/finance.js?v={{ asset_ver }}" defer></script>
 <script src="/static/js/finance-sync.js?v={{ asset_ver }}" defer></script>
 <script src="/static/js/ml.js?v={{ asset_ver }}" defer></script>
@@ -330,7 +355,7 @@ window.__diag.bindOk = document.querySelectorAll('.nbtn[onclick]').length;
 <script src="/static/js/version-check.js?v={{ asset_ver }}" defer></script>
 <script src="/static/js/lineage.js?v={{ asset_ver }}" defer></script>
 <script src="/static/js/global-search.js?v={{ asset_ver }}" defer></script>
-<script src="/static/js/walkthrough.js?v={{ asset_ver }}" defer></script>
+<script src="/static/js/tutorial.js?v={{ asset_ver }}" defer></script>
 
 <!-- 移动端抽屉遮罩（放 .app 之外，避免占用 grid 列导致 main 塌陷） -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>

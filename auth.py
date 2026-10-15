@@ -111,10 +111,11 @@ def require_auth(f):
 
 
 def require_api_key(f):
-    """API Key 认证装饰器"""
+    """API Key 认证装饰器（仅接受 X-API-Key 请求头；查询串传递已禁用，
+    避免 Key 泄漏到访问日志/浏览器历史/Referer）"""
     @wraps(f)
     def decorated(*args, **kwargs):
-        key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        key = request.headers.get('X-API-Key')
         if not key:
             return jsonify({'error': '缺少 API Key'}), 401
         
@@ -161,7 +162,7 @@ def require_auth_or_api_key(f):
             pass
 
         # 2. 再尝试 API Key（脚本/自动化）
-        key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        key = request.headers.get('X-API-Key')
         if not key:
             return jsonify({'error': '认证失败: 请携带 JWT Token 或 API Key (请求头 X-API-Key)'}), 401
 
@@ -238,7 +239,7 @@ def require_auth_or_api_key_local(f):
             pass
 
         # 2. 再尝试 API Key（脚本/自动化）
-        key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        key = request.headers.get('X-API-Key')
         if key:
             api_key = ApiKey.query.filter_by(key=key, is_active=True).first()
             if api_key and (not api_key.expires_at or api_key.expires_at >= datetime.datetime.utcnow()):
@@ -288,7 +289,7 @@ def optional_auth(f):
             pass
 
         # 2. 尝试 API Key：带了就必须有效，否则 401；没带则匿名放行
-        key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        key = request.headers.get('X-API-Key')
         if not key:
             return f(*args, **kwargs)
 
@@ -343,7 +344,7 @@ def local_guard():
         pass
 
     # 2. API Key（脚本/自动化）：带了就必须有效
-    key = request.headers.get('X-API-Key') or request.args.get('api_key')
+    key = request.headers.get('X-API-Key')
     if key:
         api_key = ApiKey.query.filter_by(key=key, is_active=True).first()
         if api_key and (not api_key.expires_at or api_key.expires_at >= datetime.datetime.utcnow()):

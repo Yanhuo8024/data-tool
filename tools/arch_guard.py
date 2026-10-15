@@ -39,7 +39,7 @@ if TOOLS_DIR not in sys.path:
 from arch_graph import find_cycles, module_edges, module_index  # noqa: E402
 from arch_egress import scan_egress  # noqa: E402
 # output/ 是运行期产物目录（CSV/报告/一次性 _probe_*.py 探针），不纳入门禁
-SKIP_DIRS = {'__pycache__', '.git', '.workbuddy', '.trae', 'node_modules', 'site-packages',
+SKIP_DIRS = {'__pycache__', '.git', '.workbuddy', '.trae', 'github_upload', 'node_modules', 'site-packages',
              'python-portable', 'venv', '.venv', 'dist', 'build', 'archive', 'output'}
 R7_SKIP = {'core_config.py'}  # 该文件用 globals()[...] 动态注入，符号表判定不适用
 BUILTINS = set(dir(builtins)) | {
@@ -306,9 +306,17 @@ def cmd_freeze(root, base_path, force=False):
         return {f: (n if (prev.get(f) is None or force) else min(prev[f], n)) for f, n in cur.items()}
 
     def keep_set(field, cur):
-        """集合型棘轮（未定义名 / 未登记主机）：首次采纳取现状，之后取交集，只允许缩小"""
+        """集合型棘轮（未定义名 / 未登记主机）：首次采纳取现状，之后取交集，只允许缩小。
+
+        🚨 分支顺序：`f not in prev` 时**只能**走"采纳现状"分支。
+        原实现把 `set(prev[f])` 写在三元的第一个分支里，而该分支恰恰在
+        `f not in prev` 时被选中 → 新增文件（首次出现未定义名）直接 KeyError，
+        `--freeze` 崩溃。已修正为：新键 → 采纳现状；已有键 → 取交集。
+        """
         prev = old.get(field) or {}
-        return {f: sorted((set(v) | set(prev[f])) if (force or f not in prev) else (set(v) & set(prev[f])))
+        if force:
+            return {f: sorted(set(v)) for f, v in cur.items()}
+        return {f: sorted(set(v) & set(prev[f])) if f in prev else sorted(set(v))
                 for f, v in cur.items()}
 
     new['file_lines'] = keep('file_lines', {f: n for f, n in met['file_lines'].items() if n > MAX_FILE_LINES})

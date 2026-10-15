@@ -145,7 +145,7 @@ def _fallback_answer(kb_entries: List[Dict], file_res: Dict) -> str:
     return '\n'.join(lines)
 
 
-def answer_with_knowledge(question: str, top_k: int = 5) -> Dict:
+def answer_with_knowledge(question: str, top_k: int = 5, doc_name: str = None) -> Dict:
     """RAG 问答统一入口：融合检索 + LLM 综合生成。
 
     返回与 `/api/rag/query` 原契约兼容的 `{"answer", "sources", "chunks"}`，
@@ -158,6 +158,28 @@ def answer_with_knowledge(question: str, top_k: int = 5) -> Dict:
 
     kb_entries = _knowledge_hits(q)
     file_res = _file_hits(q, top_k)
+    # 文档问答（NLP 页）：只保留指定文档的片段，避免与「知识库 RAG」混用范围
+    if doc_name and isinstance(file_res, dict):
+        key = str(doc_name).strip().lower()
+        srcs = []
+        for s0 in (file_res.get('sources') or []):
+            name = str(s0.get('doc_name') or '').lower()
+            if key in name or name in key or key in s0.get('doc_name', ''):
+                srcs.append(s0)
+        if srcs:
+            names = {s0.get('doc_name') for s0 in srcs}
+            file_res = dict(file_res)
+            file_res['sources'] = srcs
+            file_res['chunks'] = [
+                c for c in (file_res.get('chunks') or [])
+                if (c.get('doc_name') if isinstance(c, dict) else None) in names
+                or not isinstance(c, dict)
+            ]
+        else:
+            file_res = dict(file_res)
+            file_res['sources'] = []
+            file_res['chunks'] = []
+            file_res['answer'] = file_res.get('answer') or ''
     hits = _as_hits(kb_entries, file_res)
 
     answer = _generate(q, hits)
@@ -171,4 +193,5 @@ def answer_with_knowledge(question: str, top_k: int = 5) -> Dict:
         'chunks': file_res.get('chunks') or [],
         'knowledge_hits': [str(e.get('name') or '') for e in kb_entries[:5]],
         'llm_synthesized': synthesized,
+        'doc_filter': (doc_name or ''),
     }

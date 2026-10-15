@@ -1,3 +1,6 @@
+import logging
+
+logger = logging.getLogger(__name__)
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -19,7 +22,6 @@ try:
 except ImportError:
     OUT_DIR = Path(__file__).parent / "output"  # core_config 不可用时兜底
 OUT_DIR.mkdir(exist_ok=True)
-
 
 def _resolve_cn_name(code: str):
     """股票代码 → 中文名称。依次尝试东财全市场快照表 / 新浪日线，失败返回空。"""
@@ -54,8 +56,8 @@ def _resolve_cn_name(code: str):
         kdf = ak.stock_zh_a_daily(symbol=sina, adjust="")
         if kdf is not None and hasattr(kdf, 'attrs') and kdf.attrs.get('name'):
             return kdf.attrs['name']
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("company_analysis.py:57 swallowed: %s", _e)
     return ""
 
 import sys
@@ -63,6 +65,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from financial_statement import fetch_financial_data, calculate_ratios, _resolve_stock_code, _resolve_stock_name
 from valuation import _snapshot, dcf_valuation, peer_comparison
+
+from datetime import timedelta
 
 # 常见公司名→代码（覆盖 AI 助手主力标的；扩展时同步 ai_assistant._STOCK_ALIASES）
 STOCK_ALIASES = {
@@ -77,6 +81,57 @@ STOCK_ALIASES = {
     '星宇股份': '601799', '星宇': '601799',
 }
 
+# 巨潮证券搜索缓存（进程内）
+_CNINFO_TOPSEARCH_CACHE = {}
+
+def _cninfo_top_search(keyword: str) -> list:
+    """巨潮证券代码搜索：公司名/拼音/代码 → 证券信息列表（别名表之外的动态解析来源）"""
+    kw = (keyword or "").strip()
+    if not kw:
+        return []
+    if kw in _CNINFO_TOPSEARCH_CACHE:
+        return _CNINFO_TOPSEARCH_CACHE[kw]
+    out = []
+    try:
+        import requests
+        r = requests.post(
+            "http://www.cninfo.com.cn/new/information/topSearch/query",
+            data={"keyWord": kw, "maxNum": 10},
+            headers=_CNINFO_HEADERS, timeout=8)
+        arr = r.json()
+        if isinstance(arr, list):
+            out = [it for it in arr if isinstance(it, dict)]
+    except Exception as _e:
+        logger.debug("cninfo topSearch swallowed: %s", _e)
+    _CNINFO_TOPSEARCH_CACHE[kw] = out
+    return out
+
+def _resolve_via_cninfo(name: str):
+    """巨潮动态解析：公司名 → (code, market) 或 (None, None)
+
+    只接受**精确简称**匹配且分类为 A股/港股 —— 长句切出的行业词/普通词
+    （如"新能源汽车"）若允许模糊匹配会误命中"宝新能源"等证券，把行业
+    分析消息误路由到个股取数。
+    """
+    arr = _cninfo_top_search(name)
+    if not arr:
+        return None, None
+    nm = (name or "").strip()
+    for it in arr:
+        if str(it.get("zwjc") or "").strip() != nm:
+            continue
+        if str(it.get("delisted") or "") == "true":
+            continue
+        code_i = str(it.get("code") or "").strip()
+        cat = str(it.get("category") or "")
+        if not code_i:
+            continue
+        if cat in ("港股", "港股通") or (code_i.isdigit() and len(code_i) == 5):
+            return "HK" + code_i.lstrip('0').zfill(4), "hk"
+        if cat == "A股" or (code_i.isdigit() and len(code_i) == 6):
+            return code_i, "a"
+    return None, None
+
 # 内置可比公司映射（同行业对比用）
 PEERS_BY_CODE = {
     '600519': ['000858', '000568', '600809'], '000858': ['600519', '000568', '600809'],
@@ -85,38 +140,135 @@ PEERS_BY_CODE = {
     '600941': ['600050', '601728'], '002594': ['300750', '601127'],
 }
 
-
 def resolve_ticker(company_name: str):
-    """公司名/代码 → 统一标识（HK0700 / 6位A股）。返回 (code, market) 或 (None,None)"""
+    """公司名/代码 → 统一标识（HK0700 / 6位A股）。返回 (code, market) 或 (None,None)
+
+    解析顺序：显式代码 → 别名表 → 巨潮证券搜索动态解析（覆盖任意 A股/港股公司名）。
+    """
     name = (company_name or '').strip()
     if not name:
         return None, None
     # 直接是代码
-    m = re.search(r'HK\s?(\d{4})', name, re.I)
+    m = re.search(r'HK\s?(\d{4,5})', name, re.I)
     if m:
-        return 'HK' + m.group(1), 'hk'
+        return 'HK' + m.group(1).zfill(4), 'hk'
     m = re.search(r'\b(\d{6})\b', name)
     if m:
         c = m.group(1)
         return c, 'a'
+    # 5位纯数字（港股代码写法，如 00700）→ 统一为 HK+4 位惯例（HK0700）
+    if re.fullmatch(r'\d{5}', name):
+        return 'HK' + name.lstrip('0').zfill(4), 'hk'
     # 公司名映射
     for k, code in STOCK_ALIASES.items():
         if k in name or name in k:
             return ('HK' + code[2:]) if str(code).startswith('HK') else code, ('hk' if str(code).startswith('HK') else 'a')
+    # 别名表未命中 → 巨潮动态解析
+    code, mkt = _resolve_via_cninfo(name)
+    if code:
+        return code, mkt
     return None, None
 
-
 def code_to_name(code: str) -> str:
-    """股票代码反转名称（优先取别名表最长匹配，保证中文名稳定显示；网络解析作为补充）"""
+    """股票代码反转名称（优先取别名表最长匹配，保证中文名稳定显示；巨潮反查作为补充）"""
     for k, c in STOCK_ALIASES.items():
         if c == code:
             # 取最长名（避免 茅台/贵州茅台 取舍）
             return max([k for kk, cc in STOCK_ALIASES.items() if cc == code], key=len)
+    # 别名表外：巨潮反查简称（东财接口不可达时的可靠来源）
+    raw = str(code or '').strip()
+    if raw:
+        q = raw[2:] if raw.upper().startswith('HK') else raw
+        for it in _cninfo_top_search(q):
+            ci = str(it.get('code') or '').strip()
+            if (ci == q or (q.isdigit() and ci.zfill(5) == q.zfill(5))) and it.get('zwjc'):
+                return str(it['zwjc'])
     return code
 
+_CNINFO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Referer": "http://www.cninfo.com.cn/",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+}
+
+def _cninfo_intro(code: str) -> dict:
+    """巨潮资料卡：A股简称/行业/主营/上市日期/总股本。
+
+    东财个股信息接口（stock_individual_info_em）在本机网络环境不可达时的兜底来源。
+    """
+    out = {}
+    try:
+        import requests
+        r = requests.get(
+            "http://www.cninfo.com.cn/data20/companyOverview/getCompanyIntroduction",
+            params={"scode": str(code)}, headers=_CNINFO_HEADERS, timeout=8)
+        recs = ((r.json().get("data") or {}).get("records")) or []
+        bi = (recs[0].get("basicInformation") or [{}])[0] if recs else {}
+        if bi:
+            out["name"] = bi.get("ASECNAME") or ""
+            out["industry"] = bi.get("F032V") or ""
+            out["desc"] = bi.get("F015V") or bi.get("F016V") or ""
+            out["list_time"] = bi.get("F006D") or bi.get("F010D") or ""
+            ts = bi.get("F007N")  # 注册资本/总股本（万股）
+            if ts:
+                try:
+                    out["total_share_yi"] = round(float(ts) / 1e4, 2)
+                except (TypeError, ValueError):
+                    pass
+    except Exception:
+        pass
+    return out
+
+def _em_f10_profile(code: str) -> dict:
+    """东财数据中心 F10 公司资料：行业 + 主营（A股/港股/北交所通用）。
+
+    datacenter-web 域名在本机网络环境可达（业绩报表同域）。
+    港股行业取 BELONG_INDUSTRY（东财港股行业），A股取 INDUSTRYCSRC1（证监会分类，
+    与巨潮行业聚合表口径一致）。
+    """
+    out = {}
+    c = str(code or '').strip()
+    try:
+        import requests
+        if c.upper().startswith('HK'):
+            secucode = c[2:].zfill(5) + '.HK'
+            report = 'RPT_HKF10_INFO_ORGPROFILE'
+        elif c.isdigit() and len(c) == 6:
+            suffix = '.BJ' if c.startswith(('4', '8')) else ('.SH' if c.startswith(('6', '9')) else '.SZ')
+            secucode = c + suffix
+            report = 'RPT_F10_BASIC_ORGINFO'
+        else:
+            return out
+        h = {**_CNINFO_HEADERS, 'Referer': 'https://emweb.securities.eastmoney.com/'}
+        r = requests.get(
+            'https://datacenter-web.eastmoney.com/api/data/v1/get',
+            params={'reportName': report, 'columns': 'ALL', 'pageSize': '1',
+                    'filter': f'(SECUCODE="{secucode}")'},
+            headers=h, timeout=8)
+        rec = ((r.json().get('result') or {}).get('data') or [{}])[0]
+        if not rec:
+            return out
+        if report == 'RPT_HKF10_INFO_ORGPROFILE':
+            out['industry'] = str(rec.get('BELONG_INDUSTRY') or '').strip()
+            it = str(rec.get('INDUSTRY_TYPE') or '').strip()
+            if it:
+                out['industry_detail'] = it.split('-')[-1]
+            out['desc'] = str(rec.get('MAIN_BUSINESS') or '').strip()
+            out['name'] = str(rec.get('SECURITY_NAME_ABBR') or '').strip()
+        else:
+            csrc = str(rec.get('INDUSTRYCSRC1') or '').strip()
+            out['industry'] = csrc.split('-')[-1] if csrc else str(rec.get('EM2016') or '').split('-')[-1]
+            em = str(rec.get('EM2016') or '').strip()
+            if em:
+                out['industry_detail'] = em.split('-')[-1]
+            out['desc'] = str(rec.get('MAIN_BUSINESS') or rec.get('OPERATE_ADDRESS') or '').strip()
+            out['name'] = str(rec.get('SECURITY_NAME_ABBR') or '').strip()
+    except Exception:
+        pass
+    return out
 
 def get_company_profile(code: str, market: str) -> dict:
-    """公司概况：名称/行业/市值/上市时间/股本等（东财个股信息，失败则回退名称）"""
+    """公司概况：名称/行业/市值/上市时间/股本等（东财个股信息，失败则巨潮资料卡/名称兜底）"""
     out = {"name": code, "industry": "", "market_cap_yi": None, "list_time": "",
            "total_share_yi": None, "desc": ""}
     try:
@@ -140,6 +292,26 @@ def get_company_profile(code: str, market: str) -> dict:
                     out["total_share_yi"] = None
     except Exception:
         pass
+    # 巨潮资料卡兜底（补行业/简称/主营/上市日期/总股本）
+    if (not out["industry"]) or (not out["name"]) or out["name"] == code \
+            or out["total_share_yi"] is None:
+        intro = _cninfo_intro(code)
+        for k in ("industry", "desc", "list_time"):
+            if not out.get(k) and intro.get(k):
+                out[k] = intro[k]
+        if (not out["name"] or out["name"] == code) and intro.get("name"):
+            out["name"] = intro["name"]
+        if out["total_share_yi"] is None and intro.get("total_share_yi"):
+            out["total_share_yi"] = intro["total_share_yi"]
+    # 东财数据中心 F10 兜底（A股/港股/北交所通用；巨潮不支持港股时的关键来源）
+    if (not out["industry"]) or (not out["name"]) or out["name"] == code:
+        f10 = _em_f10_profile(code)
+        if not out["industry"] and f10.get("industry"):
+            out["industry"] = f10["industry"]
+        if not out.get("desc") and f10.get("desc"):
+            out["desc"] = f10["desc"]
+        if (not out["name"] or out["name"] == code) and f10.get("name"):
+            out["name"] = f10["name"]
     # 名称兜底
     if not out["name"] or out["name"] == code:
         try:
@@ -150,10 +322,302 @@ def get_company_profile(code: str, market: str) -> dict:
             pass
     return out
 
+def _amt_to_yi(v):
+    """报表数值（'922.78亿' / '1.20万' / 原始元值）→ 亿元 float；无效返回 None"""
+    try:
+        s = str(v).replace(',', '').strip()
+        if s.endswith('亿'):
+            return round(float(s[:-1]), 2)
+        if s.endswith('万'):
+            return round(float(s[:-1]) / 1e4, 4)
+        x = float(s)
+        return round(x / 1e8, 2) if abs(x) >= 1e6 else round(x, 4)
+    except (TypeError, ValueError):
+        return None
+
+def _extract_statements(data: dict) -> dict:
+    """新浪三表 records → 最新期绝对值（亿元）+ 应收/存货同比 + 毛利率同比变化。
+
+    供企业深析流水线回填财务表单（资产/负债/现金流/商誉等硬数据）。
+    """
+    out = {}
+    dd = data.get("data") or {}
+
+    def sheet(key):
+        recs = dd.get(key) or []
+        try:
+            return sorted(recs, key=lambda r: str(r.get("报告日", "")), reverse=True)
+        except Exception:
+            return recs
+
+    bal, cf, inc = sheet("balance"), sheet("cashflow"), sheet("income")
+    if not bal:
+        return out
+    latest = bal[0]
+
+    def gv(rec, key):
+        return _amt_to_yi((rec or {}).get(key))
+
+    out["report_date"] = str(latest.get("报告日", ""))
+    out["assets"] = gv(latest, "资产总计")
+    out["liabilities"] = gv(latest, "负债合计")
+    out["equity"] = gv(latest, "所有者权益(或股东权益)合计")
+    if out["equity"] is None:
+        out["equity"] = gv(latest, "所有者权益合计")
+    out["cash"] = gv(latest, "货币资金")
+    # 商誉科目存在但为空 = 账面无商誉（如实填 0，供排雷比率计算）
+    if "商誉" in latest:
+        out["gw"] = gv(latest, "商誉")
+        if out["gw"] is None:
+            out["gw"] = 0.0
+    out["inventory"] = gv(latest, "存货")
+    out["ar"] = gv(latest, "应收账款")
+    ib = [gv(latest, k) for k in ("短期借款", "一年内到期的非流动负债", "长期借款", "应付债券")]
+    ib = [x for x in ib if x is not None]
+    out["idebt"] = round(sum(ib), 2) if ib else None
+
+    # 同比期（去年同报告日）
+    d = str(latest.get("报告日", ""))
+    m = re.match(r"(\d{4})(-\d{2}-\d{2})$", d)
+    prev_d = f"{int(m.group(1)) - 1}{m.group(2)}" if m else ""
+    prev = next((r for r in bal[1:] if str(r.get("报告日", "")) == prev_d), None)
+    if prev:
+        pinv, par = gv(prev, "存货"), gv(prev, "应收账款")
+        try:
+            # 基数过小（<1 亿）时同比失真，不填
+            if out["inventory"] is not None and pinv and pinv >= 1:
+                out["invG"] = round((out["inventory"] / pinv - 1) * 100, 1)
+            if out["ar"] is not None and par and par >= 1:
+                out["arG"] = round((out["ar"] / par - 1) * 100, 1)
+        except Exception:
+            pass
+
+    if cf:
+        out["ocf"] = gv(cf[0], "经营活动产生的现金流量净额")
+        out["capex"] = gv(cf[0], "购建固定资产、无形资产和其他长期资产所支付的现金")
+        if out["capex"] is None:
+            out["capex"] = gv(cf[0], "购建固定资产、无形资产和其他长期资产支付的现金")
+        if out["ocf"] is not None and out.get("capex") is not None:
+            out["fcf"] = round(out["ocf"] - out["capex"], 2)
+
+    # 分红率近似：最近年报期「分配股利、利润或偿付利息支付的现金」/ 年报净利润
+    # （含利息支付，略偏高；新浪「股息发放率」列数据残缺不可用）
+    def _year_sheet(recs):
+        return next((r for r in recs if str(r.get("报告日", "")).endswith("12-31")), None)
+
+    cf_y, inc_y = _year_sheet(cf), _year_sheet(inc)
+    div_pay = gv(cf_y, "分配股利、利润或偿付利息所支付的现金")
+    if div_pay is None:
+        div_pay = gv(cf_y, "分配股利、利润或偿付利息支付的现金")
+    np_year = gv(inc_y, "净利润")
+    if div_pay is not None and np_year and div_pay > 0 and np_year > 0:
+        out["payout"] = round(div_pay / np_year * 100, 1)
+
+    def _gm(rec):
+        rev, cost = gv(rec, "营业总收入"), gv(rec, "营业成本")
+        if rev and cost is not None:
+            return (rev - cost) / rev * 100
+        return None
+
+    if inc:
+        g0 = _gm(inc[0])
+        pinc = next((r for r in inc[1:] if str(r.get("报告日", "")) == prev_d), None)
+        g1 = _gm(pinc) if pinc else None
+        if g0 is not None and g1 is not None:
+            out["gmD"] = round(g0 - g1, 2)
+    return out
+
+def get_dividend_payout(code: str):
+    """最近年报的股息发放率（%，>0），来自新浪年度财务指标；无有效数据返回 None"""
+    try:
+        import akshare as ak
+        df = ak.stock_financial_analysis_indicator(symbol=code, start_year=str(datetime.now().year - 4))
+        if df is None or df.empty:
+            return None
+        for _, row in df[::-1].iterrows():
+            v = row.get("股息发放率(%)")
+            try:
+                fv = float(str(v).replace('%', '').replace(',', ''))
+                # 过滤 NaN 与 0（最新期指标常未公布而记 0）
+                if fv == fv and fv > 0:
+                    return round(fv, 1)
+            except (TypeError, ValueError):
+                continue
+    except Exception:
+        pass
+    return None
+
+def get_industry_aggregates(industry_name: str, cur_net_profit_yi: float = None) -> dict:
+    """巨潮行业聚合快照：按行业名称匹配证监会/中上协分类。
+
+    返回 {industry, report_date, company_count, total_mcap_yi, net_profit_yi, pe_w,
+          net_profit_yoy, share_profit}：
+    - net_profit_yoy：行业净利润合计同比（本期 vs 去年同期）→ 可作"行业增速"参考口径
+    - share_profit：公司净利润 / 行业净利润合计（利润口径市占率近似）
+    营收口径的行业规模与 CR3/CR5 无免费公开接口。
+    """
+    name = (industry_name or '').strip()
+    if not name:
+        return {}
+    now = datetime.now()
+    cands = []
+    for yy in (now.year, now.year - 1, now.year - 2):
+        for md in ('1231', '0930', '0630', '0331'):
+            cands.append(f'{yy}{md}')
+    try:
+        cur_d = next(c for c in cands
+                     if datetime.strptime(c, '%Y%m%d') <= now - timedelta(days=60))
+    except StopIteration:
+        return {}
+    prev_d = f"{int(cur_d[:4]) - 1}{cur_d[4:]}"
+
+    def _cninfo_industry_df(date):
+        try:
+            import akshare as ak
+            return ak.stock_industry_pe_ratio_cninfo(symbol="证监会行业分类", date=date)
+        except Exception:
+            return None
+
+    def _pick(df):
+        if df is None or df.empty or '行业名称' not in df.columns:
+            return None
+        hit = df[df['行业名称'].astype(str) == name]
+        if hit.empty and len(name) >= 4:
+            hit = df[df['行业名称'].astype(str).str.contains(name[:4], na=False, regex=False)]
+        if hit.empty:
+            return None
+
+        def _num(v):
+            try:
+                x = float(v)
+                return x if x == x else None
+            except (TypeError, ValueError):
+                return None
+
+        r = hit.iloc[-1]
+        return {
+            'industry': str(r.get('行业名称', name)),
+            'company_count': _num(r.get('公司数量')),
+            'total_mcap_yi': _num(r.get('总市值-静态')),
+            'net_profit_yi': _num(r.get('净利润-静态')),
+            'pe_w': _num(r.get('静态市盈率-加权平均')),
+        }
+
+    cur = _pick(_cninfo_industry_df(cur_d))
+    if not cur:
+        return {}
+    out = dict(cur)
+    out['report_date'] = f"{cur_d[:4]}-{cur_d[4:6]}-{cur_d[6:]}"
+    prev = _pick(_cninfo_industry_df(prev_d))
+    if prev and prev.get('net_profit_yi') and cur.get('net_profit_yi'):
+        try:
+            out['net_profit_yoy'] = round((cur['net_profit_yi'] / prev['net_profit_yi'] - 1) * 100, 1)
+        except Exception:
+            pass
+    if cur.get('net_profit_yi') and cur_net_profit_yi:
+        try:
+            out['share_profit'] = round(float(cur_net_profit_yi) / cur['net_profit_yi'] * 100, 1)
+        except Exception:
+            pass
+    return out
+
+# 东财业绩报表缓存（全市场，按报告期；下载约 15-20s，进程内只拉一次）
+_YJBB_CACHE = {}
+
+def _yjbb_df(date: str):
+    """东财业绩报表（全市场快照，含所处行业/营收/同比）；失败返回 None"""
+    if date in _YJBB_CACHE:
+        return _YJBB_CACHE[date]
+    df = None
+    try:
+        import akshare as ak
+        d = ak.stock_yjbb_em(date=date)
+        if d is not None and not d.empty:
+            df = d
+    except Exception:
+        df = None
+    _YJBB_CACHE[date] = df
+    return df
+
+def _num_or_none(v):
+    try:
+        x = float(v)
+        return x if x == x else None
+    except (TypeError, ValueError):
+        return None
+
+def _recent_report_date() -> str:
+    """最近已完整披露的报告期（季末日后 60 天），格式 YYYYMMDD"""
+    now = datetime.now()
+    cands = []
+    for yy in (now.year, now.year - 1, now.year - 2):
+        for md in ('1231', '0930', '0630', '0331'):
+            cands.append(f'{yy}{md}')
+    try:
+        return next(c for c in cands if datetime.strptime(c, '%Y%m%d') <= now - timedelta(days=60))
+    except StopIteration:
+        return ''
+
+def get_industry_stats_em(code: str) -> dict:
+    """东财业绩报表聚合：营收口径的行业规模/增速/市占率/CR3/CR5。
+
+    行业取业绩报表自带的「所处行业」分类（东财行业，如 白酒Ⅱ）。
+    行业营收同比用 Σ本期 / Σ(本期/(1+同比%)) 近似重构去年同期（剔除 |同比|≥90% 奇异值）。
+    东财接口不可达时返回 {}，由调用方回退巨潮利润口径。
+    """
+    code = str(code or '').strip()
+    if not code:
+        return {}
+    cur_d = _recent_report_date()
+    if not cur_d:
+        return {}
+    df = _yjbb_df(cur_d)
+    if df is None or '所处行业' not in df.columns or '股票代码' not in df.columns:
+        return {}
+    row = df[df['股票代码'].astype(str) == code]
+    if row.empty:
+        return {}
+    r = row.iloc[-1]
+    ind_name = str(r.get('所处行业') or '').strip()
+    if not ind_name:
+        return {}
+    ind = df[df['所处行业'].astype(str) == ind_name].copy()
+    rev_col, g_col = '营业总收入-营业总收入', '营业总收入-同比增长'
+    ind['_rev'] = ind[rev_col].map(_num_or_none)
+    ind = ind[ind['_rev'].notna() & (ind['_rev'] > 0)]
+    if ind.empty:
+        return {}
+    total_rev = float(ind['_rev'].sum())
+    out = {
+        'industry': ind_name,
+        'report_date': f'{cur_d[:4]}-{cur_d[4:6]}-{cur_d[6:]}',
+        'company_count': int(len(ind)),
+        'industry_rev_yi': round(total_rev / 1e8, 1),
+        'share_rev': None, 'company_rev_yi': None, 'rev_yoy': None,
+        'cr3': None, 'cr5': None, 'peers_top': [],
+    }
+    company_rev = _num_or_none(r.get(rev_col))
+    if company_rev and company_rev > 0:
+        out['share_rev'] = round(company_rev / total_rev * 100, 1)
+        out['company_rev_yi'] = round(company_rev / 1e8, 1)
+    g = ind[g_col].map(_num_or_none)
+    ok = g.notna() & (g.abs() < 90)
+    if int(ok.sum()) >= max(3, int(len(ind) * 0.5)):
+        prev_total = float((ind.loc[ok, '_rev'] / (1 + g[ok] / 100)).sum())
+        if prev_total > 0:
+            out['rev_yoy'] = round((total_rev / prev_total - 1) * 100, 1)
+    top = ind.nlargest(5, '_rev')
+    out['peers_top'] = [str(x) for x in top.get('股票简称', []).tolist()]
+    if total_rev > 0 and len(top) >= 3:
+        out['cr3'] = round(float(top['_rev'].head(3).sum()) / total_rev * 100, 1)
+        if len(top) >= 5:
+            out['cr5'] = round(float(top['_rev'].sum()) / total_rev * 100, 1)
+    return out
+
 
 def get_financial_analysis(code: str, market: str) -> dict:
-    """财务分析：三表关键数据 + 财务比率 + 杜邦"""
-    out = {"ok": False, "ratios": None, "dupont": None}
+    """财务分析：三表关键数据 + 财务比率 + 杜邦 + 报表绝对值"""
+    out = {"ok": False, "ratios": None, "dupont": None, "statements": {}}
     fd = fetch_financial_data(code)
     if not fd or not fd.get('ok'):
         return out
@@ -162,6 +626,10 @@ def get_financial_analysis(code: str, market: str) -> dict:
         out["ok"] = True
         out["ratios"] = rr["ratios"]
         out["dupont"] = rr["ratios"].get("dupont")
+    try:
+        out["statements"] = _extract_statements(fd)
+    except Exception:
+        pass
     return out
 
 
@@ -240,88 +708,46 @@ def get_news(code: str, limit: int = 6) -> list:
     return news
 
 
+def _auto_peers(code: str) -> list:
+    """`PEERS_BY_CODE` 未覆盖时，按公司名识别行业后由 `peer_pool` 补池。
+
+    池外行业原来会**静默退化为空**（可比公司为空，可比估值失去参照）；
+    现在改为按行业池补全，且只保留能取到行情的代码（A 股 / 港股），不臆造同业。
+    """
+    try:
+        from peer_pool import resolve_peers, is_fetchable_code
+        name = code_to_name(code) if callable(code_to_name) else ''
+        dec = resolve_peers(code=code, name=name or '', industry_hint=name or '')
+        return [p['code'] for p in (dec.get('peers') or [])
+                if isinstance(p, dict) and is_fetchable_code(p.get('code'))]
+    except Exception as e:
+        logger.debug('同业池自动补全失败: %s', e)
+        return []
+
+
 def get_competitors(code: str) -> list:
-    """竞争对手对比：同行业可比公司名称列表"""
-    peers = PEERS_BY_CODE.get(code, [])
-    rows = []
-    for p in peers:
-        try:
-            sn = _snapshot(p)
-            nm = sn.get("name") or code_to_name(p) or p
-            rows.append({"code": p, "name": nm if nm != p else code_to_name(p)})
-        except Exception:
-            rows.append({"code": p, "name": code_to_name(p)})
-    return rows
+    """竞争对手对比：同行业可比公司列表（并行取快照，见 `market_snapshot`）。
+
+    原实现串行 `for p in peers: _snapshot(p)`，实测 **30.06s**（茅台，2026-10-02），
+    是全管线最慢一步；改为并行后与 `peer_comparison` 同策略。
+    """
+    from market_snapshot import competitor_rows
+    peers = PEERS_BY_CODE.get(code) or _auto_peers(code)
+    return competitor_rows(code, peers, code_to_name)
 
 
 # ==================== SWOT 与风险（规则判定，基于真实财务/市场数据） ====================
 
-def generate_swot(market: dict, fin: dict, profile: dict, dcf: dict) -> dict:
-    """基于真实数据生成 SWOT，规则化判定（避免臆断）"""
-    strengths, weaknesses = [], []
-    opportunities, threats = [], []
+def generate_swot(market: dict, fin: dict, profile: dict = None, dcf: dict = None) -> dict:
+    """基于真实数据生成 SWOT，规则化判定（避免臆断）。
 
-    roe = market.get("roe")
-    gm = market.get("gross_margin")
-    nm = market.get("net_margin")
-    dr = market.get("debt_ratio")
-    rev_g = fin.get("rev_growth")
-    pro_g = fin.get("profit_growth")
-    mc = market.get("market_cap_yi")
-    pe = market.get("pe")
-
-    # 优势
-    if roe is not None and roe >= 15:
-        strengths.append(f"盈利能力突出（ROE {roe}%，高于15%的优质企业线）")
-    elif roe is not None:
-        strengths.append(f"净资产收益率为 {roe}%")
-    if gm is not None and gm >= 40:
-        strengths.append(f"高毛利率 {gm}%，具备较强定价权与品牌溢价")
-    if mc is not None and mc >= 1000:
-        strengths.append(f"龙头地位明显，总市值约 {mc} 亿元")
-    if nm is not None and nm >= 20:
-        strengths.append(f"净利率 {nm}%，经营效率与费用控制良好")
-
-    # 劣势
-    if gm is not None and gm < 20:
-        weaknesses.append(f"毛利率偏低（{gm}%），议价能力有限或成本压力大")
-    if nm is not None and nm < 8:
-        weaknesses.append(f"净利率偏低（{nm}%），盈利空间较薄")
-    if dr is not None and dr >= 60:
-        weaknesses.append(f"资产负债率较高（{dr}%），财务杠杆偏重")
-    if rev_g is not None and rev_g < 0:
-        weaknesses.append(f"营收同比下滑（{rev_g}%）")
-    if pro_g is not None and pro_g is not None and pro_g < 0:
-        weaknesses.append(f"净利润同比下滑（{pro_g}%）")
-    if roe is not None and roe < 8:
-        weaknesses.append(f"ROE 偏低（{roe}%），资本回报效率不足")
-    if pe is not None and pe and pe >= 50:
-        weaknesses.append(f"PE 估值较高（{pe}），安全边际有限")
-
-    # 机会
-    if pe is not None and pe and pe < 20:
-        opportunities.append(f"当前 PE {pe} 相对历史与行业偏低，估值存在修复空间")
-    if mc is not None and mc < 500:
-        opportunities.append(f"市值约 {mc} 亿元，若成长兑现有望获得估值弹性")
-    if rev_g is not None and rev_g >= 10:
-        opportunities.append(f"营收保持 {rev_g}% 增长，行业景气向上")
-
-    # 威胁
-    if rev_g is not None and rev_g < 0:
-        threats.append(f"行业需求趋缓（营收同比 {rev_g}%）")
-    if dr is not None and dr >= 60:
-        threats.append(f"高杠杆在利率上行/融资收紧时构成再融资压力")
-    if pe is not None and pe and pe >= 40:
-        threats.append(f"高估值对业绩不及预期高度敏感，回撤风险大")
-
-    # 横幅标题
-    swot = {
-        "strengths": strengths or ["暂缺充足数据",],
-        "weaknesses": weaknesses or ["暂缺充足数据",],
-        "opportunities": opportunities or ["暂缺充足数据",],
-        "threats": threats or ["暂缺充足数据",],
-    }
-    return swot
+    实现已收敛到 `company_deep_narrative.generate_swot`（单一实现）：
+    本函数原先接受 `profile` 与 `dcf` 两个入参却**从未使用**，
+    "行业位置/行业份额"与"DCF 内在价值 vs 现价"两个维度实为空缺。
+    `profile`/`dcf` 现改为可选，缺省时相应维度自然略过。
+    """
+    from company_deep_narrative import generate_swot as _impl
+    return _impl(market, fin, profile, dcf)
 
 
 def generate_risks(market: dict, fin: dict) -> list:

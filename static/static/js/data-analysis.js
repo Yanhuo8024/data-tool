@@ -7,7 +7,7 @@ var _screenerData = null;
 var _screenResult = null;
 
 async function doScreen() {
-  const stat = document.getElementById('s-stat');
+  const stat = document.getElementById('screen-stat');
   showLoading('正在加载全市场数据（首次约 10-20 秒）...');
   if (stat) stat.textContent = '加载数据中...';
   try {
@@ -57,17 +57,17 @@ async function doScreen() {
     const cols = Object.keys(rows[0]);
     const label = { '股票代码': '代码', '股票名称': '名称', '最新价': '价格', '涨跌幅': '涨跌幅%', '市盈率(动态)': 'PE', '市盈率TTM': 'PE(TTM)', '市净率': 'PB', '总市值': '市值', '行业': '行业', '净资产收益率': 'ROE%' };
     if (table) {
-      let html = '<table style="border-collapse:collapse;font-size:12px;width:100%;">';
-      html += '<tr>' + cols.map(c => '<th style="padding:5px 8px;border-bottom:2px solid rgba(128,128,128,.3);text-align:left;">' + (label[c] || c) + '</th>').join('') + '</tr>';
+      let html = '<table>';
+      html += '<tr>' + cols.map(c => '<th>' + (label[c] || c) + '</th>').join('') + '</tr>';
       for (const r of rows.slice(0, 200)) {
         html += '<tr>' + cols.map(c => {
           let v = r[c];
           if (typeof v === 'number') v = Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1) + '亿' : (Number.isInteger(v) ? v : v.toFixed(2));
-          return '<td style="padding:3px 8px;border-bottom:1px solid rgba(128,128,128,.12);">' + (v ?? '-') + '</td>';
+          return '<td>' + (v ?? '-') + '</td>';
         }).join('') + '</tr>';
       }
       html += '</table>';
-      if (rows.length > 200) html += '<div style="font-size:11px;color:var(--ink-tertiary);margin-top:6px;">仅显示前 200 条，导出 CSV 查看全部</div>';
+      if (rows.length > 200) html += '<div style="font-size:11px;color:var(--ink-tertiary);margin-top:8px;padding:4px 2px;">仅显示前 200 条，导出 CSV 查看全部</div>';
       table.innerHTML = html;
     }
   } catch (e) {
@@ -87,7 +87,7 @@ function resetScreen() {
   if (table) table.innerHTML = '';
   const count = document.getElementById('s-res-count');
   if (count) count.textContent = '';
-  const stat = document.getElementById('s-stat');
+  const stat = document.getElementById('screen-stat');
   if (stat) stat.textContent = '';
   const card = document.getElementById('s-res-card');
   if (card) card.classList.add('hide');
@@ -271,7 +271,7 @@ function renderFileSelector(files) {
     return '<div class="file-item ' + isSelected + '" style="position:relative;">' +
       '<input type="checkbox" class="file-del-cb" data-path="' + esc(path) + '" data-name="' + esc(name) + '" onchange="updateFileSelCount()" style="margin:0 6px 0 2px;flex-shrink:0;" title="勾选后可批量删除/归档">' +
       '<span class="file-item-icon" style="pointer-events:none;">📄</span>' +
-      '<div class="file-item-info" onclick="selectFile(\'' + name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;flex:1;">' +
+      '<div class="file-item-info" data-name="' + esc(name) + '" onclick="selectFile(this.dataset.name)" style="cursor:pointer;flex:1;">' +
       '<div class="file-item-name">' + esc(name) + '</div>' +
       (sizeStr ? '<div class="file-item-meta">' + sizeStr + '</div>' : '') +
       tagHtml +
@@ -454,25 +454,47 @@ if (typeof window !== 'undefined') window.selectFile = selectFile;
 
 function fsChange(input) {
   if (!input || !input.files || input.files.length === 0) return;
+  const file = input.files[0];
   const formData = new FormData();
-  formData.append('file', input.files[0]);
-  showLoading('Uploading...');
+  formData.append('file', file);
+
+  // 「上传 → 列表刷新」之间有秒级空窗（列表接口要扫目录），此前这段期间界面毫无变化，
+  // 用户看到的只有一句 3 秒即消失的 toast，故误以为"上传成功了但没显示"。
+  // 这里先把结果/进度写进「已导入文件」区，loadMultiFiles 回来后 renderFL 会覆盖为真实列表。
+  const setHint = function (h) {
+    const box = document.getElementById('fl');
+    const title = document.getElementById('fl-title');
+    if (box) box.innerHTML = '<span style="font-size:13px;color:var(--ink-subtle);">' + h + '</span>';
+    if (title) title.style.display = 'block';
+  };
+  setHint('⏳ 正在上传 ' + esc(file.name) + ' …');
+  showLoading('正在上传 ' + file.name + '…');
+
   fetch('/api/upload', { method: 'POST', body: formData })
     .then(r => r.json())
     .then(data => {
       hideLoading();
       if (data.error) {
-        showToast(data.error, 'error');
-      } else {
-        showToast('Upload success', 'success');
-        loadMultiFiles();
-        refreshGlobalFileSelect();  // 同步刷新顶栏文件选择器
+        setHint('❌ 上传失败：' + esc(data.error));
+        showToast('上传失败：' + data.error, 'error');
+        return;
       }
+      const parts = [];
+      if (data.rows != null) parts.push(data.rows + ' 行');
+      if (data.cols && data.cols.length) parts.push(data.cols.length + ' 列');
+      const extra = parts.length ? '（' + parts.join(' · ') + '）' : '';
+      setHint('✅ 已导入 ' + esc(data.file || file.name) + extra + '，正在刷新文件列表…');
+      showToast('上传成功：' + (data.file || file.name), 'success');
+      loadMultiFiles();
+      refreshGlobalFileSelect();  // 同步刷新顶栏文件选择器
     })
     .catch(e => {
       hideLoading();
-      showToast('Upload failed', 'error');
-    });
+      setHint('❌ 上传失败：' + esc((e && e.message) || e));
+      showToast('上传失败', 'error');
+    })
+    // 清空 input：否则再次选择同一个文件不会触发 change，用户会以为"没反应"
+    .finally(function () { try { input.value = ''; } catch (_) { } });
 }
 
 async function doScrape() {
@@ -503,17 +525,8 @@ async function doScrape() {
     logEl.appendChild(line);
     logEl.scrollTop = logEl.scrollHeight;
   };
-  try {
-    es = new EventSource('/api/stream?task=' + encodeURIComponent(taskId));
-    es.onmessage = (ev) => {
-      try {
-        const d = JSON.parse(ev.data);
-        if (d.msg) appendLog('[' + (d.time || '') + '] ' + d.msg);
-        else if (d.type === 'done') { appendLog('=== 完成 ==='); }
-        else if (d.type === 'error') { appendLog('错误: ' + (d.error || '')); }
-      } catch (_) { /* ping 等 */ }
-    };
-  } catch (_) { /* SSE 不可用时静默 */ }
+  // 注：此前此处有 new EventSource('/api/stream?task=...') 指向不存在的路由（永远 404 静默失败），
+  // 属死代码已移除——爬取为同步接口，结果直接在下方 res.json() 处理。
 
   showLoading('正在爬取（可通过日志观察进度）...');
   try {

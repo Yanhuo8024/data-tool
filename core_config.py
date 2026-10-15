@@ -60,13 +60,13 @@ del _os, _OUT_DIR_ENV, _UPLOAD_DIR_ENV
 _LAZY_IMPORTS = {
     # module_name : [list of attribute names exposed at this module level]
     'rag_unified': ['rag_engine'],  # UPLOAD_DIR 已在上面顶层定义
+    'pipeline': ['pipeline_store', 'PipelineExecutor', 'NODE_INFO'],
     'task_queue': ['task_queue'],
     'secure_config': ['get_tushare_token'],
     'sandbox_exec': ['safe_formula_eval', 'validate_upload_file', 'SandboxError'],
     'secure_safe_load': ['safe_load'],
     'finance_data': ['get_kline'],
     'benchmark': ['compute_benchmark_metrics', 'get_benchmark_returns', 'INDICES'],
-    'pipeline': ['pipeline_store', 'PipelineExecutor', 'NODE_INFO'],
     'monitoring': ['init_monitoring', 'memory_monitor', 'task_tracker', 'get_system_health', 'get_recent_errors'],
     'nlq_router': ['nlq_execute', 'nlq_query'],
     'table_tools': ['multi_table_join', 'FINANCE_FORMULAS', 'apply_formula',

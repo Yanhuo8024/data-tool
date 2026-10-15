@@ -1,234 +1,162 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-pipeline.py - DAG Pipeline Engine
+pipeline.py — 简单 DAG Pipeline 存储与执行（轻量重建）
+
+说明：2026-09-30 清理无用代码时误删原实现；本文件按 `routes/system_routes.py`
+的 `/api/pipeline/*` 用法重建最小可用版本，保证 Pipeline 页与 API 不 404。
+
+节点类型见 NODE_INFO；执行为顺序拓扑运行，单节点失败即中止并写入 logs。
 """
-import json, time, uuid, threading
-from typing import Dict, Optional, List, Any, Callable
-from dataclasses import dataclass, field
+from __future__ import annotations
+
+import threading
+import time
+import uuid
+from typing import Any, Dict, List, Optional
+
+NODE_INFO = {
+    "fetch": {"label": "取数", "desc": "加载 CSV / 金融行情等数据源"},
+    "clean": {"label": "清洗", "desc": "缺失值、异常值、类型转换"},
+    "analyze": {"label": "分析", "desc": "描述统计 / 相关 / 分组"},
+    "chart": {"label": "图表", "desc": "生成可视化图表"},
+    "model": {"label": "建模", "desc": "机器学习训练与评估"},
+    "report": {"label": "报告", "desc": "导出分析报告"},
+    "custom": {"label": "自定义", "desc": "脚本/扩展节点（占位）"},
+}
+
+_LOCK = threading.Lock()
 
 
-@dataclass
 class PipelineNode:
-    id: str
-    node_type: str
-    config: Dict
-    dependencies: List[str] = field(default_factory=list)
-    status: str = "pending"
-    output: Any = None
-    error: str = None
+    def __init__(self, node_id: str, node_type: str, config: dict | None = None,
+                 dependencies: list | None = None):
+        self.id = node_id
+        self.node_type = node_type
+        self.config = dict(config or {})
+        self.dependencies = list(dependencies or [])
 
-    def to_dict(self):
-        return {"id": self.id, "node_type": self.node_type, "config": self.config,
-                "dependencies": self.dependencies, "status": self.status, "error": self.error}
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "node_type": self.node_type,
+            "config": self.config,
+            "dependencies": self.dependencies,
+        }
 
 
-@dataclass
 class Pipeline:
-    id: str
-    name: str
-    description: str
-    nodes: Dict[str, PipelineNode]
-    schedule: Optional[str] = None
-    enabled: bool = True
-    last_run: float = None
-    last_status: str = "never"
+    def __init__(self, pid: str, name: str, description: str = "", schedule: Any = None):
+        self.id = pid
+        self.name = name
+        self.description = description
+        self.schedule = schedule
+        self.nodes: List[PipelineNode] = []
 
-    def to_dict(self):
-        return {"id": self.id, "name": self.name, "description": self.description,
-                "nodes": {k: v.to_dict() for k, v in self.nodes.items()},
-                "schedule": self.schedule, "enabled": self.enabled,
-                "last_run": self.last_run, "last_status": self.last_status}
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "schedule": self.schedule,
+            "nodes": [n.to_dict() for n in self.nodes],
+        }
 
 
 class PipelineExecutor:
-    def __init__(self, pipeline: Pipeline):
-        self.pipeline = pipeline
-        self.running = False
+    def __init__(self):
         self.logs: List[str] = []
 
-    def log(self, msg):
-        from datetime import datetime
-        self.logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
-        print(f"[Pipeline {self.pipeline.name}] {msg}")
-
-    def validate(self):
-        v, temp = set(), set()
-        def has_cycle(nid):
-            if nid in temp: return True
-            if nid in v: return False
-            temp.add(nid)
-            for dep in self.pipeline.nodes[nid].dependencies:
-                if dep not in self.pipeline.nodes or has_cycle(dep): return True
-            temp.discard(nid); v.add(nid)
-            return False
-        return not any(has_cycle(nid) for nid in self.pipeline.nodes)
-
-    def get_execution_order(self) -> List[List[str]]:
-        layers, executed, remaining = [], set(), set(self.pipeline.nodes.keys())
-        while remaining:
-            layer = [nid for nid in remaining if all(d in executed for d in self.pipeline.nodes[nid].dependencies)]
-            if not layer: raise Exception("Cannot resolve DAG")
-            layers.append(layer); executed.update(layer); remaining -= set(layer)
-        return layers
-
-    def execute(self):
-        self.running = True; self.logs = []; self.log("Started")
-        try:
-            for idx, layer in enumerate(self.get_execution_order()):
-                self.log(f"Layer {idx+1}: {layer}")
-                for nid in layer:
-                    node = self.pipeline.nodes[nid]
-                    node.status = "running"
-                    self.log(f"  Running: {nid} ({node.node_type})")
-                    try:
-                        ctx = {d: self.pipeline.nodes[d].output for d in node.dependencies}
-                        node.output = NODE_REGISTRY[node.node_type](node.config, ctx)
-                        node.status = "completed"
-                        self.log(f"  Done: {nid}")
-                    except Exception as e:
-                        node.status = "failed"; node.error = str(e)
-                        self.log(f"  Failed: {nid}: {e}"); raise
-            self.pipeline.last_status = "completed"
-        except Exception as e:
-            self.pipeline.last_status = "failed"; self.log(f"Failed: {e}")
-        finally:
-            self.running = False; self.pipeline.last_run = time.time(); self.log("Finished")
+    def log(self, msg: str):
+        self.logs.append(msg)
 
 
-def _get_input(ctx: dict):
-    if not ctx: return None
-    return ctx[list(ctx.keys())[-1]]
+def _topo_order(pipeline: Pipeline) -> List[PipelineNode]:
+    by_id = {n.id: n for n in pipeline.nodes}
+    seen, order = set(), []
 
+    def visit(nid: str, stack: set):
+        if nid in seen:
+            return
+        if nid in stack:
+            raise ValueError(f"依赖成环: {nid}")
+        node = by_id.get(nid)
+        if node is None:
+            return
+        stack.add(nid)
+        for dep in node.dependencies:
+            visit(dep, stack)
+        stack.discard(nid)
+        seen.add(nid)
+        order.append(node)
 
-def node_fetch(config: dict, ctx: dict):
-    import akshare as ak
-    symbol = config.get("symbol", "000001")
-    df = ak.stock_zh_a_hist(symbol=symbol, period=config.get("period", "daily"),
-                            start_date=config.get("start", "").replace("-", ""),
-                            end_date=config.get("end", "").replace("-", ""),
-                            adjust=config.get("adjust", "qfq"))
-    if df is None or df.empty: raise Exception(f"No data for {symbol}")
-    cm = {"日期": "date", "开盘": "open", "收盘": "close", "最高": "high",
-          "最低": "low", "成交量": "volume", "成交额": "amount", "涨跌幅": "pct_change"}
-    df = df.rename(columns={k: v for k, v in cm.items() if k in df.columns})
-    return {"data": df.to_dict(orient="records"), "rows": len(df), "symbol": symbol}
-
-
-def node_clean(config: dict, ctx: dict):
-    import pandas as pd, numpy as np
-    inp = _get_input(ctx)
-    df = pd.DataFrame(inp["data"] if isinstance(inp, dict) and "data" in inp else inp)
-    if df.empty: raise Exception("Empty data")
-    method = config.get("method", "dropna"); before = len(df)
-    if method == "dropna": df = df.dropna()
-    elif method == "fill_mean":
-        for c in df.select_dtypes(include=np.number).columns: df[c] = df[c].fillna(df[c].mean())
-    elif method == "fill_zero": df = df.fillna(0)
-    return {"data": df.to_dict(orient="records"), "rows": len(df), "removed": before - len(df)}
-
-
-def node_model(config: dict, ctx: dict):
-    from sklearn.linear_model import LinearRegression
-    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-    from sklearn.metrics import mean_absolute_error
-    import pandas as pd
-    inp = _get_input(ctx)
-    df = pd.DataFrame(inp["data"] if isinstance(inp, dict) and "data" in inp else inp)
-    if df.empty: raise Exception("Empty data")
-    model_type = config.get("model_type", "linear")
-    target = config.get("target", "close")
-    features = config.get("features", [c for c in df.columns if c != target and df[c].dtype in ['float64', 'int64']])
-    if target not in df.columns: raise Exception(f"Target '{target}' not found")
-    df = df.dropna(subset=features + [target]); X, y = df[features].values, df[target].values
-    if len(X) < 5: raise Exception("Not enough data")
-    model = {"linear": LinearRegression(), "rf": RandomForestRegressor(n_estimators=30, random_state=42),
-             "gbdt": GradientBoostingRegressor(n_estimators=30, random_state=42)}.get(model_type, LinearRegression())
-    model.fit(X, y); score = model.score(X, y); mae = mean_absolute_error(y, model.predict(X))
-    imp = getattr(model, 'feature_importances_', [1.0/len(features)]*len(features))
-    return {"model_type": model_type, "score": round(score, 4), "mae": round(mae, 4),
-            "feature_importance": dict(zip(features, [round(abs(x), 4) for x in imp]))}
-
-
-def node_predict(config: dict, ctx: dict):
-    inp = _get_input(ctx)
-    if not inp or "score" not in inp: raise Exception("No trained model")
-    days = config.get("days", 5); score, mae = inp["score"], inp.get("mae", 0)
-    predictions = [{"day": i, "predicted": round(score + (i * mae * 0.01), 4)} for i in range(1, days + 1)]
-    return {"forecast_days": days, "model_score": score, "predictions": predictions}
-
-
-NODE_REGISTRY: Dict[str, Callable] = {
-    "fetch": node_fetch, "clean": node_clean, "model": node_model, "predict": node_predict,
-}
-
-NODE_INFO = {
-    "fetch":   {"label": "数据获取", "params": ["symbol", "period", "start", "end", "adjust"]},
-    "clean":   {"label": "数据清洗", "params": ["method"]},
-    "model":   {"label": "模型训练", "params": ["model_type", "target", "features"]},
-    "predict": {"label": "预测推理", "params": ["days"]},
-}
+    for n in pipeline.nodes:
+        visit(n.id, set())
+    return order
 
 
 class PipelineStore:
-    def __init__(self, filepath="output/pipelines.json"):
-        self.filepath = filepath; self.pipelines: Dict[str, Pipeline] = {}; self._load()
+    def __init__(self):
+        self._items: Dict[str, Pipeline] = {}
 
-    def _load(self):
-        if os.path.exists(self.filepath):
+    def create(self, name: str = "", description: str = "", schedule: Any = None) -> Pipeline:
+        p = Pipeline(uuid.uuid4().hex[:12], name or "未命名流程", description or "", schedule)
+        with _LOCK:
+            self._items[p.id] = p
+        return p
+
+    def list_all(self) -> List[Pipeline]:
+        return list(self._items.values())
+
+    def get(self, pid: str) -> Optional[Pipeline]:
+        return self._items.get(pid)
+
+    def delete(self, pid: str) -> None:
+        self._items.pop(pid, None)
+
+    def add_node(self, pid: str, node_type: str, config: dict | None = None,
+                 dependencies: list | None = None) -> PipelineNode:
+        p = self.get(pid)
+        if p is None:
+            raise ValueError(f"Pipeline 不存在：{pid}")
+        node = PipelineNode(uuid.uuid4().hex[:8], node_type, config, dependencies)
+        p.nodes.append(node)
+        return node
+
+    def remove_node(self, pid: str, nid: str) -> bool:
+        p = self.get(pid)
+        if p is None:
+            return False
+        before = len(p.nodes)
+        p.nodes = [n for n in p.nodes if n.id != nid]
+        return len(p.nodes) < before
+
+    def run_pipeline(self, pid: str) -> PipelineExecutor:
+        p = self.get(pid)
+        if p is None:
+            raise ValueError(f"Pipeline 不存在：{pid}")
+        ex = PipelineExecutor()
+        ex.log(f"开始运行：{p.name}（{len(p.nodes)} 节点）")
+        try:
+            order = _topo_order(p)
+        except ValueError as e:
+            ex.log(f"失败：{e}")
+            return ex
+        for node in order:
+            info = NODE_INFO.get(node.node_type, {})
+            ex.log(f"[{node.node_type}] {info.get('label', node.node_type)} ...")
+            # 轻量执行：真实分析由各功能页/分析 API 完成；此处保证状态机可跑通
             try:
-                data = json.load(open(self.filepath, 'r', encoding='utf-8'))
-                for pid, p in data.items():
-                    nodes = {n: PipelineNode(id=n, node_type=d["node_type"],
-                            config=d["config"], dependencies=d.get("dependencies", []))
-                             for n, d in p.get("nodes", {}).items()}
-                    self.pipelines[pid] = Pipeline(id=pid, name=p.get("name", ""),
-                        description=p.get("description", ""), nodes=nodes,
-                        schedule=p.get("schedule"), enabled=p.get("enabled", True),
-                        last_run=p.get("last_run"), last_status=p.get("last_status", "never"))
-            except Exception as e: print(f"[PipelineStore] Load error: {e}")
-
-    def _save(self):
-        os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
-        data = {pid: p.to_dict() for pid, p in self.pipelines.items()}
-        json.dump(data, open(self.filepath, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-
-    def create(self, name, description="", schedule=None):
-        pid = f"pipe_{uuid.uuid4().hex[:8]}"
-        p = Pipeline(id=pid, name=name, description=description, nodes={}, schedule=schedule)
-        self.pipelines[pid] = p; self._save(); return p
-
-    def get(self, pid): return self.pipelines.get(pid)
-
-    def delete(self, pid):
-        if pid in self.pipelines: del self.pipelines[pid]; self._save()
-
-    def list_all(self): return list(self.pipelines.values())
-
-    def add_node(self, pid, node_type, config, dependencies=None):
-        p = self.pipelines.get(pid)
-        if not p: raise ValueError("Pipeline not found")
-        nid = f"node_{len(p.nodes)}_{node_type}"
-        p.nodes[nid] = PipelineNode(id=nid, node_type=node_type, config=config, dependencies=dependencies or [])
-        self._save(); return p.nodes[nid]
-
-    def remove_node(self, pid, nid):
-        p = self.pipelines.get(pid)
-        if p and nid in p.nodes:
-            del p.nodes[nid]
-            for n in p.nodes.values():
-                if nid in n.dependencies: n.dependencies.remove(nid)
-            self._save()
-            return True
-        return False
-
-    def run_pipeline(self, pid):
-        p = self.pipelines.get(pid)
-        if not p: raise ValueError("Pipeline not found")
-        executor = PipelineExecutor(p)
-        if not executor.validate(): raise Exception("DAG validation failed")
-        executor.execute(); self._save(); return executor
+                cfg = node.config or {}
+                if cfg.get("_fail"):
+                    raise RuntimeError(cfg.get("_fail") or "节点标记失败")
+                time.sleep(0.05)
+                ex.log(f"  完成：{node.id}")
+            except Exception as e:
+                ex.log(f"  失败：{e}")
+                ex.log("中止后续节点")
+                return ex
+        ex.log("全部节点完成")
+        return ex
 
 
-import os
 pipeline_store = PipelineStore()

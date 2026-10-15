@@ -136,9 +136,16 @@ def test_registry_只读工具在关闭态可正常取到真身(side_effects_off
 
 
 def test_registry_默认态全部工具可见(side_effects_on):
-    """默认放行时，工具总数不得因本次改动而减少（防"闸门收得过紧"）"""
+    """默认放行时，工具总数不得因本次改动而减少（防"闸门收得过紧"）。
+
+    不硬编码精确数：个别工具按可选依赖/环境条件注册（如 egress 关闭时
+    web_search 不注册），断言下限 + 关键工具必须在场。"""
     import ai_agent
-    assert len(ai_agent.registry.list_tools()) == 32
+    names = [t['name'] for t in ai_agent.registry.list_tools()]
+    assert len(names) >= 40, f'工具总数异常减少：{len(names)}'
+    for must in ('web_search', 'company_analysis', 'industry_stats', 'company_source_fetch',
+                 'company_deep_analyze', 'finance_data', 'db_query'):
+        assert must in names, f'关键工具 {must} 缺失'
 
 
 def test_两向闸门正交_出境关但副作用开(side_effects_on):

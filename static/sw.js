@@ -1,4 +1,6 @@
-const CACHE_NAME = 'datatool-v9';
+// v10：图标资产更新（原 icon-192/512/apple-touch 为空白占位块）。
+// 图标请求不带 ?v= 版本号，必须靠缓存版本号失效，否则已安装用户会一直看到旧图标。
+const CACHE_NAME = 'datatool-v10';
 const STATIC_ASSETS = [
   '/static/style.css',
   '/static/canvas.css',
@@ -17,10 +19,15 @@ const STATIC_ASSETS = [
   '/static/js/version-check.js',
   '/static/js/lineage.js',
   '/static/favicon.svg',
+  '/static/favicon.ico',
+  '/static/favicon-32.png',
+  '/static/favicon-16.png',
   '/static/manifest.json',
   '/static/apple-touch-icon.png',
   '/static/icon-192.png',
-  '/static/icon-512.png'
+  '/static/icon-512.png',
+  '/static/icon-maskable-192.png',
+  '/static/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -42,8 +49,16 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  // 跨域资源（CDN / 字体）不接管
+  if (url.origin !== self.location.origin) return;
+  const isNav = event.request.mode === 'navigate'
+    || url.pathname === '/' || url.pathname.endsWith('.html');
+  const isStatic = url.pathname.startsWith('/static/');
+  // 只接管「页面导航」与 /static/ 资源。/api/ 等动态请求必须放行 ——
+  // 作用域放宽到 / 之后若继续走 stale-while-revalidate，接口会返回过期数据。
+  if (!isNav && !isStatic) return;
   // HTML 页面：网络优先（避免 Service Worker 缓存旧页面导致"界面还是旧的"）
-  if (url.pathname === '/' || url.pathname.endsWith('.html')) {
+  if (isNav) {
     event.respondWith(
       fetch(event.request).then(response => {
         const clone = response.clone();
